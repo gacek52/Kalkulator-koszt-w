@@ -1,0 +1,115 @@
+/* Tailwind CSS będzie ładowane z CDN, ale dodajemy własne style */
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+/* Dodatkowe style dla kalkulatora */
+.cost-calculator {
+  min-height: 100vh;
+}
+
+.tooltip-content {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Przewijanie dla długich list */
+.scrollable-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+/* Style dla przycisków */
+.btn-primary {
+  background-color: #3b82f6;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-primary:hover {
+  background-color: #2563eb;
+}
+
+.btn-secondary {
+  background-color: #6b7280;
+  color: white;
+  padding: 0.5rem 1rem;
+  border-radius: 0.375rem;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+  background-color: #4b5563;
+}
+
+/* Style dla inputów w dark mode */
+.dark input[type="number"],
+.dark input[type="text"],
+.dark select {
+  background-color: #374151;
+  border-color: #4b5563;
+  color: #f9fafb;
+}
+
+.dark input[type="number"]:focus,
+.dark input[type="text"]:focus,
+.dark select:focus {
+  border-color: #60a5fa;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+}
+
+/* Style dla tooltipów */
+.tooltip-shadow {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Animacje */
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Responsywność */
+@media (max-width: 768px) {
+  .cost-calculator {
+    padding: 1rem;
+  }
+
+  .tooltip-content {
+    width: 280px !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .cost-calculator {
+    background: white !important;
+    color: black !important;
+  }
+}
