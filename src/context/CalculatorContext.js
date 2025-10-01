@@ -49,6 +49,7 @@ const initialState = {
   tabs: [{
     id: 1,
     name: 'Materiał 1',
+    calculationType: 'weight', // 'weight', 'surface', 'volume'
     materialCost: '2.0',
     bakingCost: '110',
     cleaningCost: '90',
@@ -102,20 +103,35 @@ const initialState = {
     items: [{
       id: 1,
       partId: '',
-      weight: '',
+      // Pola wspólne
+      weight: '', // waga netto (obliczona lub wprowadzona)
       weightOption: 'netto', // 'netto', 'brutto-auto', 'brutto-manual'
-      bruttoWeight: '',
+      bruttoWeight: '', // waga brutto (obliczona lub wprowadzona)
       cleaningOption: 'scaled',
       manualCleaningTime: '45',
       margin: '', // marża per pozycja (%)
       customValues: {}, // wartości dla procesów niestandardowych
       results: null,
-      // Pola dla pakowania i jednostek
       annualVolume: '', // roczna ilość produkcji
+      // Pola dla trybu WAGA
+      weightUnit: 'g', // 'g', 'kg'
+      // Pola dla trybu POWIERZCHNIA
+      surfaceArea: '', // powierzchnia netto
+      surfaceUnit: 'mm2', // 'mm2', 'm2'
+      thickness: '', // grubość [mm]
+      density: '', // gęstość [g/cm³]
+      surfaceWeight: '', // ciężar powierzchniowy [g/m²]
+      sheetLength: '1000', // długość arkusza [mm]
+      sheetWidth: '1000', // szerokość arkusza [mm]
+      partsPerSheet: '', // ilość detali na arkuszu
+      surfaceBrutto: '', // powierzchnia brutto [m²] - obliczona
+      // Pola dla trybu OBJĘTOŚĆ
+      volume: '', // objętość [mm³, cm³, m³]
+      volumeUnit: 'mm3', // 'mm3', 'cm3', 'm3'
+      dimensions: { length: '', width: '', height: '' }, // wymiary dla auto-obliczania objętości
+      // volumeDensity jest już w 'density' powyżej
+      // Pola dla pakowania (legacy - może być używane później)
       unit: 'kg', // jednostka: kg, g, m2, mm2, cm2, m3, cm3, g_m2
-      dimensions: { length: '', width: '', height: '' }, // dla obliczania objętości
-      density: '', // gęstość g/cm³ lub kg/m³
-      volume: '', // obliczona objętość m³
       packagingType: null, // ID wybranego opakowania
       manualPartsPerPackage: '' // ręczne nadpisanie ilości sztuk w opakowaniu
     }],

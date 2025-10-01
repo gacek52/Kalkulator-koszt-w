@@ -3,6 +3,9 @@ import { Plus, Trash2, Settings } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { NumberInput } from '../Common/NumberInput';
 import { SelectInput } from '../Common/SelectInput';
+import { CalculationTypeSelector } from './CalculationTypeSelector';
+import { SurfaceModeFields } from './SurfaceModeFields';
+import { VolumeModeFields } from './VolumeModeFields';
 
 /**
  * Formularz kalkulacji materiałów i procesów
@@ -323,6 +326,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const newItem = {
       id: tab.nextItemId,
       partId: '',
+      // Pola wspólne
       weight: '',
       weightOption: 'netto',
       bruttoWeight: '',
@@ -332,7 +336,23 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       annualVolume: '',
       customValues: {},
       customCurveValues: {},
-      results: null
+      results: null,
+      // Pola dla trybu WAGA
+      weightUnit: 'g',
+      // Pola dla trybu POWIERZCHNIA
+      surfaceArea: '',
+      surfaceUnit: 'mm2',
+      thickness: '',
+      density: '',
+      surfaceWeight: '',
+      sheetLength: '1000',
+      sheetWidth: '1000',
+      partsPerSheet: '',
+      surfaceBrutto: '',
+      // Pola dla trybu OBJĘTOŚĆ
+      volume: '',
+      volumeUnit: 'mm3',
+      dimensions: { length: '', width: '', height: '' }
     };
 
     actions.addItem(tab.id, newItem);
@@ -353,6 +373,14 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
           <Settings className="w-5 h-5 text-gray-400" />
         </button>
       </div>
+
+      {/* Selektor trybu kalkulacji */}
+      <CalculationTypeSelector
+        calculationType={tab.calculationType || 'weight'}
+        onChange={(type) => handleTabParameterUpdate('calculationType', type)}
+        themeClasses={themeClasses}
+        darkMode={darkMode}
+      />
 
       {/* Parametry zakładki */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -504,71 +532,99 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
         {tab.items.map((item) => (
           <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                  ID części
-                </label>
-                <input
-                  type="text"
-                  value={item.partId}
-                  onChange={(e) => handleItemUpdate(item.id, { partId: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-                  placeholder="np. ABC123"
-                />
-              </div>
+            {/* ID części - zawsze widoczne */}
+            <div>
+              <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                ID części
+              </label>
+              <input
+                type="text"
+                value={item.partId}
+                onChange={(e) => handleItemUpdate(item.id, { partId: e.target.value })}
+                className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                placeholder="np. ABC123"
+              />
+            </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                  Waga netto (g)
-                </label>
-                <input
-                  type="number"
-                  value={item.weight}
-                  onChange={(e) => handleItemUpdate(item.id, { weight: e.target.value })}
-                  className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-                  min="0"
-                  step="0.1"
-                />
-                {item.results && item.weightOption !== 'netto' && (
-                  <div className={`text-xs mt-1 ${themeClasses.text.secondary}`}>
-                    Brutto: {item.results.bruttoWeight.toFixed(1)}g
+            {/* Pola w zależności od trybu kalkulacji */}
+            {(tab.calculationType === 'weight' || !tab.calculationType) && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                      Waga netto (g)
+                    </label>
+                    <input
+                      type="number"
+                      value={item.weight}
+                      onChange={(e) => handleItemUpdate(item.id, { weight: e.target.value })}
+                      className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                      min="0"
+                      step="0.1"
+                    />
+                    {item.results && item.weightOption !== 'netto' && (
+                      <div className={`text-xs mt-1 ${themeClasses.text.secondary}`}>
+                        Brutto: {item.results.bruttoWeight.toFixed(1)}g
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
 
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                  Typ wagi
-                </label>
-                <SelectInput
-                  value={item.weightOption}
-                  onChange={(value) => handleItemUpdate(item.id, { weightOption: value })}
-                  options={[
-                    { value: 'netto', label: 'Waga netto' },
-                    { value: 'brutto-auto', label: 'Brutto (auto z krzywej)' },
-                    { value: 'brutto-manual', label: 'Brutto (ręcznie)' }
-                  ]}
-                  themeClasses={themeClasses}
-                />
-              </div>
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                      Typ wagi
+                    </label>
+                    <SelectInput
+                      value={item.weightOption}
+                      onChange={(value) => handleItemUpdate(item.id, { weightOption: value })}
+                      options={[
+                        { value: 'netto', label: 'Waga netto' },
+                        { value: 'brutto-auto', label: 'Brutto (auto z krzywej)' },
+                        { value: 'brutto-manual', label: 'Brutto (ręcznie)' }
+                      ]}
+                      themeClasses={themeClasses}
+                    />
+                  </div>
 
-              {item.weightOption === 'brutto-manual' && (
-                <div>
-                  <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                    Waga brutto (g)
-                  </label>
-                  <input
-                    type="number"
-                    value={item.bruttoWeight}
-                    onChange={(e) => handleItemUpdate(item.id, { bruttoWeight: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-                    min="0"
-                    step="0.1"
-                  />
+                  {item.weightOption === 'brutto-manual' && (
+                    <div>
+                      <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                        Waga brutto (g)
+                      </label>
+                      <input
+                        type="number"
+                        value={item.bruttoWeight}
+                        onChange={(e) => handleItemUpdate(item.id, { bruttoWeight: e.target.value })}
+                        className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                        min="0"
+                        step="0.1"
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
+              </>
+            )}
 
+            {tab.calculationType === 'surface' && (
+              <SurfaceModeFields
+                item={item}
+                onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+                themeClasses={themeClasses}
+                darkMode={darkMode}
+              />
+            )}
+
+            {tab.calculationType === 'volume' && (
+              <VolumeModeFields
+                item={item}
+                onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+                bruttoCurve={tab.editingCurves.bruttoWeight}
+                themeClasses={themeClasses}
+                darkMode={darkMode}
+              />
+            )}
+
+            {/* Pola wspólne dla wszystkich trybów */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
                   Roczna ilość (szt.)
