@@ -155,4 +155,4 @@ Aby zbudować aplikację do wdrożenia na serwerze:
 npm run build
 ```
 
-Utworzy się folder `build/` z gotową aplikacją do wgrania na hosting.
+Utworzy się folder `build/` z gotową aplikacją do wgrania na hosting.# Kalkulator-koszt-w
