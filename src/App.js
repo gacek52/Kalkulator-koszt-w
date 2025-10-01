@@ -7,6 +7,22 @@ import { CatalogView } from './components/Catalog/CatalogView';
 
 function App() {
   const [currentView, setCurrentView] = useState('catalog'); // 'catalog' or 'calculator'
+  const [calculationToLoad, setCalculationToLoad] = useState(null);
+
+  const handleLoadCalculation = (calc) => {
+    setCalculationToLoad(calc);
+    setCurrentView('calculator');
+  };
+
+  const handleBackToCatalog = () => {
+    setCalculationToLoad(null);
+    setCurrentView('catalog');
+  };
+
+  const handleNewCalculation = () => {
+    setCalculationToLoad(null);
+    setCurrentView('calculator');
+  };
 
   return (
     <div className="App">
@@ -29,15 +45,13 @@ function App() {
                     success: 'bg-green-600 hover:bg-green-700 text-white'
                   }
                 }}
-                onNewCalculation={() => setCurrentView('calculator')}
-                onLoadCalculation={(calc) => {
-                  // TODO: Wczytaj kalkulację do kontekstu
-                  setCurrentView('calculator');
-                }}
+                onNewCalculation={handleNewCalculation}
+                onLoadCalculation={handleLoadCalculation}
               />
             ) : (
               <CostCalculator
-                onBackToCatalog={() => setCurrentView('catalog')}
+                onBackToCatalog={handleBackToCatalog}
+                calculationToLoad={calculationToLoad}
               />
             )}
           </CatalogProvider>

@@ -24,6 +24,8 @@ const CALCULATOR_ACTIONS = {
   ADD_CURVE_POINT: 'ADD_CURVE_POINT',
   REMOVE_CURVE_POINT: 'REMOVE_CURVE_POINT',
   LOAD_DATA: 'LOAD_DATA',
+  LOAD_CALCULATION: 'LOAD_CALCULATION',
+  MARK_AS_SAVED: 'MARK_AS_SAVED',
   RESET_STATE: 'RESET_STATE'
 };
 
@@ -33,13 +35,16 @@ const initialState = {
   activeTab: 0,
   nextTabId: 2,
   darkMode: false,
+  hasUnsavedChanges: false,
+  lastSavedState: null,
   // Pola dla katalogu kalkulacji
   calculationMeta: {
     client: '',
     status: 'draft',
     notes: '',
     createdDate: new Date().toISOString(),
-    modifiedDate: new Date().toISOString()
+    modifiedDate: new Date().toISOString(),
+    catalogId: null
   },
   tabs: [{
     id: 1,
@@ -356,12 +361,33 @@ function calculatorReducer(state, action) {
       };
 
     case CALCULATOR_ACTIONS.LOAD_DATA:
-      return { ...action.payload };
+      return { ...action.payload, hasUnsavedChanges: false };
+
+    case CALCULATOR_ACTIONS.LOAD_CALCULATION:
+      // Deep copy kalkulacji z katalogu
+      const loadedState = JSON.parse(JSON.stringify(action.payload));
+      return {
+        ...loadedState,
+        hasUnsavedChanges: false,
+        lastSavedState: JSON.stringify(loadedState)
+      };
+
+    case CALCULATOR_ACTIONS.MARK_AS_SAVED:
+      return {
+        ...state,
+        hasUnsavedChanges: false,
+        lastSavedState: JSON.stringify(state)
+      };
 
     case CALCULATOR_ACTIONS.RESET_STATE:
       return { ...initialState };
 
     default:
+      // Oznacz jako zmienione po każdej akcji (oprócz wczytywania)
+      if (action.type !== CALCULATOR_ACTIONS.SET_ACTIVE_TAB &&
+          action.type !== CALCULATOR_ACTIONS.SET_DARK_MODE) {
+        return { ...state, hasUnsavedChanges: true };
+      }
       return state;
   }
 }
@@ -379,7 +405,23 @@ export function CalculatorProvider({ children }) {
     if (savedData) {
       try {
         const parsedData = JSON.parse(savedData);
-        dispatch({ type: CALCULATOR_ACTIONS.LOAD_DATA, payload: parsedData });
+
+        // Migracja danych - dodaj brakujące pola
+        const migratedData = {
+          ...parsedData,
+          hasUnsavedChanges: parsedData.hasUnsavedChanges ?? false,
+          lastSavedState: parsedData.lastSavedState ?? null,
+          calculationMeta: parsedData.calculationMeta ?? {
+            client: '',
+            status: 'draft',
+            notes: '',
+            createdDate: new Date().toISOString(),
+            modifiedDate: new Date().toISOString(),
+            catalogId: null
+          }
+        };
+
+        dispatch({ type: CALCULATOR_ACTIONS.LOAD_DATA, payload: migratedData });
       } catch (error) {
         console.error('Błąd wczytywania danych z localStorage:', error);
       }
@@ -420,6 +462,8 @@ export function CalculatorProvider({ children }) {
     removeCurvePoint: (tabId, curveId, pointIndex) => dispatch({ type: CALCULATOR_ACTIONS.REMOVE_CURVE_POINT, payload: { tabId, curveId, pointIndex } }),
 
     loadData: (data) => dispatch({ type: CALCULATOR_ACTIONS.LOAD_DATA, payload: data }),
+    loadCalculation: (calculation) => dispatch({ type: CALCULATOR_ACTIONS.LOAD_CALCULATION, payload: calculation }),
+    markAsSaved: () => dispatch({ type: CALCULATOR_ACTIONS.MARK_AS_SAVED }),
     resetState: () => dispatch({ type: CALCULATOR_ACTIONS.RESET_STATE })
   };
 

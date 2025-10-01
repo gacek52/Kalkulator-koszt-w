@@ -94,7 +94,10 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
           customProcessesCost += processCost * (nettoWeight / 1000) * efficiency;
           break;
         case 'euro/8h':
-          customProcessesCost += (processValue / 3600) * (processCost / 8) * efficiency;
+          // Dla euro/8h: efficiency = ile części na zmianę, więc koszt = processCost / efficiency
+          if (efficiency > 0) {
+            customProcessesCost += processCost / efficiency;
+          }
           break;
         default:
           // Domyślnie euro/szt
@@ -439,7 +442,14 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                   <label className={`block text-xs ${themeClasses.text.secondary}`}>Jednostka</label>
                   <SelectInput
                     value={process.unit}
-                    onChange={(value) => actions.updateCustomProcess(tab.id, process.id, { unit: value })}
+                    onChange={(value) => {
+                      // Resetuj efficiency do 1 gdy zmieniamy jednostkę na inną niż euro/8h
+                      if (value !== 'euro/8h') {
+                        actions.updateCustomProcess(tab.id, process.id, { unit: value, efficiency: '1' });
+                      } else {
+                        actions.updateCustomProcess(tab.id, process.id, { unit: value });
+                      }
+                    }}
                     options={[
                       { value: 'euro/szt', label: '€/szt' },
                       { value: 'euro/kg', label: '€/kg' },
@@ -448,16 +458,19 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                     themeClasses={themeClasses}
                   />
                 </div>
-                <div className="w-24">
-                  <label className={`block text-xs ${themeClasses.text.secondary}`}>Wydajność</label>
-                  <input
-                    type="number"
-                    value={process.efficiency}
-                    onChange={(e) => actions.updateCustomProcess(tab.id, process.id, { efficiency: e.target.value })}
-                    className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
-                    step="0.1"
-                  />
-                </div>
+                {process.unit === 'euro/8h' && (
+                  <div className="w-24">
+                    <label className={`block text-xs ${themeClasses.text.secondary}`}>Wydajność (szt/8h)</label>
+                    <input
+                      type="number"
+                      value={process.efficiency}
+                      onChange={(e) => actions.updateCustomProcess(tab.id, process.id, { efficiency: e.target.value })}
+                      className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+                      step="1"
+                      min="1"
+                    />
+                  </div>
+                )}
                 <button
                   onClick={() => actions.removeCustomProcess(tab.id, process.id)}
                   className="text-red-500 hover:text-red-700 p-2"

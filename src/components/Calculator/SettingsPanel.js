@@ -89,7 +89,10 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
           customProcessesCost += processCost * (weight / 1000) * efficiency;
           break;
         case 'euro/8h':
-          customProcessesCost += (processValue / 3600) * (processCost / 8) * efficiency;
+          // Dla euro/8h: efficiency = ile części na zmianę, więc koszt = processCost / efficiency
+          if (efficiency > 0) {
+            customProcessesCost += processCost / efficiency;
+          }
           break;
         default:
           customProcessesCost += processCost * efficiency;

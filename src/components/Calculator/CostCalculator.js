@@ -1,5 +1,5 @@
-import React from 'react';
-import { Calculator, Sun, Moon, ArrowLeft, Save } from 'lucide-react';
+import React, { useState } from 'react';
+import { Calculator, Sun, Moon, ArrowLeft, Save, ChevronDown } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
 import { CalculatorForm } from './CalculatorForm';
@@ -12,13 +12,16 @@ import { CalculatorCsvExportButton } from '../Common/CsvExportButton';
 /**
  * Główny komponent kalkulatora kosztów
  */
-export function CostCalculator({ onBackToCatalog }) {
+export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
   const { state, actions } = useCalculator();
-  const { tabs, activeTab, globalSGA, darkMode, calculationMeta } = state;
-  const { actions: catalogActions } = useCatalog();
+  const { tabs, activeTab, globalSGA, darkMode, calculationMeta, hasUnsavedChanges } = state;
+  const { state: catalogState, actions: catalogActions } = useCatalog();
   const [editingTabId, setEditingTabId] = React.useState(null);
   const [editingTabName, setEditingTabName] = React.useState('');
   const [showSettings, setShowSettings] = React.useState(false);
+  const [showSaveMenu, setShowSaveMenu] = useState(false);
+  const [showLoadConfirmDialog, setShowLoadConfirmDialog] = useState(false);
+  const [pendingCalculationToLoad, setPendingCalculationToLoad] = useState(null);
 
   // Konfiguracja motywów
   const themeClasses = {
@@ -45,6 +48,84 @@ export function CostCalculator({ onBackToCatalog }) {
   };
 
   const currentTab = tabs[activeTab];
+
+  // Funkcja deep copy dla bezpiecznego klonowania danych
+  const deepCopy = (obj) => {
+    return JSON.parse(JSON.stringify(obj));
+  };
+
+  // Znajdź istniejącą kalkulację powiązaną z obecną sesją (jeśli istnieje)
+  const linkedCalculationId = calculationMeta.catalogId;
+  const existingCalculation = linkedCalculationId
+    ? catalogState.calculations.find(calc => calc.id === linkedCalculationId)
+    : null;
+
+  // Funkcja ładowania kalkulacji z katalogu
+  React.useEffect(() => {
+    if (calculationToLoad) {
+      if (hasUnsavedChanges) {
+        // Pokaż dialog potwierdzenia
+        setPendingCalculationToLoad(calculationToLoad);
+        setShowLoadConfirmDialog(true);
+      } else {
+        // Załaduj bez pytania
+        loadCalculationFromCatalog(calculationToLoad);
+      }
+    }
+  }, [calculationToLoad]);
+
+  const loadCalculationFromCatalog = (calculation) => {
+    actions.loadCalculation(calculation);
+    setShowLoadConfirmDialog(false);
+    setPendingCalculationToLoad(null);
+  };
+
+  const cancelLoad = () => {
+    setShowLoadConfirmDialog(false);
+    setPendingCalculationToLoad(null);
+    if (onBackToCatalog) {
+      onBackToCatalog();
+    }
+  };
+
+  // Funkcja zapisywania kalkulacji
+  const saveCalculation = (asNewVariant = false) => {
+    const allItems = tabs.flatMap(tab =>
+      tab.items.map(item => ({
+        ...item,
+        tabName: tab.name
+      }))
+    );
+
+    // Deep copy danych aby uniknąć referencji
+    const calculationData = {
+      ...deepCopy(calculationMeta),
+      tabs: deepCopy(tabs),
+      globalSGA: globalSGA,
+      items: deepCopy(allItems),
+      totalRevenue: 0,
+      totalProfit: 0
+    };
+
+    if (!asNewVariant && existingCalculation) {
+      // Nadpisz istniejącą kalkulację
+      catalogActions.updateCalculation(linkedCalculationId, calculationData);
+      alert('Kalkulacja zaktualizowana w katalogu!');
+    } else {
+      // Zapisz jako nowy wpis
+      const newId = catalogState.nextCalculationId;
+      catalogActions.addCalculation(calculationData);
+
+      // Zapisz ID w metadanych aby pamiętać powiązanie
+      actions.updateCalculationMeta({ catalogId: newId });
+
+      alert(asNewVariant ? 'Zapisano jako nowy wariant!' : 'Kalkulacja zapisana w katalogu!');
+    }
+
+    // Oznacz jako zapisane
+    actions.markAsSaved();
+    setShowSaveMenu(false);
+  };
 
   // Obsługa dodawania nowej zakładki
   const handleAddTab = () => {
@@ -307,33 +388,49 @@ export function CostCalculator({ onBackToCatalog }) {
             </div>
           </div>
 
-          <button
-            onClick={() => {
-              // Zapisz kalkulację do katalogu
-              const allItems = tabs.flatMap(tab =>
-                tab.items.map(item => ({
-                  ...item,
-                  tabName: tab.name
-                }))
-              );
+          <div className="relative">
+            <button
+              onClick={() => setShowSaveMenu(!showSaveMenu)}
+              className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.success} flex items-center gap-2`}
+            >
+              <Save size={16} />
+              Zapisz do katalogu
+              <ChevronDown size={16} />
+            </button>
 
-              // TODO: Oblicz revenue i profit
-              catalogActions.addCalculation({
-                ...calculationMeta,
-                tabs: tabs,
-                globalSGA: globalSGA,
-                items: allItems,
-                totalRevenue: 0,
-                totalProfit: 0
-              });
-
-              alert('Kalkulacja zapisana w katalogu!');
-            }}
-            className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.success} flex items-center gap-2`}
-          >
-            <Save size={16} />
-            Zapisz do katalogu
-          </button>
+            {showSaveMenu && (
+              <div className={`absolute top-full left-0 mt-1 ${themeClasses.card} rounded-lg border shadow-lg z-10 min-w-[200px]`}>
+                {existingCalculation && (
+                  <button
+                    onClick={() => saveCalculation(false)}
+                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-t-lg`}
+                  >
+                    Nadpisz kalkulację
+                  </button>
+                )}
+                <button
+                  onClick={() => saveCalculation(true)}
+                  className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} ${existingCalculation ? '' : 'rounded-t-lg'}`}
+                >
+                  Zapisz jako nowy wariant
+                </button>
+                {!existingCalculation && (
+                  <button
+                    onClick={() => saveCalculation(false)}
+                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary}`}
+                  >
+                    Zapisz nową kalkulację
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowSaveMenu(false)}
+                  className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.secondary} rounded-b-lg border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}
+                >
+                  Anuluj
+                </button>
+              </div>
+            )}
+          </div>
         </div>
 
         {currentTab && (
@@ -372,6 +469,43 @@ export function CostCalculator({ onBackToCatalog }) {
             actions={actions}
             onClose={() => setShowSettings(false)}
           />
+        )}
+
+        {/* Dialog potwierdzenia ładowania */}
+        {showLoadConfirmDialog && pendingCalculationToLoad && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className={`${themeClasses.card} rounded-lg border p-6 max-w-md mx-4`}>
+              <h3 className={`text-lg font-semibold mb-4 ${themeClasses.text.primary}`}>
+                Niezapisane zmiany
+              </h3>
+              <p className={`mb-6 ${themeClasses.text.secondary}`}>
+                Masz niezapisane zmiany w aktualnej kalkulacji. Czy chcesz je zapisać przed załadowaniem innej kalkulacji?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    saveCalculation(false);
+                    loadCalculationFromCatalog(pendingCalculationToLoad);
+                  }}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${themeClasses.button.success}`}
+                >
+                  Zapisz i załaduj
+                </button>
+                <button
+                  onClick={() => loadCalculationFromCatalog(pendingCalculationToLoad)}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary}`}
+                >
+                  Załaduj bez zapisu
+                </button>
+                <button
+                  onClick={cancelLoad}
+                  className={`flex-1 px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary}`}
+                >
+                  Anuluj
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
