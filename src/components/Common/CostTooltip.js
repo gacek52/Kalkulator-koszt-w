@@ -207,13 +207,24 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
         )}
 
         {/* Informacje o wadze */}
-        <div className={`text-xs mt-2 pt-1 border-t ${themeClasses.text.muted}`}>
-          Waga: {parseFloat(item.weight || 0).toFixed(0)}g
-          {item.weightOption && item.weightOption !== 'netto' && (
-            <span> ({item.weightOption})</span>
+        <div className={`text-xs mt-2 pt-2 border-t space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          <div className="flex justify-between">
+            <span>⚖️ Waga netto:</span>
+            <span className="font-medium">{parseFloat(item.weight || 0).toFixed(0)} g</span>
+          </div>
+          {item.bruttoWeight && (
+            <div className="flex justify-between">
+              <span>📦 Waga brutto:</span>
+              <span className="font-medium">{parseFloat(item.bruttoWeight).toFixed(0)} g</span>
+            </div>
           )}
-          {item.bruttoWeight && parseFloat(item.bruttoWeight) !== parseFloat(item.weight) && (
-            <span> / {parseFloat(item.bruttoWeight).toFixed(0)}g brutto</span>
+          {item.annualVolume && parseFloat(item.annualVolume) > 0 && (
+            <div className="flex justify-between pt-1 border-t border-dashed">
+              <span>📅 Roczne zapotrzebowanie:</span>
+              <span className="font-medium">
+                {((parseFloat(item.bruttoWeight || item.weight || 0) * parseFloat(item.annualVolume)) / 1000).toFixed(1)} kg/rok
+              </span>
+            </div>
           )}
         </div>
       </div>
