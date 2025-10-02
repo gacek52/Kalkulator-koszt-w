@@ -62,8 +62,16 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const cleaningCost = parseFloat(tabData.cleaningCost) || 0;
     const handlingCost = parseFloat(tabData.handlingCost) || 0;
 
-    // Oblicz koszt materiału (€/kg -> €) - używamy wagi brutto!
-    const materialCost_total = (bruttoWeight / 1000) * materialCost;
+    // Oblicz koszt materiału w zależności od trybu i jednostki
+    let materialCost_total = 0;
+    if (tabData.calculationType === 'surface' && tabData.materialPriceUnit === 'm2') {
+      // Tryb powierzchnia z ceną za m²
+      const surfaceBrutto = parseFloat(item.surfaceBrutto) || 0;
+      materialCost_total = surfaceBrutto * materialCost;
+    } else {
+      // Domyślnie: cena za kg (używamy wagi brutto)
+      materialCost_total = (bruttoWeight / 1000) * materialCost;
+    }
 
     // Interpolacja czasu pieczenia z krzywej - używamy wagi netto dla procesów
     const bakingTime = interpolateFromCurve(nettoWeight, tabData.editingCurves.baking);
@@ -309,6 +317,12 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
   const handleTabParameterUpdate = (parameter, value) => {
     const updates = { [parameter]: value };
 
+    // Jeśli zmieniamy na tryb powierzchnia, zeruj koszty pieczenia i czyszczenia
+    if (parameter === 'calculationType' && value === 'surface') {
+      updates.bakingCost = '0';
+      updates.cleaningCost = '0';
+    }
+
     // Przelicz wszystkie elementy po zmianie parametru
     const updatedItems = tab.items.map(item => {
       if (item.weight) {
@@ -345,6 +359,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       thickness: '',
       density: '',
       surfaceWeight: '',
+      surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
       sheetLength: '1000',
       sheetWidth: '1000',
       partsPerSheet: '',
@@ -352,7 +367,8 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       // Pola dla trybu OBJĘTOŚĆ
       volume: '',
       volumeUnit: 'mm3',
-      dimensions: { length: '', width: '', height: '' }
+      dimensions: { length: '', width: '', height: '' },
+      volumeWeightOption: 'brutto-auto'
     };
 
     actions.addItem(tab.id, newItem);
@@ -384,14 +400,46 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
       {/* Parametry zakładki */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <NumberInput
-          label="Koszt materiału (€/kg)"
-          value={tab.materialCost}
-          onChange={(value) => handleTabParameterUpdate('materialCost', value)}
-          min={0}
-          step={0.01}
-          themeClasses={themeClasses}
-        />
+        {/* Koszt materiału z opcją jednostki dla trybu surface */}
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <label className={`text-sm font-medium ${themeClasses.text.secondary}`}>
+              Koszt materiału (€/{tab.materialPriceUnit || 'kg'})
+            </label>
+            {tab.calculationType === 'surface' && (
+              <div className="flex gap-1">
+                <button
+                  onClick={() => handleTabParameterUpdate('materialPriceUnit', 'kg')}
+                  className={`px-2 py-0.5 text-xs rounded ${
+                    tab.materialPriceUnit === 'kg' || !tab.materialPriceUnit
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  €/kg
+                </button>
+                <button
+                  onClick={() => handleTabParameterUpdate('materialPriceUnit', 'm2')}
+                  className={`px-2 py-0.5 text-xs rounded ${
+                    tab.materialPriceUnit === 'm2'
+                      ? 'bg-blue-500 text-white'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                  }`}
+                >
+                  €/m²
+                </button>
+              </div>
+            )}
+          </div>
+          <input
+            type="number"
+            value={tab.materialCost}
+            onChange={(e) => handleTabParameterUpdate('materialCost', e.target.value)}
+            className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+            min="0"
+            step="0.01"
+          />
+        </div>
 
         <NumberInput
           label="Koszt pieczenia (€/8h)"

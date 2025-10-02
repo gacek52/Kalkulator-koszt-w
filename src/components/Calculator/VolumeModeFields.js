@@ -88,14 +88,20 @@ export function VolumeModeFields({ item, onUpdate, bruttoCurve, themeClasses, da
 
     // Oblicz wagę netto z objętości i gęstości
     if (volumeCm3 > 0 && density > 0) {
-      const weightNetto = volumeCm3 * density; // cm³ × g/cm³ = g
+      // waga [g] = objętość [cm³] × gęstość [kg/m³] / 1000
+      const weightNetto = volumeCm3 * density / 1000;
       updates.weight = weightNetto.toFixed(1);
 
-      // Oblicz wagę brutto z krzywej (jak w trybie waga)
-      if (bruttoCurve && weightNetto > 0) {
+      // Oblicz wagę brutto w zależności od opcji
+      const weightOption = item.volumeWeightOption || 'brutto-auto';
+      if (weightOption === 'brutto-auto' && bruttoCurve && weightNetto > 0) {
         const weightBrutto = interpolateFromCurve(weightNetto, bruttoCurve);
         updates.bruttoWeight = weightBrutto.toFixed(1);
+      } else if (weightOption === 'netto') {
+        // Brak brutto, tylko netto
+        updates.bruttoWeight = '';
       }
+      // Dla 'brutto-manual' nie nadpisujemy bruttoWeight (użytkownik wpisuje ręcznie)
     }
 
     // Aktualizuj tylko jeśli są zmiany
@@ -109,7 +115,8 @@ export function VolumeModeFields({ item, onUpdate, bruttoCurve, themeClasses, da
     item.dimensions.height,
     item.volume,
     item.volumeUnit,
-    item.density
+    item.density,
+    item.volumeWeightOption
   ]);
 
   return (
@@ -202,7 +209,7 @@ export function VolumeModeFields({ item, onUpdate, bruttoCurve, themeClasses, da
       {/* Gęstość */}
       <div>
         <label className={`block text-xs ${themeClasses.text.secondary}`}>
-          Gęstość materiału [g/cm³]
+          Gęstość materiału [kg/m³]
         </label>
         <input
           type="number"
@@ -210,9 +217,42 @@ export function VolumeModeFields({ item, onUpdate, bruttoCurve, themeClasses, da
           onChange={(e) => onUpdate({ density: e.target.value })}
           className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
           placeholder="0"
-          step="0.001"
+          step="1"
         />
       </div>
+
+      {/* Opcja wagi netto/brutto */}
+      <div>
+        <label className={`block text-xs ${themeClasses.text.secondary}`}>
+          Opcja wagi
+        </label>
+        <select
+          value={item.volumeWeightOption || 'brutto-auto'}
+          onChange={(e) => onUpdate({ volumeWeightOption: e.target.value })}
+          className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+        >
+          <option value="netto">Tylko waga netto</option>
+          <option value="brutto-auto">Brutto (auto z krzywej)</option>
+          <option value="brutto-manual">Brutto (ręcznie)</option>
+        </select>
+      </div>
+
+      {/* Pole dla ręcznej wagi brutto */}
+      {item.volumeWeightOption === 'brutto-manual' && (
+        <div>
+          <label className={`block text-xs ${themeClasses.text.secondary}`}>
+            Waga brutto [g]
+          </label>
+          <input
+            type="number"
+            value={item.bruttoWeight || ''}
+            onChange={(e) => onUpdate({ bruttoWeight: e.target.value })}
+            className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+            placeholder="0"
+            step="0.1"
+          />
+        </div>
+      )}
 
       {/* Wyniki obliczeń */}
       <div className={`p-3 rounded border ${darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'}`}>

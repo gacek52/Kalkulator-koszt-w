@@ -51,6 +51,7 @@ const initialState = {
     name: 'Materiał 1',
     calculationType: 'weight', // 'weight', 'surface', 'volume'
     materialCost: '2.0',
+    materialPriceUnit: 'kg', // 'kg' lub 'm2' (dla trybu surface)
     bakingCost: '110',
     cleaningCost: '90',
     handlingCost: '0.08',
@@ -119,8 +120,9 @@ const initialState = {
       surfaceArea: '', // powierzchnia netto
       surfaceUnit: 'mm2', // 'mm2', 'm2'
       thickness: '', // grubość [mm]
-      density: '', // gęstość [g/cm³]
+      density: '', // gęstość [kg/m³]
       surfaceWeight: '', // ciężar powierzchniowy [g/m²]
+      surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false }, // które pola są wypełniane (locked), które obliczane
       sheetLength: '1000', // długość arkusza [mm]
       sheetWidth: '1000', // szerokość arkusza [mm]
       partsPerSheet: '', // ilość detali na arkuszu
@@ -129,6 +131,7 @@ const initialState = {
       volume: '', // objętość [mm³, cm³, m³]
       volumeUnit: 'mm3', // 'mm3', 'cm3', 'm3'
       dimensions: { length: '', width: '', height: '' }, // wymiary dla auto-obliczania objętości
+      volumeWeightOption: 'brutto-auto', // 'netto', 'brutto-auto', 'brutto-manual'
       // volumeDensity jest już w 'density' powyżej
       // Pola dla pakowania (legacy - może być używane później)
       unit: 'kg', // jednostka: kg, g, m2, mm2, cm2, m3, cm3, g_m2

@@ -27,25 +27,29 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
     }
 
     // Trójkąt zależności: gęstość ↔ grubość ↔ ciężar powierzchniowy
-    // Jeśli mamy gęstość i grubość, oblicz ciężar powierzchniowy
-    if (density > 0 && thickness > 0 && surfaceWeight === 0) {
-      // ciężar_powierzchniowy [g/m²] = gęstość [g/cm³] × grubość [mm] × 10
-      const calculatedSurfaceWeight = density * thickness * 10;
-      updates.surfaceWeight = calculatedSurfaceWeight.toFixed(2);
-    }
+    // Sprawdź które pole ma być obliczane (unlocked)
+    const locked = item.surfaceCalcLocked || { thickness: true, density: true, surfaceWeight: false };
 
-    // Jeśli mamy ciężar powierzchniowy i grubość, oblicz gęstość
-    if (surfaceWeight > 0 && thickness > 0 && density === 0) {
-      // gęstość [g/cm³] = ciężar_powierzchniowy [g/m²] / (grubość [mm] × 10)
-      const calculatedDensity = surfaceWeight / (thickness * 10);
-      updates.density = calculatedDensity.toFixed(3);
-    }
-
-    // Jeśli mamy ciężar powierzchniowy i gęstość, oblicz grubość
-    if (surfaceWeight > 0 && density > 0 && thickness === 0) {
-      // grubość [mm] = ciężar_powierzchniowy [g/m²] / (gęstość [g/cm³] × 10)
-      const calculatedThickness = surfaceWeight / (density * 10);
-      updates.thickness = calculatedThickness.toFixed(2);
+    // Oblicz pole które jest unlocked (nie zaznaczone checkboxem)
+    if (!locked.surfaceWeight && locked.thickness && locked.density) {
+      // Oblicz ciężar powierzchniowy z gęstości i grubości
+      // Wzór: g/m² = kg/m³ × mm (bo mm = m/1000, więc kg/m³ × m/1000 = kg/m² × 1000 = g/m²)
+      if (density > 0 && thickness > 0) {
+        const calculatedSurfaceWeight = density * thickness;
+        updates.surfaceWeight = calculatedSurfaceWeight.toFixed(2);
+      }
+    } else if (!locked.density && locked.thickness && locked.surfaceWeight) {
+      // Oblicz gęstość z ciężaru powierzchniowego i grubości
+      if (surfaceWeight > 0 && thickness > 0) {
+        const calculatedDensity = surfaceWeight / thickness;
+        updates.density = calculatedDensity.toFixed(0);
+      }
+    } else if (!locked.thickness && locked.density && locked.surfaceWeight) {
+      // Oblicz grubość z ciężaru powierzchniowego i gęstości
+      if (surfaceWeight > 0 && density > 0) {
+        const calculatedThickness = surfaceWeight / density;
+        updates.thickness = calculatedThickness.toFixed(2);
+      }
     }
 
     // Oblicz wagę netto
@@ -53,12 +57,14 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
       let weightNetto = 0;
 
       if (parseFloat(updates.surfaceWeight || item.surfaceWeight) > 0) {
-        // Używamy ciężaru powierzchniowego
+        // Używamy ciężaru powierzchniowego [g/m²]
+        // waga [g] = powierzchnia [m²] × ciężar powierzchniowy [g/m²]
         weightNetto = surfaceAreaM2 * parseFloat(updates.surfaceWeight || item.surfaceWeight);
       } else if (density > 0 && thickness > 0) {
         // Używamy gęstości i grubości
-        const volume_cm3 = surfaceAreaM2 * 10000 * (thickness / 10); // m² -> cm² -> cm³
-        weightNetto = volume_cm3 * density;
+        // waga [g] = powierzchnia [m²] × grubość [mm] × gęstość [kg/m³]
+        // (mm × kg/m³ = g/m², więc m² × g/m² = g)
+        weightNetto = surfaceAreaM2 * thickness * density;
       }
 
       if (weightNetto > 0) {
@@ -77,8 +83,7 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
         const weightBrutto = surfaceBruttoM2 * parseFloat(updates.surfaceWeight || item.surfaceWeight);
         updates.bruttoWeight = weightBrutto.toFixed(1);
       } else if (density > 0 && thickness > 0) {
-        const volume_cm3 = surfaceBruttoM2 * 10000 * (thickness / 10);
-        const weightBrutto = volume_cm3 * density;
+        const weightBrutto = surfaceBruttoM2 * thickness * density;
         updates.bruttoWeight = weightBrutto.toFixed(1);
       }
     }
@@ -94,6 +99,9 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
     item.thickness,
     item.density,
     item.surfaceWeight,
+    item.surfaceCalcLocked?.thickness,
+    item.surfaceCalcLocked?.density,
+    item.surfaceCalcLocked?.surfaceWeight,
     item.sheetLength,
     item.sheetWidth,
     item.partsPerSheet
@@ -134,46 +142,103 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
       {/* Trójkąt: Grubość, Gęstość, Ciężar powierzchniowy */}
       <div className={`p-3 rounded border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
         <div className="text-xs font-medium mb-2 text-center">
-          Właściwości materiału (wypełnij 2 z 3)
+          Właściwości materiału (zaznacz 2, trzecie się obliczy)
         </div>
         <div className="grid grid-cols-3 gap-2">
           <div>
-            <label className={`block text-xs ${themeClasses.text.secondary}`}>
-              Grubość [mm]
-            </label>
+            <div className="flex items-center mb-1">
+              <input
+                type="checkbox"
+                checked={item.surfaceCalcLocked?.thickness !== false}
+                onChange={(e) => {
+                  const currentLocked = item.surfaceCalcLocked || { thickness: true, density: true, surfaceWeight: false };
+                  const newLocked = { ...currentLocked };
+                  newLocked.thickness = e.target.checked;
+
+                  // Nie pozwalaj na odznaczenie jeśli zostałby tylko 1 zaznaczony
+                  const checkedCount = Object.values(newLocked).filter(v => v).length;
+                  if (checkedCount >= 2) {
+                    onUpdate({ surfaceCalcLocked: newLocked });
+                  }
+                }}
+                className="mr-2"
+              />
+              <label className={`text-xs ${themeClasses.text.secondary}`}>
+                Grubość [mm]
+              </label>
+            </div>
             <input
               type="number"
               value={item.thickness}
               onChange={(e) => onUpdate({ thickness: e.target.value })}
-              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.thickness ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
               placeholder="0"
               step="0.01"
+              disabled={!item.surfaceCalcLocked?.thickness}
             />
           </div>
           <div>
-            <label className={`block text-xs ${themeClasses.text.secondary}`}>
-              Gęstość [g/cm³]
-            </label>
+            <div className="flex items-center mb-1">
+              <input
+                type="checkbox"
+                checked={item.surfaceCalcLocked?.density !== false}
+                onChange={(e) => {
+                  const currentLocked = item.surfaceCalcLocked || { thickness: true, density: true, surfaceWeight: false };
+                  const newLocked = { ...currentLocked };
+                  newLocked.density = e.target.checked;
+
+                  // Nie pozwalaj na odznaczenie jeśli zostałby tylko 1 zaznaczony
+                  const checkedCount = Object.values(newLocked).filter(v => v).length;
+                  if (checkedCount >= 2) {
+                    onUpdate({ surfaceCalcLocked: newLocked });
+                  }
+                }}
+                className="mr-2"
+              />
+              <label className={`text-xs ${themeClasses.text.secondary}`}>
+                Gęstość [kg/m³]
+              </label>
+            </div>
             <input
               type="number"
               value={item.density}
               onChange={(e) => onUpdate({ density: e.target.value })}
-              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.density ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
               placeholder="0"
-              step="0.001"
+              step="1"
+              disabled={!item.surfaceCalcLocked?.density}
             />
           </div>
           <div>
-            <label className={`block text-xs ${themeClasses.text.secondary}`}>
-              Ciężar pow. [g/m²]
-            </label>
+            <div className="flex items-center mb-1">
+              <input
+                type="checkbox"
+                checked={item.surfaceCalcLocked?.surfaceWeight !== false}
+                onChange={(e) => {
+                  const currentLocked = item.surfaceCalcLocked || { thickness: true, density: true, surfaceWeight: false };
+                  const newLocked = { ...currentLocked };
+                  newLocked.surfaceWeight = e.target.checked;
+
+                  // Nie pozwalaj na odznaczenie jeśli zostałby tylko 1 zaznaczony
+                  const checkedCount = Object.values(newLocked).filter(v => v).length;
+                  if (checkedCount >= 2) {
+                    onUpdate({ surfaceCalcLocked: newLocked });
+                  }
+                }}
+                className="mr-2"
+              />
+              <label className={`text-xs ${themeClasses.text.secondary}`}>
+                Ciężar pow. [g/m²]
+              </label>
+            </div>
             <input
               type="number"
               value={item.surfaceWeight}
               onChange={(e) => onUpdate({ surfaceWeight: e.target.value })}
-              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.surfaceWeight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
               placeholder="0"
               step="0.01"
+              disabled={!item.surfaceCalcLocked?.surfaceWeight}
             />
           </div>
         </div>
@@ -233,16 +298,24 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
         <div className="text-xs font-medium mb-2">📊 Obliczone wartości:</div>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex justify-between">
+            <span className={themeClasses.text.secondary}>Pow. netto:</span>
+            <span className="font-medium">
+              {item.surfaceArea ?
+                `${(item.surfaceUnit === 'mm2' ? parseFloat(item.surfaceArea) / 1000000 : parseFloat(item.surfaceArea)).toFixed(4)} m²`
+                : '-'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className={themeClasses.text.secondary}>Pow. brutto:</span>
+            <span className="font-medium">{item.surfaceBrutto ? `${parseFloat(item.surfaceBrutto).toFixed(4)} m²` : '-'}</span>
+          </div>
+          <div className="flex justify-between">
             <span className={themeClasses.text.secondary}>Waga netto:</span>
             <span className="font-medium">{item.weight ? `${parseFloat(item.weight).toFixed(1)} g` : '-'}</span>
           </div>
           <div className="flex justify-between">
             <span className={themeClasses.text.secondary}>Waga brutto:</span>
             <span className="font-medium">{item.bruttoWeight ? `${parseFloat(item.bruttoWeight).toFixed(1)} g` : '-'}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className={themeClasses.text.secondary}>Pow. brutto:</span>
-            <span className="font-medium">{item.surfaceBrutto ? `${parseFloat(item.surfaceBrutto).toFixed(4)} m²` : '-'}</span>
           </div>
         </div>
       </div>
