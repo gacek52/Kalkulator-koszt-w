@@ -1,11 +1,13 @@
 import React, { useEffect } from 'react';
-import { Plus, Trash2, Settings } from 'lucide-react';
+import { Plus, Trash2, Settings, Copy } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { NumberInput } from '../Common/NumberInput';
 import { SelectInput } from '../Common/SelectInput';
 import { CalculationTypeSelector } from './CalculationTypeSelector';
 import { SurfaceModeFields } from './SurfaceModeFields';
 import { VolumeModeFields } from './VolumeModeFields';
+import { HeatshieldModeFields } from './HeatshieldModeFields';
+import { MultilayerModeFields } from './MultilayerModeFields';
 
 /**
  * Formularz kalkulacji materiałów i procesów
@@ -16,7 +18,14 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
   // Przelicz wszystkie items gdy zmienia się globalSGA lub parametry zakładki
   useEffect(() => {
     const updatedItems = tab.items.map(item => {
-      if (item.weight && item.results) {
+      // Przelicz jeśli item ma dane wejściowe w zależności od trybu
+      const hasInputData = tab.calculationType === 'heatshield'
+        ? (item.heatshield?.surfaceNetto)
+        : tab.calculationType === 'multilayer'
+        ? (item.multilayer?.layers?.length > 0)
+        : item.weight;
+
+      if (hasInputData && item.results) {
         const results = calculateItemCost(item, tab, globalSGA);
         return { ...item, results };
       }
@@ -41,10 +50,254 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     if (hasChanges) {
       actions.updateTab(tab.id, { items: updatedItems });
     }
-  }, [globalSGA, tab.materialCost, tab.bakingCost, tab.cleaningCost, tab.handlingCost]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [globalSGA, tab.materialCost, tab.bakingCost, tab.cleaningCost, tab.handlingCost, tab.prepCost]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Interpolacja liniowa z krzywej (X→Y) z ekstrapolacją
+  const interpolateFromCurve = (x, curve) => {
+    if (!curve || curve.length === 0) return 0;
+
+    const sortedCurve = [...curve].sort((a, b) => a.x - b.x);
+
+    // Ekstrapolacja w lewo (przed pierwszym punktem)
+    if (x <= sortedCurve[0].x && sortedCurve.length >= 2) {
+      const x1 = sortedCurve[0].x;
+      const y1 = sortedCurve[0].y;
+      const x2 = sortedCurve[1].x;
+      const y2 = sortedCurve[1].y;
+      const slope = (y2 - y1) / (x2 - x1);
+      return y1 + slope * (x - x1);
+    }
+
+    // Ekstrapolacja w prawo (po ostatnim punkcie)
+    if (x >= sortedCurve[sortedCurve.length - 1].x && sortedCurve.length >= 2) {
+      const n = sortedCurve.length;
+      const x1 = sortedCurve[n - 2].x;
+      const y1 = sortedCurve[n - 2].y;
+      const x2 = sortedCurve[n - 1].x;
+      const y2 = sortedCurve[n - 1].y;
+      const slope = (y2 - y1) / (x2 - x1);
+      return y2 + slope * (x - x2);
+    }
+
+    // Interpolacja (między punktami)
+    for (let i = 0; i < sortedCurve.length - 1; i++) {
+      if (x >= sortedCurve[i].x && x <= sortedCurve[i + 1].x) {
+        const x1 = sortedCurve[i].x;
+        const y1 = sortedCurve[i].y;
+        const x2 = sortedCurve[i + 1].x;
+        const y2 = sortedCurve[i + 1].y;
+
+        const t = (x - x1) / (x2 - x1);
+        return y1 + t * (y2 - y1);
+      }
+    }
+
+    return 0;
+  };
+
+  // Odwrotna interpolacja liniowa z krzywej (Y→X) z ekstrapolacją
+  const reverseInterpolateFromCurve = (y, curve) => {
+    if (!curve || curve.length === 0) return 0;
+
+    const sortedCurve = [...curve].sort((a, b) => a.y - b.y);
+
+    // Ekstrapolacja w dół (przed pierwszym punktem)
+    if (y <= sortedCurve[0].y && sortedCurve.length >= 2) {
+      const y1 = sortedCurve[0].y;
+      const x1 = sortedCurve[0].x;
+      const y2 = sortedCurve[1].y;
+      const x2 = sortedCurve[1].x;
+      if (y2 === y1) return x1; // unikaj dzielenia przez zero
+      const slope = (x2 - x1) / (y2 - y1);
+      return x1 + slope * (y - y1);
+    }
+
+    // Ekstrapolacja w górę (po ostatnim punkcie)
+    if (y >= sortedCurve[sortedCurve.length - 1].y && sortedCurve.length >= 2) {
+      const n = sortedCurve.length;
+      const y1 = sortedCurve[n - 2].y;
+      const x1 = sortedCurve[n - 2].x;
+      const y2 = sortedCurve[n - 1].y;
+      const x2 = sortedCurve[n - 1].x;
+      if (y2 === y1) return x2; // unikaj dzielenia przez zero
+      const slope = (x2 - x1) / (y2 - y1);
+      return x2 + slope * (y - y2);
+    }
+
+    // Interpolacja (między punktami)
+    for (let i = 0; i < sortedCurve.length - 1; i++) {
+      if (y >= sortedCurve[i].y && y <= sortedCurve[i + 1].y) {
+        const y1 = sortedCurve[i].y;
+        const x1 = sortedCurve[i].x;
+        const y2 = sortedCurve[i + 1].y;
+        const x2 = sortedCurve[i + 1].x;
+
+        if (y2 === y1) return x1; // unikaj dzielenia przez zero
+        const t = (y - y1) / (y2 - y1);
+        return x1 + t * (x2 - x1);
+      }
+    }
+
+    return 0;
+  };
+
+  // Funkcja kalkulacji kosztów dla trybu multilayer
+  const calculateMultilayerCost = (item, tabData, sga) => {
+    const m = item.multilayer || {};
+
+    if (!m.layers || m.layers.length === 0) return null;
+
+    // Oblicz koszty materiałów dla wszystkich warstw
+    let totalMaterialCost = 0;
+    const layerCosts = {};
+
+    m.layers.forEach(layer => {
+      const price = parseFloat(layer.price) || 0;
+      const priceUnit = layer.priceUnit || 'kg';
+      const weightBrutto = parseFloat(layer.weightBrutto) || 0;
+      const surfaceBrutto = parseFloat(layer.surfaceBrutto) || 0;
+
+      let layerCost = 0;
+      if (priceUnit === 'kg') {
+        layerCost = (weightBrutto / 1000) * price;
+      } else {
+        layerCost = surfaceBrutto * price;
+      }
+
+      totalMaterialCost += layerCost;
+      layerCosts[`layer_${layer.id}_cost`] = layerCost;
+    });
+
+    // Procesy - używamy krzywych globalnych lub per-warstwa
+    // Na razie używamy podstawowych kosztów z tabData
+    const bakingCost = parseFloat(tabData.bakingCost) || 0;
+    const cleaningCost = parseFloat(tabData.cleaningCost) || 0;
+    const handlingCost = parseFloat(tabData.handlingCost) || 0;
+
+    // Suma wag wszystkich warstw dla procesów
+    const totalWeight = m.layers.reduce((sum, l) => sum + (parseFloat(l.weightNetto) || 0), 0);
+
+    // Interpolacja z krzywych bazując na całkowitej wadze
+    const bakingTime = interpolateFromCurve(totalWeight, tabData.editingCurves.baking);
+    const bakingCost_total = (bakingTime / 3600) * (bakingCost / 8);
+
+    const cleaningTime = interpolateFromCurve(totalWeight, tabData.editingCurves.cleaning);
+    const cleaningCost_total = (cleaningTime / 3600) * (cleaningCost / 8);
+
+    const handlingCost_total = handlingCost;
+
+    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total;
+
+    // Oblicz cenę z marżą
+    const margin = parseFloat(item.margin) || 0;
+    const totalWithMargin = totalCost * (1 + margin / 100);
+
+    // Oblicz finalną cenę z SG&A
+    const sgaPercent = parseFloat(sga) || 0;
+    const totalWithSGA = totalWithMargin * (1 + sgaPercent / 100);
+
+    return {
+      materialCost: totalMaterialCost,
+      bakingCost: bakingCost_total,
+      cleaningCost: cleaningCost_total,
+      handlingCost: handlingCost_total,
+      ...layerCosts, // Dodaj koszty poszczególnych warstw
+      totalCost,
+      totalWithMargin,
+      totalWithSGA,
+      nettoWeight: totalWeight,
+      bruttoWeight: totalWeight,
+      bakingTime,
+      cleaningTime
+    };
+  };
+
+  // Funkcja kalkulacji kosztów dla trybu heatshield
+  const calculateHeatshieldCost = (item, tabData, sga) => {
+    const h = item.heatshield || {};
+
+    const surfaceNetto = parseFloat(h.surfaceNetto) || 0;
+    if (surfaceNetto === 0) return null;
+
+    // Pobierz parametry materiałów
+    const surfaceBruttoSheet = parseFloat(h.surfaceBruttoSheet) || 0;
+    const surfaceNettoMat = parseFloat(h.surfaceNettoMat) || 0;
+    const sheetWeight = parseFloat(h.sheetWeight) || 0;
+    const matWeight = parseFloat(h.matWeight) || 0;
+
+    const sheetPrice = parseFloat(h.sheetPrice) || 0;
+    const matPrice = parseFloat(h.matPrice) || 0;
+    const sheetPriceUnit = h.sheetPriceUnit || 'kg';
+    const matPriceUnit = h.matPriceUnit || 'm2';
+
+    // Oblicz koszty materiałów
+    let sheetCost = 0;
+    if (sheetPriceUnit === 'kg') {
+      sheetCost = (sheetWeight / 1000) * sheetPrice; // waga w gramach -> kg
+    } else {
+      sheetCost = surfaceBruttoSheet * sheetPrice; // powierzchnia w m²
+    }
+
+    let matCost = 0;
+    if (matPriceUnit === 'kg') {
+      matCost = (matWeight / 1000) * matPrice;
+    } else {
+      matCost = surfaceNettoMat * matPrice;
+    }
+
+    const materialCost_total = sheetCost + matCost;
+
+    // Procesy standardowe
+    const bendingCost = parseFloat(h.bendingCost) || 0;
+    const joiningCost = parseFloat(h.joiningCost) || 0;
+    const gluingCost = parseFloat(h.gluingCost) || 0;
+
+    // Przygotówka - interpolacja z krzywej (powierzchnia -> czas w sekundach)
+    const prepTime = interpolateFromCurve(surfaceNetto, tabData.editingCurves.heatshieldPrep || []);
+    const prepCost = parseFloat(tabData.prepCost) || 0; // €/8h
+    const prepCost_total = (prepTime / 3600) * (prepCost / 8); // sekundy -> godziny -> koszt
+
+    // Laser - interpolacja z krzywej (powierzchnia -> cena w €)
+    const laserCost_total = interpolateFromCurve(surfaceNetto, tabData.editingCurves.heatshieldLaser || []);
+
+    const totalCost = materialCost_total + prepCost_total + laserCost_total + bendingCost + joiningCost + gluingCost;
+
+    // Oblicz cenę z marżą
+    const margin = parseFloat(item.margin) || 0;
+    const totalWithMargin = totalCost * (1 + margin / 100);
+
+    // Oblicz finalną cenę z SG&A
+    const sgaPercent = parseFloat(sga) || 0;
+    const totalWithSGA = totalWithMargin * (1 + sgaPercent / 100);
+
+    return {
+      materialCost: materialCost_total,
+      prepCost: prepCost_total,
+      laserCost: laserCost_total,
+      bendingCost,
+      joiningCost,
+      gluingCost,
+      totalCost,
+      totalWithMargin,
+      totalWithSGA,
+      nettoWeight: sheetWeight, // waga blachy brutto
+      bruttoWeight: matWeight,  // waga maty brutto
+      prepTime
+    };
+  };
 
   // Funkcja kalkulacji kosztów elementu
   const calculateItemCost = (item, tabData, sga) => {
+    // Specjalna obsługa trybu heatshield
+    if (tabData.calculationType === 'heatshield') {
+      return calculateHeatshieldCost(item, tabData, sga);
+    }
+
+    // Specjalna obsługa trybu multilayer
+    if (tabData.calculationType === 'multilayer') {
+      return calculateMultilayerCost(item, tabData, sga);
+    }
+
     const nettoWeight = parseFloat(item.weight) || 0;
     if (nettoWeight === 0) return null;
 
@@ -210,95 +463,6 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     };
   };
 
-  // Interpolacja liniowa z krzywej (X→Y) z ekstrapolacją
-  const interpolateFromCurve = (x, curve) => {
-    if (!curve || curve.length === 0) return 0;
-
-    const sortedCurve = [...curve].sort((a, b) => a.x - b.x);
-
-    // Ekstrapolacja w lewo (przed pierwszym punktem)
-    if (x <= sortedCurve[0].x && sortedCurve.length >= 2) {
-      const x1 = sortedCurve[0].x;
-      const y1 = sortedCurve[0].y;
-      const x2 = sortedCurve[1].x;
-      const y2 = sortedCurve[1].y;
-      const slope = (y2 - y1) / (x2 - x1);
-      return y1 + slope * (x - x1);
-    }
-
-    // Ekstrapolacja w prawo (po ostatnim punkcie)
-    if (x >= sortedCurve[sortedCurve.length - 1].x && sortedCurve.length >= 2) {
-      const n = sortedCurve.length;
-      const x1 = sortedCurve[n - 2].x;
-      const y1 = sortedCurve[n - 2].y;
-      const x2 = sortedCurve[n - 1].x;
-      const y2 = sortedCurve[n - 1].y;
-      const slope = (y2 - y1) / (x2 - x1);
-      return y2 + slope * (x - x2);
-    }
-
-    // Interpolacja (między punktami)
-    for (let i = 0; i < sortedCurve.length - 1; i++) {
-      if (x >= sortedCurve[i].x && x <= sortedCurve[i + 1].x) {
-        const x1 = sortedCurve[i].x;
-        const y1 = sortedCurve[i].y;
-        const x2 = sortedCurve[i + 1].x;
-        const y2 = sortedCurve[i + 1].y;
-
-        const t = (x - x1) / (x2 - x1);
-        return y1 + t * (y2 - y1);
-      }
-    }
-
-    return 0;
-  };
-
-  // Odwrotna interpolacja liniowa z krzywej (Y→X) z ekstrapolacją
-  const reverseInterpolateFromCurve = (y, curve) => {
-    if (!curve || curve.length === 0) return 0;
-
-    const sortedCurve = [...curve].sort((a, b) => a.y - b.y);
-
-    // Ekstrapolacja w dół (przed pierwszym punktem)
-    if (y <= sortedCurve[0].y && sortedCurve.length >= 2) {
-      const y1 = sortedCurve[0].y;
-      const x1 = sortedCurve[0].x;
-      const y2 = sortedCurve[1].y;
-      const x2 = sortedCurve[1].x;
-      if (y2 === y1) return x1; // unikaj dzielenia przez zero
-      const slope = (x2 - x1) / (y2 - y1);
-      return x1 + slope * (y - y1);
-    }
-
-    // Ekstrapolacja w górę (po ostatnim punkcie)
-    if (y >= sortedCurve[sortedCurve.length - 1].y && sortedCurve.length >= 2) {
-      const n = sortedCurve.length;
-      const y1 = sortedCurve[n - 2].y;
-      const x1 = sortedCurve[n - 2].x;
-      const y2 = sortedCurve[n - 1].y;
-      const x2 = sortedCurve[n - 1].x;
-      if (y2 === y1) return x2; // unikaj dzielenia przez zero
-      const slope = (x2 - x1) / (y2 - y1);
-      return x2 + slope * (y - y2);
-    }
-
-    // Interpolacja (między punktami)
-    for (let i = 0; i < sortedCurve.length - 1; i++) {
-      if (y >= sortedCurve[i].y && y <= sortedCurve[i + 1].y) {
-        const y1 = sortedCurve[i].y;
-        const x1 = sortedCurve[i].x;
-        const y2 = sortedCurve[i + 1].y;
-        const x2 = sortedCurve[i + 1].x;
-
-        if (y2 === y1) return x1; // unikaj dzielenia przez zero
-        const t = (y - y1) / (y2 - y1);
-        return x1 + t * (x2 - x1);
-      }
-    }
-
-    return 0;
-  };
-
   // Obsługa aktualizacji elementu
   const handleItemUpdate = (itemId, updates) => {
     const updatedItems = tab.items.map(item => {
@@ -316,6 +480,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
   // Obsługa aktualizacji parametrów zakładki
   const handleTabParameterUpdate = (parameter, value) => {
     const updates = { [parameter]: value };
+    const newTabData = { ...tab, ...updates };
 
     // Jeśli zmieniamy na tryb powierzchnia, zeruj koszty pieczenia i czyszczenia
     if (parameter === 'calculationType' && value === 'surface') {
@@ -323,10 +488,23 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       updates.cleaningCost = '0';
     }
 
+    // Jeśli zmieniamy na tryb zaawansowany (heatshield lub multilayer), zeruj standardowe koszty
+    if (parameter === 'calculationType' && (value === 'heatshield' || value === 'multilayer')) {
+      updates.materialCost = '0';
+      updates.bakingCost = '0';
+      updates.cleaningCost = '0';
+      updates.handlingCost = '0';
+    }
+
     // Przelicz wszystkie elementy po zmianie parametru
     const updatedItems = tab.items.map(item => {
-      if (item.weight) {
-        const results = calculateItemCost(item, { ...tab, ...updates }, globalSGA);
+      // Sprawdź czy item ma dane wejściowe w zależności od trybu
+      const hasInputData = newTabData.calculationType === 'heatshield'
+        ? (item.heatshield?.surfaceNetto)
+        : item.weight;
+
+      if (hasInputData) {
+        const results = calculateItemCost(item, newTabData, globalSGA);
         return { ...item, results };
       }
       return item;
@@ -368,7 +546,30 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       volume: '',
       volumeUnit: 'mm3',
       dimensions: { length: '', width: '', height: '' },
-      volumeWeightOption: 'brutto-auto'
+      volumeWeightOption: 'brutto-auto',
+      // Pola dla trybu HEATSHIELD
+      heatshield: {
+        surfaceNettoInput: '',
+        surfaceNetto: '',
+        surfaceUnit: 'mm2',
+        sheetThickness: '',
+        sheetDensity: '',
+        sheetPrice: '',
+        sheetPriceUnit: 'kg',
+        matThickness: '',
+        matDensity: '',
+        matPrice: '',
+        matPriceUnit: 'm2',
+        bendingCost: '',
+        joiningCost: '0',
+        gluingCost: '',
+        surfaceBruttoSheet: '',
+        surfaceNettoSheet: '',
+        surfaceNettoMat: '',
+        sheetWeight: '',
+        matWeight: '',
+        totalWeight: ''
+      }
     };
 
     actions.addItem(tab.id, newItem);
@@ -398,76 +599,92 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
         darkMode={darkMode}
       />
 
-      {/* Parametry zakładki */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Koszt materiału z opcją jednostki dla trybu surface */}
-        <div>
-          <div className="flex items-center gap-2 mb-1">
-            <label className={`text-sm font-medium ${themeClasses.text.secondary}`}>
-              Koszt materiału (€/{tab.materialPriceUnit || 'kg'})
-            </label>
-            {tab.calculationType === 'surface' && (
-              <div className="flex gap-1">
-                <button
-                  onClick={() => handleTabParameterUpdate('materialPriceUnit', 'kg')}
-                  className={`px-2 py-0.5 text-xs rounded ${
-                    tab.materialPriceUnit === 'kg' || !tab.materialPriceUnit
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  €/kg
-                </button>
-                <button
-                  onClick={() => handleTabParameterUpdate('materialPriceUnit', 'm2')}
-                  className={`px-2 py-0.5 text-xs rounded ${
-                    tab.materialPriceUnit === 'm2'
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  €/m²
-                </button>
-              </div>
-            )}
+      {/* Parametry zakładki - tylko dla trybów podstawowych */}
+      {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Koszt materiału z opcją jednostki dla trybu surface */}
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <label className={`text-sm font-medium ${themeClasses.text.secondary}`}>
+                Koszt materiału (€/{tab.materialPriceUnit || 'kg'})
+              </label>
+              {tab.calculationType === 'surface' && (
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => handleTabParameterUpdate('materialPriceUnit', 'kg')}
+                    className={`px-2 py-0.5 text-xs rounded ${
+                      tab.materialPriceUnit === 'kg' || !tab.materialPriceUnit
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    €/kg
+                  </button>
+                  <button
+                    onClick={() => handleTabParameterUpdate('materialPriceUnit', 'm2')}
+                    className={`px-2 py-0.5 text-xs rounded ${
+                      tab.materialPriceUnit === 'm2'
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
+                    }`}
+                  >
+                    €/m²
+                  </button>
+                </div>
+              )}
+            </div>
+            <input
+              type="number"
+              value={tab.materialCost}
+              onChange={(e) => handleTabParameterUpdate('materialCost', e.target.value)}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="0"
+              step="0.01"
+            />
           </div>
-          <input
-            type="number"
-            value={tab.materialCost}
-            onChange={(e) => handleTabParameterUpdate('materialCost', e.target.value)}
-            className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-            min="0"
-            step="0.01"
+
+          <NumberInput
+            label="Koszt pieczenia (€/8h)"
+            value={tab.bakingCost}
+            onChange={(value) => handleTabParameterUpdate('bakingCost', value)}
+            min={0}
+            step={1}
+            themeClasses={themeClasses}
+          />
+
+          <NumberInput
+            label="Koszt czyszczenia (€/8h)"
+            value={tab.cleaningCost}
+            onChange={(value) => handleTabParameterUpdate('cleaningCost', value)}
+            min={0}
+            step={1}
+            themeClasses={themeClasses}
+          />
+
+          <NumberInput
+            label="Koszt obsługi (€/szt)"
+            value={tab.handlingCost}
+            onChange={(value) => handleTabParameterUpdate('handlingCost', value)}
+            min={0}
+            step={0.01}
+            themeClasses={themeClasses}
           />
         </div>
+      )}
 
-        <NumberInput
-          label="Koszt pieczenia (€/8h)"
-          value={tab.bakingCost}
-          onChange={(value) => handleTabParameterUpdate('bakingCost', value)}
-          min={0}
-          step={1}
-          themeClasses={themeClasses}
-        />
-
-        <NumberInput
-          label="Koszt czyszczenia (€/8h)"
-          value={tab.cleaningCost}
-          onChange={(value) => handleTabParameterUpdate('cleaningCost', value)}
-          min={0}
-          step={1}
-          themeClasses={themeClasses}
-        />
-
-        <NumberInput
-          label="Koszt obsługi (€/szt)"
-          value={tab.handlingCost}
-          onChange={(value) => handleTabParameterUpdate('handlingCost', value)}
-          min={0}
-          step={0.01}
-          themeClasses={themeClasses}
-        />
-      </div>
+      {/* Parametry dla trybu heatshield */}
+      {tab.calculationType === 'heatshield' && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <NumberInput
+            label="Koszt przygotówki (€/8h)"
+            value={tab.prepCost}
+            onChange={(value) => handleTabParameterUpdate('prepCost', value)}
+            min={0}
+            step={1}
+            themeClasses={themeClasses}
+          />
+        </div>
+      )}
 
       {/* Procesy niestandardowe */}
       <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
@@ -671,6 +888,24 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
               />
             )}
 
+            {tab.calculationType === 'heatshield' && (
+              <HeatshieldModeFields
+                item={item}
+                onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+                themeClasses={themeClasses}
+                darkMode={darkMode}
+              />
+            )}
+
+            {tab.calculationType === 'multilayer' && (
+              <MultilayerModeFields
+                item={item}
+                onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+                themeClasses={themeClasses}
+                darkMode={darkMode}
+              />
+            )}
+
             {/* Pola wspólne dla wszystkich trybów */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -809,16 +1044,60 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
                   <div>
                     <span className={themeClasses.text.secondary}>Materiał:</span>
-                    <div className="font-mono">{item.results.materialCost.toFixed(2)} €</div>
+                    <div className="font-mono">{item.results.materialCost?.toFixed(2) || '0.00'} €</div>
                   </div>
-                  <div>
-                    <span className={themeClasses.text.secondary}>Pieczenie:</span>
-                    <div className="font-mono">{item.results.bakingCost.toFixed(2)} €</div>
-                  </div>
-                  <div>
-                    <span className={themeClasses.text.secondary}>Czyszczenie:</span>
-                    <div className="font-mono">{item.results.cleaningCost.toFixed(2)} €</div>
-                  </div>
+
+                  {/* Wyświetl procesy w zależności od trybu */}
+                  {tab.calculationType === 'heatshield' ? (
+                    <>
+                      {item.results.prepCost !== undefined && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Przygotówka:</span>
+                          <div className="font-mono">{item.results.prepCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                      {item.results.laserCost !== undefined && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Laser:</span>
+                          <div className="font-mono">{item.results.laserCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                      {item.results.bendingCost > 0 && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Gięcie:</span>
+                          <div className="font-mono">{item.results.bendingCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                      {item.results.joiningCost > 0 && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Łączenie:</span>
+                          <div className="font-mono">{item.results.joiningCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                      {item.results.gluingCost > 0 && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Klejenie:</span>
+                          <div className="font-mono">{item.results.gluingCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {item.results.bakingCost !== undefined && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Pieczenie:</span>
+                          <div className="font-mono">{item.results.bakingCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                      {item.results.cleaningCost !== undefined && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Czyszczenie:</span>
+                          <div className="font-mono">{item.results.cleaningCost.toFixed(2)} €</div>
+                        </div>
+                      )}
+                    </>
+                  )}
+
                   {item.results.customCurvesCost > 0 && (
                     <div>
                       <span className={themeClasses.text.secondary}>Krzywe:</span>
@@ -827,23 +1106,31 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                   )}
                   <div>
                     <span className={themeClasses.text.secondary}>Całkowity:</span>
-                    <div className="font-mono font-bold">{item.results.totalCost.toFixed(2)} €</div>
+                    <div className="font-mono font-bold">{item.results.totalCost?.toFixed(2) || '0.00'} €</div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Przycisk usuwania */}
-            {tab.items.length > 1 && (
-              <div className="flex justify-end">
+            {/* Przyciski akcji */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => actions.duplicateItem(tab.id, item.id)}
+                className="text-blue-500 hover:text-blue-700 p-1"
+                title="Powiel element"
+              >
+                <Copy size={16} />
+              </button>
+              {tab.items.length > 1 && (
                 <button
                   onClick={() => actions.removeItem(tab.id, item.id)}
                   className="text-red-500 hover:text-red-700 p-1"
+                  title="Usuń element"
                 >
                   <Trash2 size={16} />
                 </button>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         ))}
       </div>

@@ -145,6 +145,26 @@ export function CalculatorGraphs({ tab, tabIndex, themeClasses, darkMode }) {
     return 0;
   };
 
+  const handleHeatshieldPrepCurveUpdate = (newCurveData) => {
+    const updates = {
+      editingCurves: {
+        ...tab.editingCurves,
+        heatshieldPrep: newCurveData.map(point => ({ x: point.x, y: point.y }))
+      }
+    };
+    actions.updateTab(tab.id, updates);
+  };
+
+  const handleHeatshieldLaserCurveUpdate = (newCurveData) => {
+    const updates = {
+      editingCurves: {
+        ...tab.editingCurves,
+        heatshieldLaser: newCurveData.map(point => ({ x: point.x, y: point.y }))
+      }
+    };
+    actions.updateTab(tab.id, updates);
+  };
+
   return (
     <div className={`${themeClasses.card} rounded-lg border p-6 space-y-8`}>
       <div>
@@ -152,36 +172,74 @@ export function CalculatorGraphs({ tab, tabIndex, themeClasses, darkMode }) {
           Krzywe skalowania
         </h2>
         <p className={`text-sm ${themeClasses.text.secondary}`}>
-          Edytowalne krzywe do automatycznego obliczania czasów pieczenia i czyszczenia
+          {tab.calculationType === 'heatshield'
+            ? 'Edytowalne krzywe do automatycznego obliczania czasów i kosztów dla heatshield'
+            : 'Edytowalne krzywe do automatycznego obliczania czasów pieczenia i czyszczenia'}
         </p>
       </div>
 
       <div className="space-y-8">
-        {/* Krzywa pieczenia */}
-        <EditableCurve
-          curveData={tab.editingCurves.baking.map(point => ({ x: point.weight, y: point.time }))}
-          onUpdateCurve={handleBakingCurveUpdate}
-          title="🔥 Krzywa pieczenia"
-          color="#EF4444"
-          themeClasses={themeClasses}
-          darkMode={darkMode}
-          xLabel="Waga (g)"
-          yLabel="Czas (sek)"
-          interpolationType="linear"
-        />
+        {/* Krzywe dla trybów podstawowych */}
+        {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
+          <>
+            {/* Krzywa pieczenia */}
+            <EditableCurve
+              curveData={tab.editingCurves.baking.map(point => ({ x: point.weight, y: point.time }))}
+              onUpdateCurve={handleBakingCurveUpdate}
+              title="🔥 Krzywa pieczenia"
+              color="#EF4444"
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+              xLabel="Waga (g)"
+              yLabel="Czas (sek)"
+              interpolationType="linear"
+            />
 
-        {/* Krzywa czyszczenia */}
-        <EditableCurve
-          curveData={tab.editingCurves.cleaning.map(point => ({ x: point.weight, y: point.time }))}
-          onUpdateCurve={handleCleaningCurveUpdate}
-          title="🧽 Krzywa czyszczenia"
-          color="#10B981"
-          themeClasses={themeClasses}
-          darkMode={darkMode}
-          xLabel="Waga (g)"
-          yLabel="Czas (sek)"
-          interpolationType="linear"
-        />
+            {/* Krzywa czyszczenia */}
+            <EditableCurve
+              curveData={tab.editingCurves.cleaning.map(point => ({ x: point.weight, y: point.time }))}
+              onUpdateCurve={handleCleaningCurveUpdate}
+              title="🧽 Krzywa czyszczenia"
+              color="#10B981"
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+              xLabel="Waga (g)"
+              yLabel="Czas (sek)"
+              interpolationType="linear"
+            />
+          </>
+        )}
+
+        {/* Krzywe dla trybu heatshield */}
+        {tab.calculationType === 'heatshield' && (
+          <>
+            {/* Krzywa przygotówki */}
+            <EditableCurve
+              curveData={(tab.editingCurves.heatshieldPrep || []).map(point => ({ x: point.x, y: point.y }))}
+              onUpdateCurve={handleHeatshieldPrepCurveUpdate}
+              title="🔧 Krzywa przygotówki"
+              color="#F59E0B"
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+              xLabel="Powierzchnia (m²)"
+              yLabel="Czas (sek)"
+              interpolationType="linear"
+            />
+
+            {/* Krzywa lasera */}
+            <EditableCurve
+              curveData={(tab.editingCurves.heatshieldLaser || []).map(point => ({ x: point.x, y: point.y }))}
+              onUpdateCurve={handleHeatshieldLaserCurveUpdate}
+              title="⚡ Krzywa cięcia laserowego"
+              color="#8B5CF6"
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+              xLabel="Powierzchnia (m²)"
+              yLabel="Cena (€)"
+              interpolationType="linear"
+            />
+          </>
+        )}
       </div>
 
       {/* Informacje pomocnicze */}

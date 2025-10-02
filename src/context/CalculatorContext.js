@@ -8,6 +8,7 @@ const CALCULATOR_ACTIONS = {
   UPDATE_TAB: 'UPDATE_TAB',
   REMOVE_TAB: 'REMOVE_TAB',
   ADD_ITEM: 'ADD_ITEM',
+  DUPLICATE_ITEM: 'DUPLICATE_ITEM',
   UPDATE_ITEM: 'UPDATE_ITEM',
   REMOVE_ITEM: 'REMOVE_ITEM',
   SET_DARK_MODE: 'SET_DARK_MODE',
@@ -55,6 +56,7 @@ const initialState = {
     bakingCost: '110',
     cleaningCost: '90',
     handlingCost: '0.08',
+    prepCost: '90', // Koszt przygotówki dla heatshield (€/8h)
     // Procesy niestandardowe
     customProcesses: [
       // { id: 1, name: 'Proces 1', cost: '10', unit: 'euro/szt', efficiency: '1' }
@@ -86,6 +88,25 @@ const initialState = {
         { x: 1000, y: 1200 }, // netto 1kg -> brutto 1.2kg (20% więcej)
         { x: 2000, y: 2300 }, // netto 2kg -> brutto 2.3kg (15% więcej)
         { x: 3000, y: 3300 }  // netto 3kg -> brutto 3.3kg (10% więcej)
+      ],
+      // Krzywe dla heatshield
+      heatshieldPrep: [
+        { x: 0.01, y: 30 },   // 0.01 m² -> 30 sek
+        { x: 0.05, y: 45 },   // 0.05 m² -> 45 sek
+        { x: 0.1, y: 60 },    // 0.1 m² -> 60 sek
+        { x: 0.5, y: 120 },   // 0.5 m² -> 120 sek
+        { x: 1.0, y: 180 },   // 1 m² -> 180 sek
+        { x: 2.0, y: 300 }    // 2 m² -> 300 sek
+      ],
+      heatshieldLaser: [
+        // Krzywa z progami - powierzchnia [m²] -> cena [€]
+        { x: 0.0, y: 5 },     // <0.01 m² -> 5 €
+        { x: 0.01, y: 5 },    // 0.01 m² -> 5 €
+        { x: 0.05, y: 8 },    // 0.05 m² -> 8 €
+        { x: 0.1, y: 12 },    // 0.1 m² -> 12 €
+        { x: 0.5, y: 25 },    // 0.5 m² -> 25 €
+        { x: 1.0, y: 40 },    // 1 m² -> 40 €
+        { x: 2.0, y: 70 }     // 2 m² -> 70 €
       ]
     },
     // Krzywe użytkownika (edytowalne)
@@ -199,6 +220,31 @@ function calculatorReducer(state, action) {
               }
             : tab
         )
+      };
+
+    case CALCULATOR_ACTIONS.DUPLICATE_ITEM:
+      return {
+        ...state,
+        tabs: state.tabs.map(tab => {
+          if (tab.id === action.payload.tabId) {
+            const itemToDuplicate = tab.items.find(item => item.id === action.payload.itemId);
+            if (!itemToDuplicate) return tab;
+
+            const duplicatedItem = {
+              ...itemToDuplicate,
+              id: tab.nextItemId,
+              partId: itemToDuplicate.partId ? `${itemToDuplicate.partId} (kopia)` : '',
+              results: null // Wyczyść wyniki, będą przeliczone automatycznie
+            };
+
+            return {
+              ...tab,
+              items: [...tab.items, duplicatedItem],
+              nextItemId: tab.nextItemId + 1
+            };
+          }
+          return tab;
+        })
       };
 
     case CALCULATOR_ACTIONS.UPDATE_ITEM:
@@ -464,6 +510,7 @@ export function CalculatorProvider({ children }) {
     removeTab: (id) => dispatch({ type: CALCULATOR_ACTIONS.REMOVE_TAB, payload: id }),
 
     addItem: (tabId, item) => dispatch({ type: CALCULATOR_ACTIONS.ADD_ITEM, payload: { tabId, item } }),
+    duplicateItem: (tabId, itemId) => dispatch({ type: CALCULATOR_ACTIONS.DUPLICATE_ITEM, payload: { tabId, itemId } }),
     updateItem: (tabId, itemId, updates) => dispatch({ type: CALCULATOR_ACTIONS.UPDATE_ITEM, payload: { tabId, itemId, updates } }),
     removeItem: (tabId, itemId) => dispatch({ type: CALCULATOR_ACTIONS.REMOVE_ITEM, payload: { tabId, itemId } }),
 

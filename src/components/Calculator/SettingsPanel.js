@@ -189,59 +189,111 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
         <div className="flex-1 overflow-y-auto p-6">
           {activeSection === 'curves' && (
             <div className="space-y-8">
-              {/* Krzywa pieczenia */}
-              <EditableCurve
-                curveData={tab.editingCurves.baking.map(point => ({ x: point.x, y: point.y }))}
-                onUpdateCurve={handleBakingCurveUpdate}
-                title="🔥 Krzywa pieczenia"
-                color="#EF4444"
-                themeClasses={themeClasses}
-                darkMode={darkMode}
-                xLabel="Waga (g)"
-                yLabel="Czas (sek)"
-                interpolationType="linear"
-              />
+              {/* Krzywe dla trybów podstawowych */}
+              {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
+                <>
+                  {/* Krzywa pieczenia */}
+                  <EditableCurve
+                    curveData={tab.editingCurves.baking.map(point => ({ x: point.x, y: point.y }))}
+                    onUpdateCurve={handleBakingCurveUpdate}
+                    title="🔥 Krzywa pieczenia"
+                    color="#EF4444"
+                    themeClasses={themeClasses}
+                    darkMode={darkMode}
+                    xLabel="Waga (g)"
+                    yLabel="Czas (sek)"
+                    interpolationType="linear"
+                  />
 
-              {/* Krzywa czyszczenia */}
-              <EditableCurve
-                curveData={tab.editingCurves.cleaning.map(point => ({ x: point.x, y: point.y }))}
-                onUpdateCurve={handleCleaningCurveUpdate}
-                title="🧽 Krzywa czyszczenia"
-                color="#10B981"
-                themeClasses={themeClasses}
-                darkMode={darkMode}
-                xLabel="Waga (g)"
-                yLabel="Czas (sek)"
-                interpolationType="linear"
-              />
+                  {/* Krzywa czyszczenia */}
+                  <EditableCurve
+                    curveData={tab.editingCurves.cleaning.map(point => ({ x: point.x, y: point.y }))}
+                    onUpdateCurve={handleCleaningCurveUpdate}
+                    title="🧽 Krzywa czyszczenia"
+                    color="#10B981"
+                    themeClasses={themeClasses}
+                    darkMode={darkMode}
+                    xLabel="Waga (g)"
+                    yLabel="Czas (sek)"
+                    interpolationType="linear"
+                  />
+                </>
+              )}
 
-              {/* Krzywa wagi brutto */}
-              <EditableCurve
-                curveData={tab.editingCurves.bruttoWeight.map(point => ({ x: point.x, y: point.y }))}
-                onUpdateCurve={(newCurveData) => {
-                  const updates = {
-                    editingCurves: {
-                      ...tab.editingCurves,
-                      bruttoWeight: newCurveData.map(point => ({ x: point.x, y: point.y }))
-                    }
-                  };
-                  const updatedItems = tab.items.map(item => {
-                    if (item.weight) {
-                      const results = calculateItemCost(item, { ...tab, ...updates });
-                      return { ...item, results };
-                    }
-                    return item;
-                  });
-                  actions.updateTab(tabId, { ...updates, items: updatedItems });
-                }}
-                title="⚖️ Krzywa wagi brutto"
-                color="#F59E0B"
-                themeClasses={themeClasses}
-                darkMode={darkMode}
-                xLabel="Waga netto (g)"
-                yLabel="Waga brutto (g)"
-                interpolationType="linear"
-              />
+              {/* Krzywa wagi brutto - tylko dla trybów podstawowych */}
+              {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
+                <EditableCurve
+                  curveData={tab.editingCurves.bruttoWeight.map(point => ({ x: point.x, y: point.y }))}
+                  onUpdateCurve={(newCurveData) => {
+                    const updates = {
+                      editingCurves: {
+                        ...tab.editingCurves,
+                        bruttoWeight: newCurveData.map(point => ({ x: point.x, y: point.y }))
+                      }
+                    };
+                    const updatedItems = tab.items.map(item => {
+                      if (item.weight) {
+                        const results = calculateItemCost(item, { ...tab, ...updates });
+                        return { ...item, results };
+                      }
+                      return item;
+                    });
+                    actions.updateTab(tabId, { ...updates, items: updatedItems });
+                  }}
+                  title="⚖️ Krzywa wagi brutto"
+                  color="#F59E0B"
+                  themeClasses={themeClasses}
+                  darkMode={darkMode}
+                  xLabel="Waga netto (g)"
+                  yLabel="Waga brutto (g)"
+                  interpolationType="linear"
+                />
+              )}
+
+              {/* Krzywe dla trybu heatshield */}
+              {tab.calculationType === 'heatshield' && (
+                <>
+                  <EditableCurve
+                    curveData={(tab.editingCurves.heatshieldPrep || []).map(point => ({ x: point.x, y: point.y }))}
+                    onUpdateCurve={(newCurveData) => {
+                      const updates = {
+                        editingCurves: {
+                          ...tab.editingCurves,
+                          heatshieldPrep: newCurveData.map(point => ({ x: point.x, y: point.y }))
+                        }
+                      };
+                      actions.updateTab(tabId, updates);
+                    }}
+                    title="🔧 Krzywa przygotówki"
+                    color="#F59E0B"
+                    themeClasses={themeClasses}
+                    darkMode={darkMode}
+                    xLabel="Powierzchnia (m²)"
+                    yLabel="Czas (sek)"
+                    interpolationType="linear"
+                  />
+
+                  <EditableCurve
+                    curveData={(tab.editingCurves.heatshieldLaser || []).map(point => ({ x: point.x, y: point.y }))}
+                    onUpdateCurve={(newCurveData) => {
+                      const updates = {
+                        editingCurves: {
+                          ...tab.editingCurves,
+                          heatshieldLaser: newCurveData.map(point => ({ x: point.x, y: point.y }))
+                        }
+                      };
+                      actions.updateTab(tabId, updates);
+                    }}
+                    title="⚡ Krzywa cięcia laserowego"
+                    color="#8B5CF6"
+                    themeClasses={themeClasses}
+                    darkMode={darkMode}
+                    xLabel="Powierzchnia (m²)"
+                    yLabel="Cena (€)"
+                    interpolationType="linear"
+                  />
+                </>
+              )}
             </div>
           )}
 
