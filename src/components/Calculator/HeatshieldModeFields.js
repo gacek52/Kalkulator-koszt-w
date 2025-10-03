@@ -12,14 +12,14 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
 
     const defaults = {};
 
-    // Ustaw domyślne wartości tylko jeśli pole nie istnieje
-    if (item.heatshield.sheetDensity === undefined || item.heatshield.sheetDensity === '') {
+    // Ustaw domyślne wartości tylko jeśli pole nie istnieje lub jest puste
+    if (!item.heatshield.sheetDensity || item.heatshield.sheetDensity === '') {
       defaults.sheetDensity = '7850';
     }
-    if (item.heatshield.bendingCost === undefined || item.heatshield.bendingCost === '') {
+    if (!item.heatshield.bendingCost || item.heatshield.bendingCost === '') {
       defaults.bendingCost = '0.08';
     }
-    if (item.heatshield.joiningCost === undefined || item.heatshield.joiningCost === '') {
+    if (!item.heatshield.joiningCost || item.heatshield.joiningCost === '') {
       defaults.joiningCost = '0';
     }
 
@@ -32,7 +32,12 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Uruchom tylko raz przy montowaniu
+  }, [
+    item.heatshield?.surfaceNetto,
+    item.heatshield?.sheetDensity,
+    item.heatshield?.bendingCost,
+    item.heatshield?.joiningCost
+  ]);
 
   // Auto-obliczanie powierzchni i wag
   useEffect(() => {
@@ -92,7 +97,13 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
     item.heatshield?.matThickness
   ]);
 
-  const heatshield = item.heatshield || {};
+  // Merge z domyślnymi wartościami przy każdym renderze
+  const heatshield = {
+    sheetDensity: '7850',
+    bendingCost: '0.08',
+    joiningCost: '0',
+    ...(item.heatshield || {})
+  };
 
   return (
     <div className="space-y-4">
