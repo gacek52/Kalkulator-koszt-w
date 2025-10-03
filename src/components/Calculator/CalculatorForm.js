@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { Plus, Trash2, Settings, Copy } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
+import { usePackaging } from '../../context/PackagingContext';
 import { NumberInput } from '../Common/NumberInput';
 import { SelectInput } from '../Common/SelectInput';
 import { CalculationTypeSelector } from './CalculationTypeSelector';
@@ -8,12 +9,14 @@ import { SurfaceModeFields } from './SurfaceModeFields';
 import { VolumeModeFields } from './VolumeModeFields';
 import { HeatshieldModeFields } from './HeatshieldModeFields';
 import { MultilayerModeFields } from './MultilayerModeFields';
+import { PackagingCalculation } from './PackagingCalculation';
 
 /**
  * Formularz kalkulacji materiałów i procesów
  */
 export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMode, onOpenSettings }) {
   const { actions } = useCalculator();
+  const { state: packagingState } = usePackaging();
 
   // Przelicz wszystkie items gdy zmienia się globalSGA lub parametry zakładki
   useEffect(() => {
@@ -174,10 +177,12 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const cleaningCost = parseFloat(tabData.cleaningCost) || 0;
     const handlingCost = parseFloat(tabData.handlingCost) || 0;
 
-    // Suma wag wszystkich warstw dla procesów
-    const totalWeight = m.layers.reduce((sum, l) => sum + (parseFloat(l.weightNetto) || 0), 0);
+    // Suma wag wszystkich warstw dla procesów - używamy BRUTTO (za cały materiał trzeba zapłacić)
+    const totalWeightNetto = m.layers.reduce((sum, l) => sum + (parseFloat(l.weightNetto) || 0), 0);
+    const totalWeightBrutto = m.layers.reduce((sum, l) => sum + (parseFloat(l.weightBrutto) || 0), 0);
+    const totalWeight = Math.max(totalWeightNetto, totalWeightBrutto);
 
-    // Interpolacja z krzywych bazując na całkowitej wadze
+    // Interpolacja z krzywych bazując na całkowitej wadze brutto
     const bakingTime = interpolateFromCurve(totalWeight, tabData.editingCurves.baking);
     const bakingCost_total = (bakingTime / 3600) * (bakingCost / 8);
 
@@ -252,13 +257,17 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const joiningCost = parseFloat(h.joiningCost) || 0;
     const gluingCost = parseFloat(h.gluingCost) || 0;
 
+    // Dla procesów używamy większej powierzchni (brutto blachy jeśli większa)
+    // Za cały materiał trzeba zapłacić
+    const surfaceForProcesses = Math.max(surfaceNetto, surfaceBruttoSheet);
+
     // Przygotówka - interpolacja z krzywej (powierzchnia -> czas w sekundach)
-    const prepTime = interpolateFromCurve(surfaceNetto, tabData.editingCurves.heatshieldPrep || []);
+    const prepTime = interpolateFromCurve(surfaceForProcesses, tabData.editingCurves.heatshieldPrep || []);
     const prepCost = parseFloat(tabData.prepCost) || 0; // €/8h
     const prepCost_total = (prepTime / 3600) * (prepCost / 8); // sekundy -> godziny -> koszt
 
     // Laser - interpolacja z krzywej (powierzchnia -> cena w €)
-    const laserCost_total = interpolateFromCurve(surfaceNetto, tabData.editingCurves.heatshieldLaser || []);
+    const laserCost_total = interpolateFromCurve(surfaceForProcesses, tabData.editingCurves.heatshieldLaser || []);
 
     const totalCost = materialCost_total + prepCost_total + laserCost_total + bendingCost + joiningCost + gluingCost;
 
@@ -287,6 +296,40 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
   };
 
   // Funkcja kalkulacji kosztów elementu
+  // Oblicz koszt pakowania per detal
+  const calculatePackagingCost = (item) => {
+    if (!item.packaging) return 0;
+
+    const partsPerLayer = parseFloat(item.packaging.partsPerLayer) || 0;
+    const layers = parseFloat(item.packaging.layers) || 0;
+
+    const partsInBox = item.packaging.manualPartsInBox
+      ? parseFloat(item.packaging.partsInBox) || 0
+      : partsPerLayer * layers;
+
+    if (partsInBox === 0) return 0;
+
+    // Dla niestandardowej kompozycji
+    if (item.packaging.compositionId === 'custom') {
+      const customPrice = parseFloat(item.packaging.customPrice) || 0;
+      return customPrice / partsInBox;
+    }
+
+    // Dla standardowej kompozycji
+    if (!item.packaging.compositionId) return 0;
+
+    const composition = packagingState.compositions.find(
+      c => c.id === parseInt(item.packaging.compositionId)
+    );
+
+    if (!composition) return 0;
+
+    const partsPerPallet = partsInBox * composition.packagesPerPallet;
+    const partsPerSpace = partsPerPallet * composition.palletsPerSpace;
+
+    return composition.compositionCost / partsPerSpace;
+  };
+
   const calculateItemCost = (item, tabData, sga) => {
     // Specjalna obsługa trybu heatshield
     if (tabData.calculationType === 'heatshield') {
@@ -301,9 +344,13 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const nettoWeight = parseFloat(item.weight) || 0;
     if (nettoWeight === 0) return null;
 
-    // Oblicz wagę brutto w zależności od opcji
+    // Oblicz wagę brutto w zależności od opcji i trybu
     let bruttoWeight = nettoWeight;
-    if (item.weightOption === 'brutto-auto') {
+
+    if (tabData.calculationType === 'surface') {
+      // W trybie surface bruttoWeight jest obliczane w SurfaceModeFields z arkusza
+      bruttoWeight = parseFloat(item.bruttoWeight) || nettoWeight;
+    } else if (item.weightOption === 'brutto-auto') {
       // Interpolacja z krzywej brutto
       bruttoWeight = interpolateFromCurve(nettoWeight, tabData.editingCurves.bruttoWeight);
     } else if (item.weightOption === 'brutto-manual') {
@@ -320,20 +367,31 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     if (tabData.calculationType === 'surface' && tabData.materialPriceUnit === 'm2') {
       // Tryb powierzchnia z ceną za m²
       const surfaceBrutto = parseFloat(item.surfaceBrutto) || 0;
-      materialCost_total = surfaceBrutto * materialCost;
+      const surfaceNetto = item.surfaceUnit === 'mm2'
+        ? (parseFloat(item.surfaceArea) || 0) / 1000000
+        : (parseFloat(item.surfaceArea) || 0);
+
+      // Używamy większej powierzchni (brutto jeśli dostępna i większa)
+      const surfaceForCost = surfaceBrutto > surfaceNetto ? surfaceBrutto : surfaceNetto;
+      materialCost_total = surfaceForCost * materialCost;
     } else {
       // Domyślnie: cena za kg (używamy wagi brutto)
       materialCost_total = (bruttoWeight / 1000) * materialCost;
     }
 
-    // Interpolacja czasu pieczenia z krzywej - używamy wagi netto dla procesów
-    const bakingTime = interpolateFromCurve(nettoWeight, tabData.editingCurves.baking);
+    // Dla procesów (pieczenie, czyszczenie) ZAWSZE używamy większej wartości (brutto jeśli dostępna)
+    // W trybie surface item.bruttoWeight jest obliczane z surfaceBrutto
+    // Za całość materiału trzeba zapłacić, więc bierzemy większą wartość
+    const weightForProcesses = Math.max(bruttoWeight, nettoWeight);
+
+    // Interpolacja czasu pieczenia z krzywej - używamy wagi brutto dla procesów
+    const bakingTime = interpolateFromCurve(weightForProcesses, tabData.editingCurves.baking);
     const bakingCost_total = (bakingTime / 3600) * (bakingCost / 8); // sekundy -> godziny -> koszt
 
-    // Oblicz koszt czyszczenia
+    // Oblicz koszt czyszczenia - używamy wagi brutto
     let cleaningCost_total = 0;
     if (item.cleaningOption === 'scaled') {
-      const cleaningTime = interpolateFromCurve(nettoWeight, tabData.editingCurves.cleaning);
+      const cleaningTime = interpolateFromCurve(weightForProcesses, tabData.editingCurves.cleaning);
       cleaningCost_total = (cleaningTime / 3600) * (cleaningCost / 8);
     } else {
       const manualTime = parseFloat(item.manualCleaningTime) || 0;
@@ -355,7 +413,8 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
           customProcessesCost += processCost * efficiency;
           break;
         case 'euro/kg':
-          customProcessesCost += processCost * (nettoWeight / 1000) * efficiency;
+          // Używamy wagi brutto (weightForProcesses) - za całość materiału trzeba zapłacić
+          customProcessesCost += processCost * (weightForProcesses / 1000) * efficiency;
           break;
         case 'euro/8h':
           // Dla euro/8h: efficiency = ile części na zmianę, więc koszt = processCost / efficiency
@@ -433,7 +492,10 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       });
     }
 
-    const totalCost = materialCost_total + bakingCost_total + cleaningCost_total + handlingCost_total + customProcessesCost + customCurvesCost;
+    // Koszt pakowania
+    const packagingCost = calculatePackagingCost(item);
+
+    const totalCost = materialCost_total + bakingCost_total + cleaningCost_total + handlingCost_total + customProcessesCost + customCurvesCost + packagingCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -451,6 +513,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       customProcessesCost,
       customCurvesCost,
       customCurveCosts,
+      packagingCost,
       totalCost,
       totalWithMargin,
       totalWithSGA,
@@ -475,6 +538,129 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     });
 
     actions.updateTab(tab.id, { items: updatedItems });
+  };
+
+  // Sprawdza czy zakładka ma wypełnione dane wprowadzone przez użytkownika
+  const hasTabData = () => {
+    // Sprawdzamy tylko rzeczywiste dane wprowadzone przez użytkownika w items
+    // Pomijamy puste stringi i undefined
+    const hasItemData = tab.items.some(item => {
+      // Podstawowe pola (pomijamy puste wartości)
+      if (item.weight && item.weight !== '') return true;
+      if (item.partId && item.partId !== '') return true;
+      if (item.annualVolume && item.annualVolume !== '') return true;
+      if (item.margin && item.margin !== '') return true;
+
+      // Pola dla trybu surface
+      if (item.surfaceNetto && item.surfaceNetto !== '') return true;
+      if (item.surfaceBrutto && item.surfaceBrutto !== '') return true;
+      if (item.sheetLength && item.sheetLength !== '') return true;
+      if (item.sheetWidth && item.sheetWidth !== '') return true;
+      if (item.partsPerSheet && item.partsPerSheet !== '') return true;
+
+      // Pola dla trybu volume
+      if (item.volumeLength && item.volumeLength !== '') return true;
+      if (item.volumeWidth && item.volumeWidth !== '') return true;
+      if (item.volumeHeight && item.volumeHeight !== '') return true;
+
+      // Pola dla trybu heatshield (pomijamy domyślne wartości)
+      if (item.heatshield) {
+        const h = item.heatshield;
+        if (h.surfaceNettoInput && h.surfaceNettoInput !== '') return true;
+        if (h.sheetThickness && h.sheetThickness !== '') return true;
+        if (h.sheetPrice && h.sheetPrice !== '') return true;
+        if (h.matThickness && h.matThickness !== '') return true;
+        if (h.matDensity && h.matDensity !== '') return true;
+        if (h.matPrice && h.matPrice !== '') return true;
+        if (h.gluingCost && h.gluingCost !== '') return true;
+        // Pomijamy sheetDensity, bendingCost i joiningCost bo mają wartości domyślne
+      }
+
+      // Pola dla trybu multilayer
+      if (item.multilayer?.layers && item.multilayer.layers.length > 0) {
+        return item.multilayer.layers.some(layer => {
+          if (layer.surfaceNettoInput && layer.surfaceNettoInput !== '') return true;
+          if (layer.thickness && layer.thickness !== '') return true;
+          if (layer.density && layer.density !== '') return true;
+          if (layer.price && layer.price !== '') return true;
+          if (layer.sheetLength && layer.sheetLength !== '') return true;
+          if (layer.sheetWidth && layer.sheetWidth !== '') return true;
+          if (layer.partsPerSheet && layer.partsPerSheet !== '') return true;
+          return false;
+        });
+      }
+
+      return false;
+    });
+
+    return hasItemData;
+  };
+
+  // Resetuje zakładkę do stanu początkowego
+  const handleResetTab = () => {
+    // Resetuj tylko items do domyślnego stanu
+    // Zachowaj wszystkie parametry zakładki (koszty, krzywe, procesy)
+    actions.updateTab(tab.id, {
+      items: [{
+        id: 1,
+        partId: '',
+        weight: '',
+        margin: '',
+        annualVolume: '',
+        weightOption: 'netto',
+        cleaningOption: 'scaled',
+        bruttoWeight: '',
+        manualCleaningTime: '',
+        customValues: {},
+        customCurveValues: {},
+        results: null,
+        // Pola dla trybu WAGA
+        weightUnit: 'g',
+        // Pola dla trybu POWIERZCHNIA
+        surfaceArea: '',
+        surfaceUnit: 'mm2',
+        thickness: '',
+        density: '',
+        surfaceWeight: '',
+        surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
+        sheetLength: '1000',
+        sheetWidth: '1000',
+        partsPerSheet: '',
+        surfaceBrutto: '',
+        // Pola dla trybu OBJĘTOŚĆ
+        volume: '',
+        volumeUnit: 'mm3',
+        dimensions: { length: '', width: '', height: '' },
+        volumeWeightOption: 'brutto-auto',
+        // Pola dla trybu HEATSHIELD
+        heatshield: {
+          surfaceNettoInput: '',
+          surfaceNetto: '',
+          surfaceUnit: 'mm2',
+          sheetThickness: '',
+          sheetDensity: '',
+          sheetPrice: '',
+          sheetPriceUnit: 'kg',
+          matThickness: '',
+          matDensity: '',
+          matPrice: '',
+          matPriceUnit: 'm2',
+          bendingCost: '',
+          joiningCost: '0',
+          gluingCost: '',
+          surfaceBruttoSheet: '',
+          surfaceNettoSheet: '',
+          surfaceNettoMat: '',
+          sheetWeight: '',
+          matWeight: ''
+        },
+        // Pola dla trybu MULTILAYER
+        multilayer: {
+          layers: []
+        }
+      }],
+      nextItemId: 2
+    });
   };
 
   // Obsługa aktualizacji parametrów zakładki
@@ -595,6 +781,8 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       <CalculationTypeSelector
         calculationType={tab.calculationType || 'weight'}
         onChange={(type) => handleTabParameterUpdate('calculationType', type)}
+        onReset={handleResetTab}
+        hasData={hasTabData}
         themeClasses={themeClasses}
         darkMode={darkMode}
       />
@@ -828,7 +1016,11 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                       step="0.1"
                     />
                     {item.results && item.weightOption !== 'netto' && (
-                      <div className={`text-xs mt-1 ${themeClasses.text.secondary}`}>
+                      <div className={`text-xs mt-1 ${
+                        item.results.bruttoWeight < item.results.nettoWeight
+                          ? 'text-red-600 dark:text-red-400 font-semibold'
+                          : themeClasses.text.secondary
+                      }`}>
                         Brutto: {item.results.bruttoWeight.toFixed(1)}g
                       </div>
                     )}
@@ -938,6 +1130,14 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                 />
               </div>
             </div>
+
+            {/* Pakowanie */}
+            <PackagingCalculation
+              item={item}
+              onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+            />
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
@@ -1102,6 +1302,12 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                     <div>
                       <span className={themeClasses.text.secondary}>Krzywe:</span>
                       <div className="font-mono">{item.results.customCurvesCost.toFixed(2)} €</div>
+                    </div>
+                  )}
+                  {item.results.packagingCost > 0 && (
+                    <div>
+                      <span className={themeClasses.text.secondary}>Pakowanie:</span>
+                      <div className="font-mono">{item.results.packagingCost.toFixed(4)} €</div>
                     </div>
                   )}
                   <div>

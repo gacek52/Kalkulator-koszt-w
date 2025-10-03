@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { Plus, Trash2, TrendingUp } from 'lucide-react';
 import { useInterpolation, useCurveValidation } from '../../hooks/useInterpolation';
@@ -21,6 +21,9 @@ export function EditableCurve({
 }) {
   const { validatePoints, removeDuplicates, ensureMinimumPoints } = useCurveValidation();
   const interpolate = useInterpolation(curveData, interpolationType);
+  const [draggingPoint, setDraggingPoint] = useState(null);
+  const chartContainerRef = useRef(null);
+  const chartDimensionsRef = useRef({ minX: 0, maxX: 100, minY: 0, maxY: 100, width: 0, height: 0 });
 
   // Przygotuj dane dla wykresu
   const chartData = curveData
@@ -78,6 +81,116 @@ export function EditableCurve({
 
   const displayData = interpolationType === 'spline' ? generateSmoothCurve() : chartData;
 
+  // Obsługa kliknięcia na wykres (dodawanie punktu)
+  const handleChartClick = (e) => {
+    if (readonly || !e || !e.activeLabel || draggingPoint !== null) return;
+
+    // Nie dodawaj punktu jeśli kliknięto na istniejący punkt
+    const clickedX = parseFloat(e.activeLabel);
+    const tolerance = 5; // tolerancja w jednostkach X
+    const existingPoint = curveData.find(p => Math.abs(p.x - clickedX) < tolerance);
+
+    if (existingPoint) return;
+
+    // Dodaj nowy punkt w miejscu kliknięcia
+    const interpolatedY = interpolate(clickedX);
+
+    const newPoint = { x: Math.round(clickedX * 10) / 10, y: Math.round(interpolatedY * 10) / 10 };
+    const newCurve = [...curveData, newPoint].sort((a, b) => a.x - b.x);
+
+    onUpdateCurve(newCurve);
+  };
+
+  // Oblicz wymiary wykresu i zakresy
+  useEffect(() => {
+    if (curveData.length >= 2) {
+      const sortedPoints = [...curveData].sort((a, b) => a.x - b.x);
+      const minX = sortedPoints[0].x;
+      const maxX = sortedPoints[sortedPoints.length - 1].x;
+      const minY = Math.min(...curveData.map(p => p.y));
+      const maxY = Math.max(...curveData.map(p => p.y));
+
+      chartDimensionsRef.current = {
+        minX,
+        maxX: maxX + (maxX - minX) * 0.1, // dodaj 10% marginesu
+        minY: Math.max(0, minY - (maxY - minY) * 0.1),
+        maxY: maxY + (maxY - minY) * 0.1,
+        width: 0,
+        height: 0
+      };
+    }
+  }, [curveData]);
+
+  // Transformacja współrzędnych ekranu na współrzędne wykresu
+  const screenToChartCoords = (clientX, clientY) => {
+    if (!chartContainerRef.current) return null;
+
+    const rect = chartContainerRef.current.getBoundingClientRect();
+    const margin = { left: 60, right: 30, top: 20, bottom: 50 };
+
+    const chartWidth = rect.width - margin.left - margin.right;
+    const chartHeight = rect.height - margin.top - margin.bottom;
+
+    const relX = clientX - rect.left - margin.left;
+    const relY = clientY - rect.top - margin.top;
+
+    const { minX, maxX, minY, maxY } = chartDimensionsRef.current;
+
+    const x = minX + (relX / chartWidth) * (maxX - minX);
+    const y = maxY - (relY / chartHeight) * (maxY - minY);
+
+    return { x: Math.max(minX, Math.min(maxX, x)), y: Math.max(0, y) };
+  };
+
+  // Obsługa ruchu myszy podczas przeciągania
+  const handleMouseMove = (e) => {
+    if (draggingPoint === null || readonly) return;
+
+    const coords = screenToChartCoords(e.clientX, e.clientY);
+    if (!coords) return;
+
+    const newCurve = [...curveData];
+    newCurve[draggingPoint] = {
+      x: Math.round(coords.x * 10) / 10,
+      y: Math.round(coords.y * 10) / 10
+    };
+
+    onUpdateCurve(newCurve);
+  };
+
+  // Obsługa rozpoczęcia przeciągania punktu
+  const handlePointMouseDown = (index, e) => {
+    if (readonly) return;
+    e.stopPropagation();
+    setDraggingPoint(index);
+  };
+
+  // Obsługa podwójnego kliknięcia na punkt (usuwanie)
+  const handlePointDoubleClick = (index, e) => {
+    if (readonly) return;
+    e.preventDefault();
+    e.stopPropagation();
+    removePoint(index);
+  };
+
+  // Obsługa zakończenia przeciągania
+  const handleMouseUp = () => {
+    setDraggingPoint(null);
+  };
+
+  // Globalne event listenery dla przeciągania
+  useEffect(() => {
+    if (draggingPoint !== null) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [draggingPoint]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Custom dot component dla punktów kontrolnych
   const ControlPoint = (props) => {
     const { cx, cy, payload } = props;
@@ -85,17 +198,28 @@ export function EditableCurve({
     // Nie pokazuj punktów dla wygenerowanych danych
     if (payload.isGenerated) return null;
 
+    const pointIndex = payload.index;
+
     return (
-      <circle
-        cx={cx}
-        cy={cy}
-        r={6}
-        fill={color}
-        stroke={darkMode ? "#1F2937" : "#FFFFFF"}
-        strokeWidth={2}
-        style={{ cursor: readonly ? 'default' : 'grab' }}
-        className={readonly ? '' : 'hover:r-8 transition-all'}
-      />
+      <g>
+        <circle
+          cx={cx}
+          cy={cy}
+          r={draggingPoint === pointIndex ? 8 : 6}
+          fill={color}
+          stroke={darkMode ? "#1F2937" : "#FFFFFF"}
+          strokeWidth={2}
+          style={{ cursor: readonly ? 'default' : (draggingPoint === pointIndex ? 'grabbing' : 'grab') }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+            handlePointMouseDown(pointIndex, e.nativeEvent || e);
+          }}
+          onDoubleClick={(e) => {
+            e.stopPropagation();
+            handlePointDoubleClick(pointIndex, e.nativeEvent || e);
+          }}
+        />
+      </g>
     );
   };
 
@@ -113,10 +237,18 @@ export function EditableCurve({
 
       <div className={`grid grid-cols-1 ${showTable ? 'lg:grid-cols-2' : ''} gap-6`}>
         {/* Wykres interaktywny */}
-        <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
+        <div
+          ref={chartContainerRef}
+          className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}
+          style={{ userSelect: 'none' }}
+        >
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={displayData} margin={{ top: 20, right: 30, left: 20, bottom: 20 }}>
+              <LineChart
+                data={displayData}
+                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+                onClick={handleChartClick}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#E5E7EB"} />
                 <XAxis
                   dataKey="x"
@@ -149,6 +281,11 @@ export function EditableCurve({
               </LineChart>
             </ResponsiveContainer>
           </div>
+          {!readonly && (
+            <div className={`text-xs mt-2 ${themeClasses.text?.secondary || 'text-gray-500'}`}>
+              💡 Kliknij na wykres aby dodać punkt, podwójnie kliknij punkt aby usunąć, przeciągnij punkt aby go przesunąć
+            </div>
+          )}
         </div>
 
         {/* Tabela z danymi */}

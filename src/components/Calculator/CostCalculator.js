@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Calculator, Sun, Moon, ArrowLeft, Save, ChevronDown } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
@@ -12,7 +12,7 @@ import { CalculatorCsvExportButton } from '../Common/CsvExportButton';
 /**
  * Główny komponent kalkulatora kosztów
  */
-export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
+export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }) {
   const { state, actions } = useCalculator();
   const { tabs, activeTab, globalSGA, darkMode, calculationMeta, hasUnsavedChanges } = state;
   const { state: catalogState, actions: catalogActions } = useCatalog();
@@ -127,6 +127,13 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
     setShowSaveMenu(false);
   };
 
+  // Udostępnij funkcję zapisu przez ref
+  useEffect(() => {
+    if (onSaveRef) {
+      onSaveRef.current = () => saveCalculation(false);
+    }
+  }, [onSaveRef, saveCalculation]);
+
   // Obsługa dodawania nowej zakładki
   const handleAddTab = () => {
     const newTab = {
@@ -163,18 +170,82 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
           { x: 1000, y: 1200 },
           { x: 2000, y: 2300 },
           { x: 3000, y: 3300 }
+        ],
+        heatshieldPrep: [
+          { x: 0.01, y: 30 },
+          { x: 0.05, y: 45 },
+          { x: 0.1, y: 60 },
+          { x: 0.5, y: 120 },
+          { x: 1.0, y: 180 },
+          { x: 2.0, y: 300 }
+        ],
+        heatshieldLaser: [
+          { x: 0.0, y: 5 },
+          { x: 0.01, y: 5 },
+          { x: 0.05, y: 8 },
+          { x: 0.1, y: 12 },
+          { x: 0.5, y: 25 },
+          { x: 1.0, y: 40 },
+          { x: 2.0, y: 70 }
         ]
       },
       items: [{
         id: 1,
         partId: '',
         weight: '',
+        margin: '',
+        annualVolume: '',
         weightOption: 'netto',
         bruttoWeight: '',
         cleaningOption: 'scaled',
         manualCleaningTime: '45',
         customValues: {},
-        results: null
+        customCurveValues: {},
+        results: null,
+        // Pola dla trybu WAGA
+        weightUnit: 'g',
+        // Pola dla trybu POWIERZCHNIA
+        surfaceArea: '',
+        surfaceUnit: 'mm2',
+        thickness: '',
+        density: '',
+        surfaceWeight: '',
+        surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
+        sheetLength: '1000',
+        sheetWidth: '1000',
+        partsPerSheet: '',
+        surfaceBrutto: '',
+        // Pola dla trybu OBJĘTOŚĆ
+        volume: '',
+        volumeUnit: 'mm3',
+        dimensions: { length: '', width: '', height: '' },
+        volumeWeightOption: 'brutto-auto',
+        // Pola dla trybu HEATSHIELD
+        heatshield: {
+          surfaceNettoInput: '',
+          surfaceNetto: '',
+          surfaceUnit: 'mm2',
+          sheetThickness: '',
+          sheetDensity: '',
+          sheetPrice: '',
+          sheetPriceUnit: 'kg',
+          matThickness: '',
+          matDensity: '',
+          matPrice: '',
+          matPriceUnit: 'm2',
+          bendingCost: '',
+          joiningCost: '0',
+          gluingCost: '',
+          surfaceBruttoSheet: '',
+          surfaceNettoSheet: '',
+          surfaceNettoMat: '',
+          sheetWeight: '',
+          matWeight: ''
+        },
+        // Pola dla trybu MULTILAYER
+        multilayer: {
+          layers: []
+        }
       }],
       nextItemId: 2
     };
@@ -183,9 +254,28 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
     actions.setActiveTab(tabs.length);
   };
 
-  // Obsługa importu danych
+  // Obsługa importu danych z migracją
   const handleImport = (data) => {
-    actions.loadData(data);
+    // Migracja danych - dodaj brakujące pola z domyślnymi wartościami
+    const migratedData = {
+      globalSGA: data.globalSGA || '12',
+      tabs: data.tabs || [],
+      activeTab: data.activeTab ?? 0,
+      nextTabId: data.nextTabId ?? (data.tabs?.length + 1 || 2),
+      darkMode: data.darkMode ?? true,
+      calculationMeta: data.calculationMeta ?? {
+        client: '',
+        status: 'draft',
+        notes: '',
+        createdDate: new Date().toISOString(),
+        modifiedDate: new Date().toISOString(),
+        catalogId: null
+      },
+      hasUnsavedChanges: false
+    };
+
+    actions.loadData(migratedData);
+    alert('Dane zostały pomyślnie zaimportowane!');
   };
 
   // Obsługa edycji nazwy zakładki
@@ -207,13 +297,16 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
     setEditingTabName('');
   };
 
-  // Przygotuj dane do eksportu
+  // Przygotuj dane do eksportu - wszystkie dane potrzebne do pełnego odtworzenia stanu
   const exportData = {
-    version: '2.0',
+    version: '2.1',
     exportDate: new Date().toISOString(),
     globalSGA,
     tabs,
-    darkMode
+    activeTab,
+    nextTabId: state.nextTabId,
+    darkMode,
+    calculationMeta
   };
 
   return (
@@ -388,40 +481,29 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad }) {
             </div>
           </div>
 
-          <div className="relative">
+          <div className="relative flex">
             <button
-              onClick={() => setShowSaveMenu(!showSaveMenu)}
-              className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.success} flex items-center gap-2`}
+              onClick={() => saveCalculation(false)}
+              className={`px-4 py-2 rounded-l-lg font-medium ${themeClasses.button.success} flex items-center gap-2`}
             >
               <Save size={16} />
-              Zapisz do katalogu
+              {existingCalculation ? 'Nadpisz kalkulację' : 'Zapisz do katalogu'}
+            </button>
+            <button
+              onClick={() => setShowSaveMenu(!showSaveMenu)}
+              className={`px-2 py-2 rounded-r-lg font-medium ${themeClasses.button.success} border-l ${darkMode ? 'border-green-700' : 'border-green-600'}`}
+            >
               <ChevronDown size={16} />
             </button>
 
             {showSaveMenu && (
               <div className={`absolute top-full left-0 mt-1 ${themeClasses.card} rounded-lg border shadow-lg z-10 min-w-[200px]`}>
-                {existingCalculation && (
-                  <button
-                    onClick={() => saveCalculation(false)}
-                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-t-lg`}
-                  >
-                    Nadpisz kalkulację
-                  </button>
-                )}
                 <button
                   onClick={() => saveCalculation(true)}
-                  className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} ${existingCalculation ? '' : 'rounded-t-lg'}`}
+                  className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-t-lg`}
                 >
                   Zapisz jako nowy wariant
                 </button>
-                {!existingCalculation && (
-                  <button
-                    onClick={() => saveCalculation(false)}
-                    className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary}`}
-                  >
-                    Zapisz nową kalkulację
-                  </button>
-                )}
                 <button
                   onClick={() => setShowSaveMenu(false)}
                   className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.secondary} rounded-b-lg border-t ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}

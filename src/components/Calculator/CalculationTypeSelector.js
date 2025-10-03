@@ -1,10 +1,13 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Scale, Square, Box, Shield, Layers } from 'lucide-react';
+import { CalculationTypeSwitchModal } from './CalculationTypeSwitchModal';
 
 /**
  * Komponent do wyboru trybu kalkulacji
  */
-export function CalculationTypeSelector({ calculationType, onChange, themeClasses, darkMode }) {
+export function CalculationTypeSelector({ calculationType, onChange, onReset, hasData, themeClasses, darkMode }) {
+  const [pendingType, setPendingType] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const basicTypes = [
     {
       value: 'weight',
@@ -41,6 +44,38 @@ export function CalculationTypeSelector({ calculationType, onChange, themeClasse
     }
   ];
 
+  const handleTypeClick = (newType) => {
+    // Jeśli to ten sam typ, nie rób nic
+    if (calculationType === newType) return;
+
+    // Sprawdź czy są dane
+    if (hasData && hasData()) {
+      // Pokaż modal ostrzegawczy
+      setPendingType(newType);
+      setShowModal(true);
+    } else {
+      // Brak danych, zmień typ bezpośrednio
+      onChange(newType);
+    }
+  };
+
+  const handleConfirmSwitch = () => {
+    // Resetuj zakładkę
+    if (onReset) {
+      onReset();
+    }
+    // Zmień typ
+    onChange(pendingType);
+    // Zamknij modal
+    setShowModal(false);
+    setPendingType(null);
+  };
+
+  const handleCancelSwitch = () => {
+    setShowModal(false);
+    setPendingType(null);
+  };
+
   const renderTypeButton = (type) => {
     const Icon = type.icon;
     const isSelected = calculationType === type.value;
@@ -48,7 +83,7 @@ export function CalculationTypeSelector({ calculationType, onChange, themeClasse
     return (
       <button
         key={type.value}
-        onClick={() => onChange(type.value)}
+        onClick={() => handleTypeClick(type.value)}
         className={`
           p-3 rounded-lg border-2 transition-all
           ${isSelected
@@ -95,6 +130,15 @@ export function CalculationTypeSelector({ calculationType, onChange, themeClasse
           {advancedTypes.map(renderTypeButton)}
         </div>
       </div>
+
+      {/* Modal ostrzegawczy */}
+      <CalculationTypeSwitchModal
+        isOpen={showModal}
+        onConfirm={handleConfirmSwitch}
+        onCancel={handleCancelSwitch}
+        newType={pendingType}
+        darkMode={darkMode}
+      />
     </div>
   );
 }

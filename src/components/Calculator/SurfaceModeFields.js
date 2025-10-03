@@ -140,8 +140,8 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
       </div>
 
       {/* Trójkąt: Grubość, Gęstość, Ciężar powierzchniowy */}
-      <div className={`p-3 rounded border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
-        <div className="text-xs font-medium mb-2 text-center">
+      <div className={`p-3 rounded border ${darkMode ? 'bg-gray-900/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+        <div className={`text-xs font-medium mb-2 text-center ${themeClasses.text.primary}`}>
           Właściwości materiału (zaznacz 2, trzecie się obliczy)
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -171,7 +171,7 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
               type="number"
               value={item.thickness}
               onChange={(e) => onUpdate({ thickness: e.target.value })}
-              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.thickness ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
+              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.thickness ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100' : ''}`}
               placeholder="0"
               step="0.01"
               disabled={!item.surfaceCalcLocked?.thickness}
@@ -203,7 +203,7 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
               type="number"
               value={item.density}
               onChange={(e) => onUpdate({ density: e.target.value })}
-              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.density ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
+              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.density ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100' : ''}`}
               placeholder="0"
               step="1"
               disabled={!item.surfaceCalcLocked?.density}
@@ -235,7 +235,7 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
               type="number"
               value={item.surfaceWeight}
               onChange={(e) => onUpdate({ surfaceWeight: e.target.value })}
-              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.surfaceWeight ? 'bg-yellow-50 dark:bg-yellow-900/20' : ''}`}
+              className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input} ${!item.surfaceCalcLocked?.surfaceWeight ? 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-900 dark:text-yellow-100' : ''}`}
               placeholder="0"
               step="0.01"
               disabled={!item.surfaceCalcLocked?.surfaceWeight}
@@ -246,7 +246,7 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
 
       {/* Arkusz i ilość detali */}
       <div className={`p-3 rounded border ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
-        <div className="text-xs font-medium mb-2 text-center">
+        <div className={`text-xs font-medium mb-2 text-center ${themeClasses.text.primary}`}>
           Parametry arkusza (dla wagi brutto)
         </div>
         <div className="grid grid-cols-3 gap-2">
@@ -295,11 +295,11 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
 
       {/* Wyniki obliczeń */}
       <div className={`p-3 rounded border ${darkMode ? 'bg-green-900/20 border-green-800' : 'bg-green-50 border-green-200'}`}>
-        <div className="text-xs font-medium mb-2">📊 Obliczone wartości:</div>
+        <div className={`text-xs font-medium mb-2 ${themeClasses.text.primary}`}>📊 Obliczone wartości:</div>
         <div className="grid grid-cols-2 gap-2 text-xs">
           <div className="flex justify-between">
             <span className={themeClasses.text.secondary}>Pow. netto:</span>
-            <span className="font-medium">
+            <span className={`font-medium ${themeClasses.text.primary}`}>
               {item.surfaceArea ?
                 `${(item.surfaceUnit === 'mm2' ? parseFloat(item.surfaceArea) / 1000000 : parseFloat(item.surfaceArea)).toFixed(4)} m²`
                 : '-'}
@@ -307,15 +307,28 @@ export function SurfaceModeFields({ item, onUpdate, themeClasses, darkMode }) {
           </div>
           <div className="flex justify-between">
             <span className={themeClasses.text.secondary}>Pow. brutto:</span>
-            <span className="font-medium">{item.surfaceBrutto ? `${parseFloat(item.surfaceBrutto).toFixed(4)} m²` : '-'}</span>
+            <span className={`font-medium ${
+              item.surfaceBrutto && item.surfaceArea &&
+              parseFloat(item.surfaceBrutto) < (item.surfaceUnit === 'mm2' ? parseFloat(item.surfaceArea) / 1000000 : parseFloat(item.surfaceArea))
+                ? 'text-red-600 dark:text-red-400'
+                : themeClasses.text.primary
+            }`}>
+              {item.surfaceBrutto ? `${parseFloat(item.surfaceBrutto).toFixed(4)} m²` : '-'}
+            </span>
           </div>
           <div className="flex justify-between">
             <span className={themeClasses.text.secondary}>Waga netto:</span>
-            <span className="font-medium">{item.weight ? `${parseFloat(item.weight).toFixed(1)} g` : '-'}</span>
+            <span className={`font-medium ${themeClasses.text.primary}`}>{item.weight ? `${parseFloat(item.weight).toFixed(1)} g` : '-'}</span>
           </div>
           <div className="flex justify-between">
             <span className={themeClasses.text.secondary}>Waga brutto:</span>
-            <span className="font-medium">{item.bruttoWeight ? `${parseFloat(item.bruttoWeight).toFixed(1)} g` : '-'}</span>
+            <span className={`font-medium ${
+              item.bruttoWeight && item.weight && parseFloat(item.bruttoWeight) < parseFloat(item.weight)
+                ? 'text-red-600 dark:text-red-400'
+                : themeClasses.text.primary
+            }`}>
+              {item.bruttoWeight ? `${parseFloat(item.bruttoWeight).toFixed(1)} g` : '-'}
+            </span>
           </div>
         </div>
       </div>

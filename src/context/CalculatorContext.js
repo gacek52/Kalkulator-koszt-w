@@ -35,7 +35,7 @@ const initialState = {
   globalSGA: '12',
   activeTab: 0,
   nextTabId: 2,
-  darkMode: false,
+  darkMode: true,
   hasUnsavedChanges: false,
   lastSavedState: null,
   // Pola dla katalogu kalkulacji
@@ -154,10 +154,16 @@ const initialState = {
       dimensions: { length: '', width: '', height: '' }, // wymiary dla auto-obliczania objętości
       volumeWeightOption: 'brutto-auto', // 'netto', 'brutto-auto', 'brutto-manual'
       // volumeDensity jest już w 'density' powyżej
-      // Pola dla pakowania (legacy - może być używane później)
+      // Pola dla pakowania
       unit: 'kg', // jednostka: kg, g, m2, mm2, cm2, m3, cm3, g_m2
-      packagingType: null, // ID wybranego opakowania
-      manualPartsPerPackage: '' // ręczne nadpisanie ilości sztuk w opakowaniu
+      packaging: {
+        partsPerLayer: '', // części na warstwę
+        layers: '', // ilość warstw
+        partsInBox: '', // liczba elementów w kartonie (obliczana lub ręczna)
+        manualPartsInBox: false, // checkbox - czy ręczne wprowadzanie
+        compositionId: null, // ID wybranej kompozycji (null = niestandardowa)
+        customPrice: '' // cena dla kompozycji niestandardowej (€)
+      }
     }],
     nextItemId: 2
   }]
@@ -431,8 +437,11 @@ function calculatorReducer(state, action) {
     case CALCULATOR_ACTIONS.LOAD_CALCULATION:
       // Deep copy kalkulacji z katalogu
       const loadedState = JSON.parse(JSON.stringify(action.payload));
+      // Zachowaj darkMode z obecnej sesji, ale załaduj wszystko inne
       return {
-        ...loadedState,
+        ...state, // Zachowaj obecną konfigurację (darkMode)
+        ...loadedState, // Nadpisz danymi z katalogu
+        darkMode: state.darkMode, // Zachowaj obecny tryb ciemny
         hasUnsavedChanges: false,
         lastSavedState: JSON.stringify(loadedState)
       };

@@ -58,6 +58,7 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
       handlingCost: { label: 'Obsługa', icon: '🛠️' },
       customProcessesCost: { label: 'Procesy dodatkowe', icon: '⚙️' },
       customCurvesCost: { label: 'Krzywe niestandardowe', icon: '📈' },
+      packagingCost: { label: 'Pakowanie', icon: '📦' },
       prepCost: { label: 'Przygotówka', icon: '🔧' },
       laserCost: { label: 'Cięcie laserowe', icon: '⚡' },
       bendingCost: { label: 'Gięcie', icon: '↪️' },
@@ -95,13 +96,13 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
         pointerEvents: 'none'
       };
 
-  const themeClass = isPinned
-    ? (darkMode ? 'bg-orange-900 border-orange-600 text-orange-100' : 'bg-orange-50 border-orange-300')
-    : (darkMode ? 'bg-gray-800 border-blue-400 text-gray-100' : 'bg-white border-blue-200');
+  const themeClass = darkMode
+    ? 'bg-gray-800 border-blue-400 text-gray-100'
+    : 'bg-white border-blue-200';
 
-  const headerClass = isPinned
-    ? (darkMode ? 'text-orange-300 border-orange-600' : 'text-orange-800 border-orange-300')
-    : (darkMode ? 'text-blue-400 border-blue-600' : 'text-blue-800 border-blue-200');
+  const headerClass = darkMode
+    ? 'text-blue-400 border-blue-600'
+    : 'text-blue-800 border-blue-200';
 
   return (
     <div
