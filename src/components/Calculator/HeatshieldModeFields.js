@@ -6,6 +6,34 @@ import React, { useEffect } from 'react';
  */
 export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode }) {
 
+  // Inicjalizacja domyślnych wartości
+  useEffect(() => {
+    if (!item.heatshield) return;
+
+    const defaults = {};
+
+    // Ustaw domyślne wartości tylko jeśli pole nie istnieje
+    if (item.heatshield.sheetDensity === undefined || item.heatshield.sheetDensity === '') {
+      defaults.sheetDensity = '7850';
+    }
+    if (item.heatshield.bendingCost === undefined || item.heatshield.bendingCost === '') {
+      defaults.bendingCost = '0.08';
+    }
+    if (item.heatshield.joiningCost === undefined || item.heatshield.joiningCost === '') {
+      defaults.joiningCost = '0';
+    }
+
+    if (Object.keys(defaults).length > 0) {
+      onUpdate({
+        heatshield: {
+          ...item.heatshield,
+          ...defaults
+        }
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Uruchom tylko raz przy montowaniu
+
   // Auto-obliczanie powierzchni i wag
   useEffect(() => {
     const surfaceNetto = parseFloat(item.heatshield?.surfaceNetto) || 0;
