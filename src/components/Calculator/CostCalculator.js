@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Calculator, Sun, Moon, ArrowLeft, Save, ChevronDown, X } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
+import { useSession } from '../../context/SessionContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
 import { useClient } from '../../context/ClientContext';
 import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResults } from './CalculatorResults';
 import { SettingsPanel } from './SettingsPanel';
+import { SaveStatusIndicator } from '../Session/SaveStatusIndicator';
 import { JsonExportButton } from '../Common/JsonExportButton';
 import { JsonImportButton, validationSchemas } from '../Common/JsonImportButton';
 import { CalculatorCsvExportButton } from '../Common/CsvExportButton';
@@ -18,6 +20,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   const { tabs, activeTab, globalSGA, darkMode, calculationMeta, hasUnsavedChanges } = state;
   const { state: catalogState, actions: catalogActions } = useCatalog();
   const { state: clientState } = useClient();
+  const { updateSession, activeSession, startNewSession, clearSession } = useSession();
   const [editingTabId, setEditingTabId] = React.useState(null);
   const [editingTabName, setEditingTabName] = React.useState('');
   const [showSettings, setShowSettings] = React.useState(false);
@@ -76,6 +79,32 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
     }
   }, [calculationToLoad]);
 
+  // Synchronizacja zmian ze SessionContext (auto-save)
+  React.useEffect(() => {
+    // Aktualizuj sesję przy każdej zmianie stanu kalkulatora
+    if (tabs.length > 0) {
+      const calculationData = {
+        globalSGA,
+        tabs,
+        activeTab,
+        calculationMeta
+      };
+      updateSession(calculationData);
+    }
+  }, [tabs, activeTab, globalSGA, calculationMeta]);
+
+  // Inicjalizacja sesji przy starcie (jeśli nie ma aktywnej sesji)
+  React.useEffect(() => {
+    if (!activeSession && tabs.length > 0) {
+      startNewSession({
+        globalSGA,
+        tabs,
+        activeTab,
+        calculationMeta
+      });
+    }
+  }, []); // Tylko przy pierwszym renderowaniu
+
   const loadCalculationFromCatalog = (calculation) => {
     actions.loadCalculation(calculation);
     setShowLoadConfirmDialog(false);
@@ -126,13 +155,17 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
     // Oznacz jako zapisane
     actions.markAsSaved();
+
+    // Wyczyść sesję roboczą po pomyślnym zapisie
+    clearSession();
+
     setShowSaveMenu(false);
   };
 
   // Udostępnij funkcję zapisu przez ref
   useEffect(() => {
     if (onSaveRef) {
-      onSaveRef.current = () => saveCalculation(false);
+      onSaveRef.current = (asNewVariant = false) => saveCalculation(asNewVariant);
     }
   }, [onSaveRef, saveCalculation]);
 
@@ -356,20 +389,22 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
         <div className={`${themeClasses.card} rounded-lg border p-6 mb-6`}>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Calculator className="w-8 h-8 text-blue-600" />
-              <div>
-                <h1 className={`text-2xl font-bold ${themeClasses.text.primary}`}>
-                  Kalkulator Kosztów Produkcyjnych
-                </h1>
-                <p className={`text-sm ${themeClasses.text.secondary}`}>
-                  Kompleksowa kalkulacja kosztów materiałów i procesów
-                </p>
+          <div className="flex flex-col gap-4">
+            {/* Top row: Title and buttons */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Calculator className="w-8 h-8 text-blue-600" />
+                <div>
+                  <h1 className={`text-2xl font-bold ${themeClasses.text.primary}`}>
+                    Kalkulator Kosztów Produkcyjnych
+                  </h1>
+                  <p className={`text-sm ${themeClasses.text.secondary}`}>
+                    Kompleksowa kalkulacja kosztów materiałów i procesów
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2">
               {/* Przycisk powrotu do katalogu */}
               {onBackToCatalog && (
                 <button
@@ -410,6 +445,10 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
                 themeClasses={themeClasses}
               />
             </div>
+            </div>
+
+            {/* Save Status Indicator */}
+            <SaveStatusIndicator darkMode={darkMode} />
           </div>
         </div>
 
