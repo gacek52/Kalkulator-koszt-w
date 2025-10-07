@@ -1,13 +1,15 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
+import { sessionApi } from '../services/api';
 
 /**
  * SessionContext - Zarządzanie sesją roboczą użytkownika
  *
  * Odpowiada za:
- * - Auto-save (co 30 sekund)
+ * - Auto-save (co 30 sekund) - zapisuje do backendu poprzez API
  * - Status zapisów
  * - Ochronę przed utratą danych
  * - Kontynuację sesji po zamknięciu aplikacji
+ * - Synchronizacja między urządzeniami/kartami
  */
 
 const SessionContext = createContext();
@@ -22,20 +24,38 @@ export function SessionProvider({ children }) {
   const autoSaveTimerRef = useRef(null);
   const lastStateRef = useRef(null);
 
-  // Załaduj sesję przy starcie
+  // Załaduj sesję przy starcie z API
   useEffect(() => {
-    const savedSession = localStorage.getItem('activeSession');
-    if (savedSession) {
-      try {
-        const session = JSON.parse(savedSession);
+    loadSessionFromAPI();
+  }, []);
+
+  const loadSessionFromAPI = async () => {
+    try {
+      const response = await sessionApi.get();
+
+      if (response.success && response.data) {
+        const session = response.data;
         setActiveSession(session);
         setLastAutoSave(session.lastAutoSave ? new Date(session.lastAutoSave) : null);
         lastStateRef.current = JSON.stringify(session.calculation);
-      } catch (error) {
-        console.error('Error loading active session:', error);
+      }
+    } catch (error) {
+      console.error('Błąd wczytywania sesji z API:', error);
+
+      // Fallback do localStorage
+      const savedSession = localStorage.getItem('activeSession');
+      if (savedSession) {
+        try {
+          const session = JSON.parse(savedSession);
+          setActiveSession(session);
+          setLastAutoSave(session.lastAutoSave ? new Date(session.lastAutoSave) : null);
+          lastStateRef.current = JSON.stringify(session.calculation);
+        } catch (err) {
+          console.error('Błąd wczytywania z localStorage:', err);
+        }
       }
     }
-  }, []);
+  };
 
   // Auto-save timer
   useEffect(() => {
@@ -55,8 +75,8 @@ export function SessionProvider({ children }) {
     };
   }, [activeSession, hasUnsavedChanges]);
 
-  // Funkcja auto-save
-  const autoSaveSession = () => {
+  // Funkcja auto-save - zapisuje do API
+  const autoSaveSession = async () => {
     if (!activeSession) return;
 
     try {
@@ -66,7 +86,12 @@ export function SessionProvider({ children }) {
         lastAutoSave: new Date().toISOString()
       };
 
+      // Zapisz do API
+      await sessionApi.save(sessionToSave);
+
+      // Backup do localStorage (cache)
       localStorage.setItem('activeSession', JSON.stringify(sessionToSave));
+
       setLastAutoSave(new Date());
       setHasUnsavedChanges(false);
       setSaveStatus('saved');
@@ -74,6 +99,16 @@ export function SessionProvider({ children }) {
     } catch (error) {
       console.error('Auto-save error:', error);
       setSaveStatus('error');
+
+      // Spróbuj przynajmniej zapisać do localStorage
+      try {
+        localStorage.setItem('activeSession', JSON.stringify({
+          ...activeSession,
+          lastAutoSave: new Date().toISOString()
+        }));
+      } catch (localErr) {
+        console.error('LocalStorage save error:', localErr);
+      }
     }
   };
 
@@ -140,14 +175,24 @@ export function SessionProvider({ children }) {
     autoSaveSession();
   };
 
-  // Funkcja do czyszczenia sesji (po zapisie)
-  const clearSession = () => {
+  // Funkcja do czyszczenia sesji (po zapisie) - usuwa z API i localStorage
+  const clearSession = async () => {
+    try {
+      // Usuń z API
+      await sessionApi.delete();
+    } catch (error) {
+      console.error('Błąd usuwania sesji z API:', error);
+    }
+
+    // Usuń z localStorage
+    localStorage.removeItem('activeSession');
+
+    // Zresetuj state
     setActiveSession(null);
     setHasUnsavedChanges(false);
     setSaveStatus('saved');
     setLastAutoSave(null);
     lastStateRef.current = null;
-    localStorage.removeItem('activeSession');
   };
 
   // Funkcja do wymuszenia zapisu

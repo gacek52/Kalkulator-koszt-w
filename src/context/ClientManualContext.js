@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { clientManualApi } from '../services/api';
 
 /**
  * Kontekst zarządzania manualnymi danymi klientów (stawki, koszty, marże)
@@ -209,29 +210,72 @@ const ClientManualContext = createContext();
 // Provider
 export function ClientManualProvider({ children }) {
   const [state, dispatch] = useReducer(clientManualReducer, initialState);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Załaduj dane z localStorage przy starcie
+  // Pobierz dane z API przy starcie
   useEffect(() => {
-    const savedData = localStorage.getItem('clientManualData');
-    if (savedData) {
-      try {
-        const data = JSON.parse(savedData);
-        dispatch({
-          type: CLIENT_MANUAL_ACTIONS.LOAD_MANUALS,
-          payload: data
-        });
-      } catch (error) {
-        console.error('Error loading client manual data:', error);
-      }
-    }
+    loadClientManualFromAPI();
   }, []);
 
-  // Zapisz dane do localStorage przy każdej zmianie
+  const loadClientManualFromAPI = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await clientManualApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        const clientManualState = response.data[0];
+        dispatch({
+          type: CLIENT_MANUAL_ACTIONS.LOAD_MANUALS,
+          payload: clientManualState
+        });
+      }
+    } catch (err) {
+      console.error('Błąd wczytywania client manual z API:', err);
+      setError(err.message || 'Nie udało się załadować client manual');
+
+      // Fallback do localStorage
+      const savedData = localStorage.getItem('clientManualData');
+      if (savedData) {
+        try {
+          const data = JSON.parse(savedData);
+          dispatch({
+            type: CLIENT_MANUAL_ACTIONS.LOAD_MANUALS,
+            payload: data
+          });
+        } catch (error) {
+          console.error('Błąd wczytywania z localStorage:', error);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const saveClientManualToAPI = async (clientManualState) => {
+    try {
+      const response = await clientManualApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        await clientManualApi.update(response.data[0].id, clientManualState);
+      } else {
+        await clientManualApi.create(clientManualState);
+      }
+    } catch (err) {
+      console.error('Błąd zapisu client manual:', err);
+    }
+  };
+
+  // Backup do localStorage i sync z API
   useEffect(() => {
-    localStorage.setItem('clientManualData', JSON.stringify({
+    const stateToSave = {
       manuals: state.manuals,
       nextManualId: state.nextManualId
-    }));
+    };
+    localStorage.setItem('clientManualData', JSON.stringify(stateToSave));
+    saveClientManualToAPI(stateToSave);
   }, [state]);
 
   // Akcje
@@ -320,11 +364,19 @@ export function ClientManualProvider({ children }) {
           type: CLIENT_MANUAL_ACTIONS.RESET_MANUALS
         });
       }
-    }
+    },
+
+    refreshClientManual: loadClientManualFromAPI
   };
 
   return (
-    <ClientManualContext.Provider value={{ state, actions, utils: clientManualUtils }}>
+    <ClientManualContext.Provider value={{
+      state,
+      actions,
+      utils: clientManualUtils,
+      loading,
+      error
+    }}>
       {children}
     </ClientManualContext.Provider>
   );
