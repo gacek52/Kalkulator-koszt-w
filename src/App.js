@@ -1,13 +1,17 @@
 import React, { useState, useRef } from 'react';
 import { CalculatorProvider, useCalculator } from './context/CalculatorContext';
 import { PackagingProvider } from './context/PackagingContext';
+import { MaterialProvider } from './context/MaterialContext';
+import { ClientProvider } from './context/ClientContext';
 import { CatalogProvider } from './context/CatalogContext';
 import { CostCalculator } from './components/Calculator/CostCalculator';
 import { CatalogView } from './components/Catalog/CatalogView';
 import { PackagingManager } from './components/Packaging/PackagingManager';
+import { MaterialManager } from './components/Materials/MaterialManager';
+import { ClientManager } from './components/Clients/ClientManager';
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', or 'packaging'
+  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', or 'clients'
   const [calculationToLoad, setCalculationToLoad] = useState(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -111,77 +115,96 @@ function AppContent() {
 
   return (
     <PackagingProvider>
-      <CatalogProvider>
-        {currentView === 'catalog' ? (
-          <CatalogView
-            themeClasses={themeClasses}
-            darkMode={darkMode}
-            onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-            onNewCalculation={handleNewCalculation}
-            onLoadCalculation={handleLoadCalculation}
-            onBackToCalculator={handleBackToCalculator}
-            onOpenPackaging={() => setCurrentView('packaging')}
-            hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
-          />
-        ) : currentView === 'calculator' ? (
-          <CostCalculator
-            onBackToCatalog={handleBackToCatalog}
-            calculationToLoad={calculationToLoad}
-            onSaveRef={saveCalculationRef}
-          />
-        ) : (
-          <PackagingManager
-            darkMode={darkMode}
-            onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-            onBack={() => setCurrentView('catalog')}
-            themeClasses={themeClasses}
-          />
-        )}
+      <ClientProvider>
+        <MaterialProvider>
+          <CatalogProvider>
+            {currentView === 'catalog' ? (
+              <CatalogView
+                themeClasses={themeClasses}
+                darkMode={darkMode}
+                onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                onNewCalculation={handleNewCalculation}
+                onLoadCalculation={handleLoadCalculation}
+                onBackToCalculator={handleBackToCalculator}
+                onOpenPackaging={() => setCurrentView('packaging')}
+                onOpenMaterials={() => setCurrentView('materials')}
+                onOpenClients={() => setCurrentView('clients')}
+                hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
+              />
+            ) : currentView === 'calculator' ? (
+              <CostCalculator
+                onBackToCatalog={handleBackToCatalog}
+                calculationToLoad={calculationToLoad}
+                onSaveRef={saveCalculationRef}
+              />
+            ) : currentView === 'packaging' ? (
+              <PackagingManager
+                darkMode={darkMode}
+                onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                onBack={() => setCurrentView('catalog')}
+                themeClasses={themeClasses}
+              />
+            ) : currentView === 'materials' ? (
+              <MaterialManager
+                darkMode={darkMode}
+                onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                onBack={() => setCurrentView('catalog')}
+                themeClasses={themeClasses}
+              />
+            ) : (
+              <ClientManager
+                darkMode={darkMode}
+                themeClasses={themeClasses}
+                onClose={() => setCurrentView('catalog')}
+              />
+            )}
 
-        {/* Dialog niezapisanych zmian */}
-        {showUnsavedChangesDialog && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className={`w-full max-w-md rounded-lg shadow-xl ${
-              darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
-            }`}>
-              <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                <h2 className="text-xl font-semibold">Niezapisane zmiany</h2>
-              </div>
-              <div className="p-6">
-                <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
-                  Masz niezapisane zmiany w obecnej kalkulacji. Czy chcesz je zapisać przed kontynuowaniem?
-                </p>
-              </div>
-              <div className={`flex justify-end gap-3 p-6 border-t ${
-                darkMode ? 'border-gray-700' : 'border-gray-200'
+          {/* Dialog niezapisanych zmian */}
+          {showUnsavedChangesDialog && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+              <div className={`w-full max-w-md rounded-lg shadow-xl ${
+                darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-900'
               }`}>
-                <button
-                  onClick={handleCancelAction}
-                  className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                    darkMode
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white'
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
-                  }`}
-                >
-                  Anuluj
-                </button>
-                <button
-                  onClick={handleDiscardAndContinue}
-                  className="px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
-                >
-                  Nie zapisuj
-                </button>
-                <button
-                  onClick={handleSaveAndContinue}
-                  className="px-4 py-2 rounded-lg font-medium bg-green-600 hover:bg-green-700 text-white transition-colors"
-                >
-                  Zapisz
-                </button>
+                <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                  <h2 className="text-xl font-semibold">Niezapisane zmiany</h2>
+                </div>
+                <div className="p-6">
+                  <p className={darkMode ? 'text-gray-300' : 'text-gray-700'}>
+                    Masz niezapisane zmiany w obecnej kalkulacji. Czy chcesz je zapisać przed kontynuowaniem?
+                  </p>
+                </div>
+                <div className={`flex justify-end gap-3 p-6 border-t ${
+                  darkMode ? 'border-gray-700' : 'border-gray-200'
+                }`}>
+                  <button
+                    onClick={handleCancelAction}
+                    className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      darkMode
+                        ? 'bg-gray-700 hover:bg-gray-600 text-white'
+                        : 'bg-gray-200 hover:bg-gray-300 text-gray-900'
+                    }`}
+                  >
+                    Anuluj
+                  </button>
+                  <button
+                    onClick={handleDiscardAndContinue}
+                    className="px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white transition-colors"
+                  >
+                    Nie zapisuj
+                  </button>
+                  <button
+                    onClick={handleSaveAndContinue}
+                    className="px-4 py-2 rounded-lg font-medium bg-green-600 hover:bg-green-700 text-white transition-colors"
+                  >
+                    Zapisz
+                  </button>
+                </div>
               </div>
             </div>
-          </div>
-        )}
-      </CatalogProvider>
+          )}
+          </CatalogProvider>
+        </MaterialProvider>
+      </ClientProvider>
     </PackagingProvider>
   );
 }

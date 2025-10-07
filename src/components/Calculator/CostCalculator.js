@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Sun, Moon, ArrowLeft, Save, ChevronDown } from 'lucide-react';
+import { Calculator, Sun, Moon, ArrowLeft, Save, ChevronDown, X } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
+import { useClient } from '../../context/ClientContext';
 import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResults } from './CalculatorResults';
 import { SettingsPanel } from './SettingsPanel';
@@ -16,6 +17,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   const { state, actions } = useCalculator();
   const { tabs, activeTab, globalSGA, darkMode, calculationMeta, hasUnsavedChanges } = state;
   const { state: catalogState, actions: catalogActions } = useCatalog();
+  const { state: clientState } = useClient();
   const [editingTabId, setEditingTabId] = React.useState(null);
   const [editingTabName, setEditingTabName] = React.useState('');
   const [showSettings, setShowSettings] = React.useState(false);
@@ -139,10 +141,13 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
     const newTab = {
       id: Date.now(),
       name: `Materiał ${tabs.length + 1}`,
+      calculationType: 'weight',
       materialCost: '2.0',
+      materialPriceUnit: 'kg',
       bakingCost: '110',
       cleaningCost: '90',
       handlingCost: '0.08',
+      prepCost: '90',
       customProcesses: [],
       nextProcessId: 1,
       showAdvanced: false,
@@ -189,19 +194,21 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
           { x: 2.0, y: 70 }
         ]
       },
+      customCurves: [],
+      nextCurveId: 1,
       items: [{
         id: 1,
         partId: '',
         weight: '',
-        margin: '',
-        annualVolume: '',
         weightOption: 'netto',
         bruttoWeight: '',
         cleaningOption: 'scaled',
         manualCleaningTime: '45',
+        margin: '',
         customValues: {},
         customCurveValues: {},
         results: null,
+        annualVolume: '',
         // Pola dla trybu WAGA
         weightUnit: 'g',
         // Pola dla trybu POWIERZCHNIA
@@ -245,6 +252,16 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
         // Pola dla trybu MULTILAYER
         multilayer: {
           layers: []
+        },
+        // Pola dla pakowania
+        unit: 'kg',
+        packaging: {
+          partsPerLayer: '',
+          layers: '',
+          partsInBox: '',
+          manualPartsInBox: false,
+          compositionId: null,
+          customPrice: ''
         }
       }],
       nextItemId: 2
@@ -252,6 +269,31 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
     actions.addTab(newTab);
     actions.setActiveTab(tabs.length);
+  };
+
+  // Obsługa usuwania zakładki
+  const handleRemoveTab = (tabId, tabIndex) => {
+    if (tabs.length <= 1) {
+      alert('Nie możesz usunąć ostatniej zakładki!');
+      return;
+    }
+
+    if (window.confirm('Czy na pewno chcesz usunąć tę zakładkę?')) {
+      actions.removeTab(tabId);
+
+      // Ustaw aktywną zakładkę na poprzednią lub następną
+      if (tabIndex === activeTab) {
+        // Jeśli usuwamy aktywną zakładkę
+        if (tabIndex > 0) {
+          actions.setActiveTab(tabIndex - 1);
+        } else {
+          actions.setActiveTab(0);
+        }
+      } else if (tabIndex < activeTab) {
+        // Jeśli usuwamy zakładkę przed aktywną, zmniejsz indeks aktywnej
+        actions.setActiveTab(activeTab - 1);
+      }
+    }
   };
 
   // Obsługa importu danych z migracją
@@ -286,7 +328,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
   const handleSaveTabName = (tabId) => {
     if (editingTabName.trim()) {
-      actions.updateTab(tabId, { name: editingTabName });
+      actions.updateTab(tabId, { name: editingTabName, isCustomName: true });
     }
     setEditingTabId(null);
     setEditingTabName('');
@@ -376,7 +418,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
           <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600">
             <div className="flex flex-wrap gap-2">
               {tabs.map((tab, index) => (
-                <div key={tab.id} className="relative">
+                <div key={tab.id} className="group relative">
                   {editingTabId === tab.id ? (
                     <div className="flex items-center gap-1">
                       <input
@@ -396,7 +438,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
                     <button
                       onClick={() => actions.setActiveTab(index)}
                       onDoubleClick={() => handleStartEditTabName(tab)}
-                      className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                      className={`relative px-4 py-2 pr-8 rounded-lg font-medium transition-colors ${
                         index === activeTab
                           ? themeClasses.button.primary
                           : themeClasses.button.secondary
@@ -404,6 +446,20 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
                       title="Kliknij dwukrotnie aby edytować nazwę"
                     >
                       {tab.name}
+                      {tabs.length > 1 && (
+                        <span
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleRemoveTab(tab.id, index);
+                          }}
+                          className={`absolute right-1 top-1/2 -translate-y-1/2 p-0.5 rounded hover:bg-red-600 hover:text-white transition-all opacity-0 group-hover:opacity-100 ${
+                            darkMode ? 'text-gray-300' : 'text-gray-600'
+                          }`}
+                          title="Usuń zakładkę"
+                        >
+                          <X size={14} />
+                        </span>
+                      )}
                     </button>
                   )}
                 </div>
@@ -443,13 +499,32 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
               <label className={`block text-sm font-medium ${themeClasses.text.secondary} mb-1`}>
                 Klient
               </label>
-              <input
-                type="text"
-                value={calculationMeta.client}
-                onChange={(e) => actions.updateCalculationMeta({ client: e.target.value })}
+              <select
+                value={calculationMeta.clientId || ''}
+                onChange={(e) => {
+                  const clientId = e.target.value;
+                  if (!clientId) {
+                    actions.updateCalculationMeta({ clientId: null, client: '', clientCity: '' });
+                  } else {
+                    const selectedClient = clientState.clients.find(c => c.id === parseInt(clientId));
+                    if (selectedClient) {
+                      actions.updateCalculationMeta({
+                        clientId: selectedClient.id,
+                        client: selectedClient.name,
+                        clientCity: selectedClient.city
+                      });
+                    }
+                  }
+                }}
                 className={`w-full px-3 py-2 border rounded ${themeClasses.input}`}
-                placeholder="Nazwa klienta..."
-              />
+              >
+                <option value="">-- Wybierz klienta --</option>
+                {clientState.clients.map(client => (
+                  <option key={client.id} value={client.id}>
+                    {client.name} {client.city && `(${client.city})`}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div>

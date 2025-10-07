@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 
 /**
  * Komponent widoku katalogu kalkulacji
  */
-export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, hasActiveCalculation }) {
+export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, hasActiveCalculation }) {
   const { state: catalogState, actions: catalogActions, filteredCalculations, summary } = useCatalog();
   const { filters, sortBy, sortOrder } = catalogState;
 
@@ -89,6 +89,24 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               >
                 <Package size={16} />
                 Pakowanie
+              </button>
+
+              <button
+                onClick={onOpenMaterials}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Zarządzanie materiałami"
+              >
+                <Layers size={16} />
+                Materiały
+              </button>
+
+              <button
+                onClick={onOpenClients}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Zarządzanie klientami"
+              >
+                <Users size={16} />
+                Klienci
               </button>
 
               <button

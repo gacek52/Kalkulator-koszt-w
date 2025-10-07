@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { useMaterial, materialUtils } from '../../context/MaterialContext';
 
 /**
  * Pola wejściowe dla trybu kalkulacji MULTILAYER
@@ -7,6 +8,8 @@ import { Plus, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
  */
 export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode }) {
   const [expandedLayers, setExpandedLayers] = React.useState({});
+  const [selectedMaterialTypes, setSelectedMaterialTypes] = React.useState({});
+  const { state: materialState } = useMaterial();
 
   const multilayer = item.multilayer || {
     layers: [
@@ -180,6 +183,28 @@ export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode })
     }));
   };
 
+  const handleLayerMaterialSelect = (layerId, compositionId) => {
+    if (!compositionId) return;
+
+    const composition = materialUtils.getCompositionWithDetails(materialState, parseInt(compositionId));
+    if (composition) {
+      updateLayer(layerId, {
+        selectedMaterialCompositionId: composition.id,
+        thickness: composition.thickness.toString(),
+        density: composition.density.toString(),
+        price: composition.pricePerKg.toString(),
+        priceUnit: 'kg'
+      });
+    }
+  };
+
+  const handleMaterialTypeChange = (layerId, materialTypeId) => {
+    setSelectedMaterialTypes(prev => ({
+      ...prev,
+      [layerId]: materialTypeId
+    }));
+  };
+
   return (
     <div className="space-y-4">
       {/* Warstwy materiałów */}
@@ -256,6 +281,51 @@ export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode })
                       className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
                       placeholder={`Warstwa ${index + 1}`}
                     />
+                  </div>
+
+                  {/* Wybór materiału dla warstwy */}
+                  <div className={`p-3 rounded border ${darkMode ? 'bg-purple-900/20 border-purple-800' : 'bg-purple-50 border-purple-200'}`}>
+                    <div className={`text-xs font-medium mb-2 ${themeClasses.text.primary}`}>
+                      🎯 Wybór materiału (opcjonalnie)
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className={`block text-xs ${themeClasses.text.secondary}`}>
+                          Typ materiału
+                        </label>
+                        <select
+                          value={selectedMaterialTypes[layer.id] || ''}
+                          onChange={(e) => handleMaterialTypeChange(layer.id, e.target.value)}
+                          className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+                        >
+                          <option value="">-- Wybierz typ --</option>
+                          {materialState.materialTypes.map(type => (
+                            <option key={type.id} value={type.id}>
+                              {type.name} ({type.pricePerKg.toFixed(2)} €/kg)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className={`block text-xs ${themeClasses.text.secondary}`}>
+                          Wariant (grubość × gęstość)
+                        </label>
+                        <select
+                          value={layer.selectedMaterialCompositionId || ''}
+                          onChange={(e) => handleLayerMaterialSelect(layer.id, e.target.value)}
+                          disabled={!selectedMaterialTypes[layer.id]}
+                          className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+                        >
+                          <option value="">-- Wybierz wariant --</option>
+                          {selectedMaterialTypes[layer.id] &&
+                            materialUtils.getCompositionsByType(materialState, parseInt(selectedMaterialTypes[layer.id])).map(comp => (
+                              <option key={comp.id} value={comp.id}>
+                                {comp.thickness}mm × {comp.density} kg/m³ = {comp.surfaceWeight.toFixed(1)} g/m²
+                              </option>
+                            ))}
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Powierzchnia warstwy (z CAD/3D) */}

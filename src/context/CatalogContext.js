@@ -251,12 +251,23 @@ export function CatalogProvider({ children }) {
   const filteredCalculations = catalogUtils.filterCalculations(state.calculations, state.filters);
   const sortedCalculations = catalogUtils.sortCalculations(filteredCalculations, state.sortBy, state.sortOrder);
 
-  // Oblicz sumaryczne wartości
-  const summary = {
-    totalRevenue: sortedCalculations.reduce((sum, calc) => sum + (calc.totalRevenue || 0), 0),
-    totalProfit: sortedCalculations.reduce((sum, calc) => sum + (calc.totalProfit || 0), 0),
+  // Oblicz sumaryczne wartości - zsumuj obrót i przychód z każdej kalkulacji
+  const summary = sortedCalculations.reduce((acc, calc) => {
+    calc.items.forEach(item => {
+      const annualVolume = parseFloat(item.annualVolume || 0);
+      const unitCost = item.results?.totalWithSGA || 0;
+      const marginPercent = parseFloat(item.margin || 0);
+      const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
+
+      acc.totalRevenue += annualVolume * unitCost;
+      acc.totalProfit += annualVolume * unitMargin;
+    });
+    return acc;
+  }, {
+    totalRevenue: 0,
+    totalProfit: 0,
     count: sortedCalculations.length
-  };
+  });
 
   return (
     <CatalogContext.Provider value={{ state, actions, utils: catalogUtils, filteredCalculations: sortedCalculations, summary }}>

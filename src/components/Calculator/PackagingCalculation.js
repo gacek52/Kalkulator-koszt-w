@@ -14,6 +14,7 @@ export function PackagingCalculation({
 
   // Oblicz ilość w kartonie
   const calculatePartsInBox = () => {
+    if (!item.packaging) return 0;
     const partsPerLayer = parseFloat(item.packaging.partsPerLayer) || 0;
     const layers = parseFloat(item.packaging.layers) || 0;
     return partsPerLayer * layers;
@@ -21,6 +22,8 @@ export function PackagingCalculation({
 
   // Pobierz dane kompozycji
   const getCompositionData = () => {
+    if (!item.packaging) return null;
+
     if (item.packaging.compositionId === 'custom') {
       return {
         name: 'Niestandardowa',

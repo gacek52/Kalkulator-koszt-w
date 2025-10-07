@@ -1,7 +1,8 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Plus, Trash2, Settings, Copy } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { usePackaging } from '../../context/PackagingContext';
+import { useMaterial, materialUtils } from '../../context/MaterialContext';
 import { NumberInput } from '../Common/NumberInput';
 import { SelectInput } from '../Common/SelectInput';
 import { CalculationTypeSelector } from './CalculationTypeSelector';
@@ -17,6 +18,13 @@ import { PackagingCalculation } from './PackagingCalculation';
 export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMode, onOpenSettings }) {
   const { actions } = useCalculator();
   const { state: packagingState } = usePackaging();
+  const { state: materialState } = useMaterial();
+  const [selectedMaterialTypeId, setSelectedMaterialTypeId] = useState('');
+
+  // Filtruj kompozycje dla wybranego typu
+  const filteredCompositions = selectedMaterialTypeId
+    ? materialUtils.getCompositionsByType(materialState, parseInt(selectedMaterialTypeId))
+    : [];
 
   // Przelicz wszystkie items gdy zmienia się globalSGA lub parametry zakładki
   useEffect(() => {
@@ -663,6 +671,46 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     });
   };
 
+  // Obsługa wyboru kompozycji materiału dla zakładki
+  const handleMaterialCompositionSelect = (compositionId) => {
+    if (!compositionId) return;
+
+    const composition = materialUtils.getCompositionWithDetails(materialState, parseInt(compositionId));
+    if (composition) {
+      const updates = {
+        selectedMaterialCompositionId: composition.id,
+        materialCost: composition.pricePerKg.toString()
+      };
+
+      // Jeśli zakładka nie ma custom name, zmień nazwę na nazwę materiału
+      if (!tab.isCustomName) {
+        updates.name = composition.displayName;
+      }
+
+      // Dla trybu POWIERZCHNIA, uzupełnij parametry materiału we wszystkich itemach
+      if (tab.calculationType === 'surface') {
+        const updatedItems = tab.items.map(item => ({
+          ...item,
+          thickness: composition.thickness.toString(),
+          density: composition.density.toString(),
+          surfaceWeight: composition.surfaceWeight.toFixed(2)
+        }));
+        updates.items = updatedItems;
+      }
+
+      handleTabParameterUpdate('selectedMaterialCompositionId', composition.id);
+      handleTabParameterUpdate('materialCost', composition.pricePerKg.toString());
+
+      if (!tab.isCustomName) {
+        handleTabParameterUpdate('name', composition.displayName);
+      }
+
+      if (tab.calculationType === 'surface' && updates.items) {
+        actions.updateTab(tab.id, { items: updates.items });
+      }
+    }
+  };
+
   // Obsługa aktualizacji parametrów zakładki
   const handleTabParameterUpdate = (parameter, value) => {
     const updates = { [parameter]: value };
@@ -755,6 +803,15 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
         sheetWeight: '',
         matWeight: '',
         totalWeight: ''
+      },
+      // Pola dla pakowania
+      packaging: {
+        partsPerLayer: '',
+        layers: '',
+        manualPartsInBox: false,
+        partsInBox: '',
+        compositionId: null,
+        customPrice: ''
       }
     };
 
@@ -786,6 +843,57 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
         themeClasses={themeClasses}
         darkMode={darkMode}
       />
+
+      {/* Wybór materiału dla zakładki */}
+      {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
+        <div className={`p-4 rounded-lg border ${darkMode ? 'bg-purple-900/20 border-purple-800' : 'bg-purple-50 border-purple-200'}`}>
+          <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
+            🎯 Wybór materiału dla zakładki (opcjonalnie)
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className={`block text-xs mb-1 ${themeClasses.text.secondary}`}>
+                Typ materiału
+              </label>
+              <select
+                value={selectedMaterialTypeId}
+                onChange={(e) => setSelectedMaterialTypeId(e.target.value)}
+                className={`w-full px-3 py-2 text-sm border rounded-lg ${themeClasses.input}`}
+              >
+                <option value="">-- Wybierz typ --</option>
+                {materialState.materialTypes.map(type => (
+                  <option key={type.id} value={type.id}>
+                    {type.name} ({type.pricePerKg.toFixed(2)} €/kg)
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={`block text-xs mb-1 ${themeClasses.text.secondary}`}>
+                Wariant (grubość × gęstość)
+              </label>
+              <select
+                value={tab.selectedMaterialCompositionId || ''}
+                onChange={(e) => handleMaterialCompositionSelect(e.target.value)}
+                className={`w-full px-3 py-2 text-sm border rounded-lg ${themeClasses.input}`}
+                disabled={!selectedMaterialTypeId}
+              >
+                <option value="">-- Wybierz wariant --</option>
+                {filteredCompositions.map(comp => (
+                  <option key={comp.id} value={comp.id}>
+                    {comp.thickness}mm × {comp.density} kg/m³ = {comp.surfaceWeight.toFixed(1)} g/m²
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+          {tab.selectedMaterialCompositionId && (
+            <div className={`mt-2 text-xs ${themeClasses.text.secondary}`}>
+              ✓ Materiał: {materialUtils.getCompositionWithDetails(materialState, tab.selectedMaterialCompositionId)?.displayName}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Parametry zakładki - tylko dla trybów podstawowych */}
       {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
@@ -1139,33 +1247,35 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
               darkMode={darkMode}
             />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div>
-                <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                  Opcja czyszczenia
-                </label>
-                <SelectInput
-                  value={item.cleaningOption}
-                  onChange={(value) => handleItemUpdate(item.id, { cleaningOption: value })}
-                  options={[
-                    { value: 'scaled', label: 'Z krzywej' },
-                    { value: 'manual', label: 'Ręcznie' }
-                  ]}
-                  themeClasses={themeClasses}
-                />
-              </div>
+            {parseFloat(tab.cleaningCost || 0) > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                    Opcja czyszczenia
+                  </label>
+                  <SelectInput
+                    value={item.cleaningOption}
+                    onChange={(value) => handleItemUpdate(item.id, { cleaningOption: value })}
+                    options={[
+                      { value: 'scaled', label: 'Z krzywej' },
+                      { value: 'manual', label: 'Ręcznie' }
+                    ]}
+                    themeClasses={themeClasses}
+                  />
+                </div>
 
-              {item.cleaningOption === 'manual' && (
-                <NumberInput
-                  label="Czas czyszczenia (sek)"
-                  value={item.manualCleaningTime}
-                  onChange={(value) => handleItemUpdate(item.id, { manualCleaningTime: value })}
-                  min={0}
-                  step={1}
-                  themeClasses={themeClasses}
-                />
-              )}
-            </div>
+                {item.cleaningOption === 'manual' && (
+                  <NumberInput
+                    label="Czas czyszczenia (sek)"
+                    value={item.manualCleaningTime}
+                    onChange={(value) => handleItemUpdate(item.id, { manualCleaningTime: value })}
+                    min={0}
+                    step={1}
+                    themeClasses={themeClasses}
+                  />
+                )}
+              </div>
+            )}
 
             {/* Krzywe niestandardowe */}
             {tab.customCurves && tab.customCurves.length > 0 && (
@@ -1289,7 +1399,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                           <div className="font-mono">{item.results.bakingCost.toFixed(2)} €</div>
                         </div>
                       )}
-                      {item.results.cleaningCost !== undefined && (
+                      {item.results.cleaningCost !== undefined && parseFloat(tab.cleaningCost || 0) > 0 && (
                         <div>
                           <span className={themeClasses.text.secondary}>Czyszczenie:</span>
                           <div className="font-mono">{item.results.cleaningCost.toFixed(2)} €</div>
