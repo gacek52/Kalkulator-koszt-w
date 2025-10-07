@@ -5,38 +5,104 @@ const PACKAGING_ACTIONS = {
   ADD_PACKAGING_TYPE: 'ADD_PACKAGING_TYPE',
   UPDATE_PACKAGING_TYPE: 'UPDATE_PACKAGING_TYPE',
   REMOVE_PACKAGING_TYPE: 'REMOVE_PACKAGING_TYPE',
+  ADD_COMPOSITION: 'ADD_COMPOSITION',
+  UPDATE_COMPOSITION: 'UPDATE_COMPOSITION',
+  REMOVE_COMPOSITION: 'REMOVE_COMPOSITION',
   SET_CALCULATION_PACKAGING: 'SET_CALCULATION_PACKAGING',
   UPDATE_PACKAGING_CALCULATION: 'UPDATE_PACKAGING_CALCULATION',
   LOAD_PACKAGING_DATA: 'LOAD_PACKAGING_DATA',
   RESET_PACKAGING_STATE: 'RESET_PACKAGING_STATE'
 };
 
-// Początkowe typy opakowań
+// Początkowe typy opakowań - standardowe opakowania
 const defaultPackagingTypes = [
   {
     id: 1,
-    name: 'Karton B2',
-    dimensions: { length: 400, width: 300, height: 200 }, // mm
-    volume: 0.024, // m³ (auto-calculated)
-    cost: 1.50, // €
-    packagesPerPallet: 12,
-    maxStack: 2
+    name: 'Karton B1',
+    dimensions: { length: 1200, width: 800, height: 1000 },
+    cost: 9.6,
+    volume: 0.96
   },
   {
     id: 2,
-    name: 'Karton B1',
-    dimensions: { length: 600, width: 400, height: 300 }, // mm
-    volume: 0.072, // m³
-    cost: 2.80, // €
+    name: 'Karton B2',
+    dimensions: { length: 600, width: 800, height: 500 },
+    cost: 3.6,
+    volume: 0.24
+  },
+  {
+    id: 3,
+    name: 'Karton B4',
+    dimensions: { length: 600, width: 400, height: 370 },
+    cost: 1.6,
+    volume: 0.0888
+  }
+];
+
+// Początkowe kompozycje pakowania
+const defaultCompositions = [
+  {
+    id: 1,
+    name: 'Karton B1 pojedyńczy',
+    packagingTypeId: 1,
+    packagesPerPallet: 1,
+    palletsPerSpace: 1,
+    palletCost: 3.6,
+    compositionCost: 13.2
+  },
+  {
+    id: 2,
+    name: 'Karton B1 podwójny',
+    packagingTypeId: 1,
+    packagesPerPallet: 2,
+    palletsPerSpace: 1,
+    palletCost: 3.6,
+    compositionCost: 22.8
+  },
+  {
+    id: 3,
+    name: 'Paleta B2 standard',
+    packagingTypeId: 2,
     packagesPerPallet: 8,
-    maxStack: 2
+    palletsPerSpace: 1,
+    palletCost: 3.6,
+    compositionCost: 32.4
+  },
+  {
+    id: 4,
+    name: 'Paleta B4 mała 2 stack',
+    packagingTypeId: 3,
+    packagesPerPallet: 12,
+    palletsPerSpace: 2,
+    palletCost: 3.6,
+    compositionCost: 45.6
+  },
+  {
+    id: 5,
+    name: 'Paleta B4 mała 3 stack',
+    packagingTypeId: 3,
+    packagesPerPallet: 12,
+    palletsPerSpace: 3,
+    palletCost: 3.6,
+    compositionCost: 68.4
+  },
+  {
+    id: 6,
+    name: 'Paleta B4 standard',
+    packagingTypeId: 3,
+    packagesPerPallet: 20,
+    palletsPerSpace: 1,
+    palletCost: 3.6,
+    compositionCost: 35.6
   }
 ];
 
 // Początkowy stan
 const initialPackagingState = {
   packagingTypes: defaultPackagingTypes,
-  nextPackagingId: 3,
+  nextPackagingId: 4,
+  compositions: defaultCompositions,
+  nextCompositionId: 7,
   calculations: {}, // { calculationId: { packaging, annualVolume, etc. } }
   transportCostPerPallet: 25.0 // € default transport cost
 };
@@ -65,6 +131,29 @@ function packagingReducer(state, action) {
       return {
         ...state,
         packagingTypes: state.packagingTypes.filter(pkg => pkg.id !== action.payload)
+      };
+
+    case PACKAGING_ACTIONS.ADD_COMPOSITION:
+      return {
+        ...state,
+        compositions: [...state.compositions, { ...action.payload, id: state.nextCompositionId }],
+        nextCompositionId: state.nextCompositionId + 1
+      };
+
+    case PACKAGING_ACTIONS.UPDATE_COMPOSITION:
+      return {
+        ...state,
+        compositions: state.compositions.map(comp =>
+          comp.id === action.payload.id
+            ? { ...comp, ...action.payload.updates }
+            : comp
+        )
+      };
+
+    case PACKAGING_ACTIONS.REMOVE_COMPOSITION:
+      return {
+        ...state,
+        compositions: state.compositions.filter(comp => comp.id !== action.payload)
       };
 
     case PACKAGING_ACTIONS.SET_CALCULATION_PACKAGING:
@@ -186,6 +275,21 @@ export function PackagingProvider({ children }) {
 
     removePackagingType: (id) => dispatch({
       type: PACKAGING_ACTIONS.REMOVE_PACKAGING_TYPE,
+      payload: id
+    }),
+
+    addComposition: (composition) => dispatch({
+      type: PACKAGING_ACTIONS.ADD_COMPOSITION,
+      payload: composition
+    }),
+
+    updateComposition: (id, updates) => dispatch({
+      type: PACKAGING_ACTIONS.UPDATE_COMPOSITION,
+      payload: { id, updates }
+    }),
+
+    removeComposition: (id) => dispatch({
+      type: PACKAGING_ACTIONS.REMOVE_COMPOSITION,
       payload: id
     }),
 

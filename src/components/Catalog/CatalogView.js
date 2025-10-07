@@ -1,16 +1,51 @@
-import React, { useState } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
+import { useSession } from '../../context/SessionContext';
+import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
+import { LocalStorageViewer } from '../DevTools/LocalStorageViewer';
 
 /**
  * Komponent widoku katalogu kalkulacji
  */
-export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation }) {
+export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenClientManualSettings, onOpenClientManualPreview, hasActiveCalculation }) {
   const { state: catalogState, actions: catalogActions, filteredCalculations, summary } = useCatalog();
   const { filters, sortBy, sortOrder } = catalogState;
+  const { activeSession, clearSession, loadCalculationToSession } = useSession();
 
   const [expandedCalculations, setExpandedCalculations] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const [showSessionRestoreDialog, setShowSessionRestoreDialog] = useState(false);
+  const [sessionRestoreChecked, setSessionRestoreChecked] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
+
+  // Sprawdź czy jest aktywna sesja przy pierwszym wejściu
+  useEffect(() => {
+    if (!sessionRestoreChecked && activeSession && !hasActiveCalculation) {
+      setShowSessionRestoreDialog(true);
+      setSessionRestoreChecked(true);
+    }
+  }, [activeSession, sessionRestoreChecked, hasActiveCalculation]);
+
+  // Obsługa przywracania sesji
+  const handleRestoreSession = () => {
+    if (activeSession && activeSession.calculation) {
+      // Załaduj kalkulację z sesji
+      onLoadCalculation(activeSession.calculation);
+    }
+    setShowSessionRestoreDialog(false);
+  };
+
+  // Obsługa odrzucenia sesji
+  const handleDiscardSession = () => {
+    clearSession();
+    setShowSessionRestoreDialog(false);
+  };
+
+  // Obsługa anulowania
+  const handleCancelRestore = () => {
+    setShowSessionRestoreDialog(false);
+  };
 
   // Toggle rozwinięcia kalkulacji
   const toggleExpanded = (calcId) => {
@@ -56,6 +91,32 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
             </div>
 
             <div className="flex items-center gap-2">
+              {hasActiveCalculation && (
+                <button
+                  onClick={onBackToCalculator}
+                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.success} flex items-center gap-2`}
+                  title="Powrót do edytowanej kalkulacji"
+                >
+                  ← Powrót do kalkulatora
+                </button>
+              )}
+
+              <button
+                onClick={() => setShowDevTools(true)}
+                className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
+                title="DevTools - podgląd localStorage"
+              >
+                <Database size={20} />
+              </button>
+
+              <button
+                onClick={onToggleDarkMode}
+                className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
+                title={darkMode ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw'}
+              >
+                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
@@ -63,6 +124,50 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
                 <Filter size={16} />
                 Filtry
               </button>
+
+              <button
+                onClick={onOpenPackaging}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Zarządzanie pakowaniem"
+              >
+                <Package size={16} />
+                Pakowanie
+              </button>
+
+              <button
+                onClick={onOpenMaterials}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Zarządzanie materiałami"
+              >
+                <Layers size={16} />
+                Materiały
+              </button>
+
+              <button
+                onClick={onOpenClients}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Zarządzanie klientami"
+              >
+                <Users size={16} />
+                Klienci
+              </button>
+
+              <div className="flex">
+                <button
+                  onClick={onOpenClientManualSettings}
+                  className={`px-3 py-2 rounded-l-lg font-medium ${themeClasses.button.secondary} border-r ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+                  title="Ustawienia Client Manual - edycja stawek i kosztów"
+                >
+                  <Settings size={16} />
+                </button>
+                <button
+                  onClick={onOpenClientManualPreview}
+                  className={`px-4 py-2 rounded-r-lg font-medium ${themeClasses.button.secondary}`}
+                  title="Podgląd Client Manual - tylko do odczytu"
+                >
+                  Client Manual
+                </button>
+              </div>
 
               <button
                 onClick={onNewCalculation}
@@ -226,9 +331,24 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
                     </td>
                   </tr>
                 ) : (
-                  filteredCalculations.map((calc) => (
+                  filteredCalculations.map((calc) => {
+                    // Oblicz sumy obrotu i przychodu z wszystkich detali
+                    const calculatedRevenue = (calc.items || []).reduce((sum, item) => {
+                      const annualVolume = parseFloat(item.annualVolume || 0);
+                      const unitCost = item.results?.totalWithSGA || 0;
+                      return sum + (annualVolume * unitCost);
+                    }, 0);
+
+                    const calculatedProfit = (calc.items || []).reduce((sum, item) => {
+                      const annualVolume = parseFloat(item.annualVolume || 0);
+                      const marginPercent = parseFloat(item.margin || 0);
+                      const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
+                      return sum + (annualVolume * unitMargin);
+                    }, 0);
+
+                    return (
                     <React.Fragment key={calc.id}>
-                      <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750">
                         <td className={`px-4 py-3 ${themeClasses.text.primary}`}>#{calc.id}</td>
                         <td className={`px-4 py-3 ${themeClasses.text.primary}`}>{calc.client || '-'}</td>
                         <td className={`px-4 py-3 ${themeClasses.text.secondary} text-sm`}>
@@ -246,10 +366,10 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
                           </span>
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${themeClasses.text.primary}`}>
-                          {formatCurrency(calc.totalRevenue)}
+                          {formatCurrency(calculatedRevenue)}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium text-green-600`}>
-                          {formatCurrency(calc.totalProfit)}
+                          {formatCurrency(calculatedProfit)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-center gap-2">
@@ -280,7 +400,7 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
 
                       {/* Rozwinięte szczegóły */}
                       {expandedCalculations[calc.id] && (
-                        <tr className="bg-gray-50 dark:bg-gray-800">
+                        <tr className={darkMode ? 'bg-gray-800' : 'bg-gray-50'}>
                           <td colSpan="7" className="px-4 py-4">
                             <div className="space-y-4">
                               {/* Notatki */}
@@ -300,8 +420,9 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
                                   <div className="overflow-x-auto">
                                     <table className="w-full text-sm">
                                       <thead>
-                                        <tr className={`border-b ${themeClasses.text.secondary}`}>
+                                        <tr className={`border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'} ${themeClasses.text.secondary}`}>
                                           <th className="text-left py-2">Part ID</th>
+                                          <th className="text-left py-2">Materiał</th>
                                           <th className="text-right py-2">Roczna ilość</th>
                                           <th className="text-right py-2">Koszt jednostkowy</th>
                                           <th className="text-right py-2">Wpływ na obrót</th>
@@ -313,16 +434,20 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
                                           const annualVolume = parseFloat(item.annualVolume || 0);
                                           const unitCost = item.results?.totalWithSGA || 0;
                                           const itemRevenue = annualVolume * unitCost;
-                                          const marginPercent = parseFloat(calc.marginPercent || 0);
-                                          const itemProfit = itemRevenue * (marginPercent / 100);
+
+                                          // Oblicz przychód używając marży z detalu (tak jak w tooltipie)
+                                          const marginPercent = parseFloat(item.margin || 0);
+                                          const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
+                                          const itemProfit = annualVolume * unitMargin;
 
                                           return (
-                                            <tr key={idx} className={`border-b border-gray-200 dark:border-gray-700 ${themeClasses.text.primary}`}>
+                                            <tr key={idx} className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} ${themeClasses.text.primary}`}>
                                               <td className="py-2">{item.partId || '-'}</td>
+                                              <td className="py-2">{item.tabName || '-'}</td>
                                               <td className="text-right">{annualVolume.toLocaleString()}</td>
                                               <td className="text-right">{formatCurrency(unitCost)}</td>
                                               <td className="text-right font-medium">{formatCurrency(itemRevenue)}</td>
-                                              <td className="text-right font-medium text-green-600">{formatCurrency(itemProfit)}</td>
+                                              <td className={`text-right font-medium ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{formatCurrency(itemProfit)}</td>
                                             </tr>
                                           );
                                         })}
@@ -336,13 +461,33 @@ export function CatalogView({ themeClasses, onNewCalculation, onLoadCalculation 
                         </tr>
                       )}
                     </React.Fragment>
-                  ))
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         </div>
       </div>
+
+      {/* Session Restore Dialog */}
+      {showSessionRestoreDialog && (
+        <SessionRestoreDialog
+          session={activeSession}
+          onRestore={handleRestoreSession}
+          onDiscard={handleDiscardSession}
+          onCancel={handleCancelRestore}
+          darkMode={darkMode}
+        />
+      )}
+
+      {/* DevTools */}
+      {showDevTools && (
+        <LocalStorageViewer
+          darkMode={darkMode}
+          onClose={() => setShowDevTools(false)}
+        />
+      )}
     </div>
   );
 }

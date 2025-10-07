@@ -149,6 +149,13 @@ export const validationSchemas = {
   calculator: (data) => {
     const errors = [];
 
+    // Sprawdź czy to jest obiekt
+    if (!data || typeof data !== 'object') {
+      errors.push('Nieprawidłowy format danych');
+      return { isValid: false, errors };
+    }
+
+    // Tabs są wymagane
     if (!data.tabs || !Array.isArray(data.tabs)) {
       errors.push('Brak prawidłowych danych zakładek');
     }
@@ -168,9 +175,20 @@ export const validationSchemas = {
       }
     });
 
+    // Ostrzeżenia (nie błędy) dla brakujących opcjonalnych pól
+    const warnings = [];
+    if (!data.globalSGA) warnings.push('Brak globalSGA - użyto wartości domyślnej');
+    if (data.activeTab === undefined) warnings.push('Brak activeTab - użyto wartości domyślnej');
+    if (!data.calculationMeta) warnings.push('Brak calculationMeta - użyto wartości domyślnych');
+
+    if (warnings.length > 0) {
+      console.warn('Ostrzeżenia importu:', warnings);
+    }
+
     return {
       isValid: errors.length === 0,
-      errors
+      errors,
+      warnings
     };
   },
 

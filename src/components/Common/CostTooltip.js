@@ -49,6 +49,37 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
 
   if (!item?.results) return null;
 
+  // Mapowanie nazw kosztów na czytelne etykiety i ikony
+  const getCostLabel = (key) => {
+    const labels = {
+      materialCost: { label: 'Materiał', icon: '🧱' },
+      bakingCost: { label: 'Pieczenie', icon: '🔥' },
+      cleaningCost: { label: 'Czyszczenie', icon: '🧽' },
+      handlingCost: { label: 'Obsługa', icon: '🛠️' },
+      customProcessesCost: { label: 'Procesy dodatkowe', icon: '⚙️' },
+      customCurvesCost: { label: 'Krzywe niestandardowe', icon: '📈' },
+      packagingCost: { label: 'Pakowanie', icon: '📦' },
+      prepCost: { label: 'Przygotówka', icon: '🔧' },
+      laserCost: { label: 'Cięcie laserowe', icon: '⚡' },
+      bendingCost: { label: 'Gięcie', icon: '↪️' },
+      joiningCost: { label: 'Łączenie', icon: '🔗' },
+      gluingCost: { label: 'Klejenie', icon: '🧴' }
+    };
+    return labels[key] || { label: key, icon: '💵' };
+  };
+
+  // Zbierz wszystkie koszty (pomijając sumy i wagi)
+  const costItems = Object.entries(item.results).filter(([key, value]) => {
+    // Pomijamy pola które nie są kosztami jednostkowymi
+    if (key === 'totalCost' || key === 'totalWithMargin' || key === 'totalWithSGA' ||
+        key === 'nettoWeight' || key === 'bruttoWeight' ||
+        key === 'bakingTime' || key === 'cleaningTime' || key === 'prepTime') {
+      return false;
+    }
+    const numValue = parseFloat(value) || 0;
+    return numValue > 0;
+  });
+
   const tooltipStyle = isPinned
     ? {
         position: 'fixed',
@@ -65,13 +96,13 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
         pointerEvents: 'none'
       };
 
-  const themeClass = isPinned
-    ? (darkMode ? 'bg-orange-900 border-orange-600 text-orange-100' : 'bg-orange-50 border-orange-300')
-    : (darkMode ? 'bg-gray-800 border-blue-400 text-gray-100' : 'bg-white border-blue-200');
+  const themeClass = darkMode
+    ? 'bg-gray-800 border-blue-400 text-gray-100'
+    : 'bg-white border-blue-200';
 
-  const headerClass = isPinned
-    ? (darkMode ? 'text-orange-300 border-orange-600' : 'text-orange-800 border-orange-300')
-    : (darkMode ? 'text-blue-400 border-blue-600' : 'text-blue-800 border-blue-200');
+  const headerClass = darkMode
+    ? 'text-blue-400 border-blue-600'
+    : 'text-blue-800 border-blue-200';
 
   return (
     <div
@@ -107,62 +138,25 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
 
       {/* Zawartość tooltipa */}
       <div className="space-y-1 text-sm">
-        {/* Materiał */}
-        <div className="flex justify-between items-center">
-          <span className={themeClasses.text.secondary}>🧱 Materiał:</span>
-          <div className="text-right">
-            <div className="font-medium">{item.results.materialCost.toFixed(3)} €</div>
-            <div className={`text-xs ${themeClasses.text.muted}`}>
-              {((item.results.materialCost / item.results.totalCost) * 100).toFixed(1)}%
-            </div>
-          </div>
-        </div>
+        {/* Dynamiczne wyświetlanie wszystkich kosztów */}
+        {costItems.map(([key, value]) => {
+          const costInfo = getCostLabel(key);
+          const percentage = ((parseFloat(value) / item.results.totalCost) * 100).toFixed(1);
 
-        {/* Pieczenie */}
-        <div className="flex justify-between items-center">
-          <span className={themeClasses.text.secondary}>🔥 Pieczenie:</span>
-          <div className="text-right">
-            <div className="font-medium">{item.results.bakingCost.toFixed(3)} €</div>
-            <div className={`text-xs ${themeClasses.text.muted}`}>
-              {((item.results.bakingCost / item.results.totalCost) * 100).toFixed(1)}%
-            </div>
-          </div>
-        </div>
-
-        {/* Czyszczenie */}
-        <div className="flex justify-between items-center">
-          <span className={themeClasses.text.secondary}>🧽 Czyszczenie:</span>
-          <div className="text-right">
-            <div className="font-medium">{item.results.cleaningCost.toFixed(3)} €</div>
-            <div className={`text-xs ${themeClasses.text.muted}`}>
-              {((item.results.cleaningCost / item.results.totalCost) * 100).toFixed(1)}%
-            </div>
-          </div>
-        </div>
-
-        {/* Procesy niestandardowe */}
-        {item.results.customProcessesCost > 0 && (
-          <div className="flex justify-between items-center">
-            <span className={themeClasses.text.secondary}>⚙️ Procesy dodatkowe:</span>
-            <div className="text-right">
-              <div className="font-medium">{item.results.customProcessesCost.toFixed(3)} €</div>
-              <div className={`text-xs ${themeClasses.text.muted}`}>
-                {((item.results.customProcessesCost / item.results.totalCost) * 100).toFixed(1)}%
+          return (
+            <div key={key} className="flex justify-between items-center">
+              <span className={themeClasses.text.secondary}>
+                {costInfo.icon} {costInfo.label}:
+              </span>
+              <div className="text-right">
+                <div className="font-medium">{parseFloat(value).toFixed(3)} €</div>
+                <div className={`text-xs ${themeClasses.text.muted}`}>
+                  {percentage}%
+                </div>
               </div>
             </div>
-          </div>
-        )}
-
-        {/* Obsługa */}
-        <div className="flex justify-between items-center">
-          <span className={themeClasses.text.secondary}>🛠️ Obsługa:</span>
-          <div className="text-right">
-            <div className="font-medium">{item.results.handlingCost.toFixed(3)} €</div>
-            <div className={`text-xs ${themeClasses.text.muted}`}>
-              {((item.results.handlingCost / item.results.totalCost) * 100).toFixed(1)}%
-            </div>
-          </div>
-        </div>
+          );
+        })}
 
         {/* Koszt wytworzenia */}
         <div className="border-t pt-1 mt-2">
@@ -206,14 +200,68 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
           </div>
         )}
 
-        {/* Informacje o wadze */}
-        <div className={`text-xs mt-2 pt-1 border-t ${themeClasses.text.muted}`}>
-          Waga: {parseFloat(item.weight || 0).toFixed(0)}g
-          {item.weightOption && item.weightOption !== 'netto' && (
-            <span> ({item.weightOption})</span>
+        {/* Informacje o wadze / powierzchni */}
+        <div className={`text-xs mt-2 pt-2 border-t space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+          {/* Dla heatshield - informacje o blachy i macie */}
+          {item.heatshield && item.results && (
+            <>
+              {item.results.nettoWeight && (
+                <div className="flex justify-between">
+                  <span>⚖️ Waga blachy brutto:</span>
+                  <span className="font-medium">{parseFloat(item.results.nettoWeight).toFixed(0)} g</span>
+                </div>
+              )}
+              {item.results.bruttoWeight && (
+                <div className="flex justify-between">
+                  <span>📦 Waga maty brutto:</span>
+                  <span className="font-medium">{parseFloat(item.results.bruttoWeight).toFixed(0)} g</span>
+                </div>
+              )}
+              {item.annualVolume && parseFloat(item.annualVolume) > 0 && (
+                <>
+                  {item.results.nettoWeight && (
+                    <div className="flex justify-between pt-1 border-t border-dashed">
+                      <span>📅 Blacha brutto rocznie:</span>
+                      <span className="font-medium">
+                        {((parseFloat(item.results.nettoWeight) * parseFloat(item.annualVolume)) / 1000).toFixed(1)} kg/rok
+                      </span>
+                    </div>
+                  )}
+                  {item.results.bruttoWeight && (
+                    <div className="flex justify-between">
+                      <span>📅 Mata brutto rocznie:</span>
+                      <span className="font-medium">
+                        {((parseFloat(item.results.bruttoWeight) * parseFloat(item.annualVolume)) / 1000).toFixed(1)} kg/rok
+                      </span>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
-          {item.bruttoWeight && parseFloat(item.bruttoWeight) !== parseFloat(item.weight) && (
-            <span> / {parseFloat(item.bruttoWeight).toFixed(0)}g brutto</span>
+
+          {/* Dla standardowych trybów - informacje o wadze */}
+          {!item.heatshield && (
+            <>
+              <div className="flex justify-between">
+                <span>⚖️ Waga netto:</span>
+                <span className="font-medium">{parseFloat(item.weight || 0).toFixed(0)} g</span>
+              </div>
+              {item.bruttoWeight && (
+                <div className="flex justify-between">
+                  <span>📦 Waga brutto:</span>
+                  <span className="font-medium">{parseFloat(item.bruttoWeight).toFixed(0)} g</span>
+                </div>
+              )}
+              {item.annualVolume && parseFloat(item.annualVolume) > 0 && (
+                <div className="flex justify-between pt-1 border-t border-dashed">
+                  <span>📅 Roczne zapotrzebowanie:</span>
+                  <span className="font-medium">
+                    {((parseFloat(item.bruttoWeight || item.weight || 0) * parseFloat(item.annualVolume)) / 1000).toFixed(1)} kg/rok
+                  </span>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

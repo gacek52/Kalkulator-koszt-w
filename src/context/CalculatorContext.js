@@ -8,6 +8,7 @@ const CALCULATOR_ACTIONS = {
   UPDATE_TAB: 'UPDATE_TAB',
   REMOVE_TAB: 'REMOVE_TAB',
   ADD_ITEM: 'ADD_ITEM',
+  DUPLICATE_ITEM: 'DUPLICATE_ITEM',
   UPDATE_ITEM: 'UPDATE_ITEM',
   REMOVE_ITEM: 'REMOVE_ITEM',
   SET_DARK_MODE: 'SET_DARK_MODE',
@@ -34,7 +35,7 @@ const initialState = {
   globalSGA: '12',
   activeTab: 0,
   nextTabId: 2,
-  darkMode: false,
+  darkMode: true,
   hasUnsavedChanges: false,
   lastSavedState: null,
   // Pola dla katalogu kalkulacji
@@ -49,10 +50,13 @@ const initialState = {
   tabs: [{
     id: 1,
     name: 'Materiał 1',
+    calculationType: 'weight', // 'weight', 'surface', 'volume'
     materialCost: '2.0',
+    materialPriceUnit: 'kg', // 'kg' lub 'm2' (dla trybu surface)
     bakingCost: '110',
     cleaningCost: '90',
     handlingCost: '0.08',
+    prepCost: '90', // Koszt przygotówki dla heatshield (€/8h)
     // Procesy niestandardowe
     customProcesses: [
       // { id: 1, name: 'Proces 1', cost: '10', unit: 'euro/szt', efficiency: '1' }
@@ -84,6 +88,25 @@ const initialState = {
         { x: 1000, y: 1200 }, // netto 1kg -> brutto 1.2kg (20% więcej)
         { x: 2000, y: 2300 }, // netto 2kg -> brutto 2.3kg (15% więcej)
         { x: 3000, y: 3300 }  // netto 3kg -> brutto 3.3kg (10% więcej)
+      ],
+      // Krzywe dla heatshield
+      heatshieldPrep: [
+        { x: 0.01, y: 30 },   // 0.01 m² -> 30 sek
+        { x: 0.05, y: 45 },   // 0.05 m² -> 45 sek
+        { x: 0.1, y: 60 },    // 0.1 m² -> 60 sek
+        { x: 0.5, y: 120 },   // 0.5 m² -> 120 sek
+        { x: 1.0, y: 180 },   // 1 m² -> 180 sek
+        { x: 2.0, y: 300 }    // 2 m² -> 300 sek
+      ],
+      heatshieldLaser: [
+        // Krzywa z progami - powierzchnia [m²] -> cena [€]
+        { x: 0.0, y: 5 },     // <0.01 m² -> 5 €
+        { x: 0.01, y: 5 },    // 0.01 m² -> 5 €
+        { x: 0.05, y: 8 },    // 0.05 m² -> 8 €
+        { x: 0.1, y: 12 },    // 0.1 m² -> 12 €
+        { x: 0.5, y: 25 },    // 0.5 m² -> 25 €
+        { x: 1.0, y: 40 },    // 1 m² -> 40 €
+        { x: 2.0, y: 70 }     // 2 m² -> 70 €
       ]
     },
     // Krzywe użytkownika (edytowalne)
@@ -102,22 +125,45 @@ const initialState = {
     items: [{
       id: 1,
       partId: '',
-      weight: '',
+      // Pola wspólne
+      weight: '', // waga netto (obliczona lub wprowadzona)
       weightOption: 'netto', // 'netto', 'brutto-auto', 'brutto-manual'
-      bruttoWeight: '',
+      bruttoWeight: '', // waga brutto (obliczona lub wprowadzona)
       cleaningOption: 'scaled',
       manualCleaningTime: '45',
       margin: '', // marża per pozycja (%)
       customValues: {}, // wartości dla procesów niestandardowych
       results: null,
-      // Pola dla pakowania i jednostek
       annualVolume: '', // roczna ilość produkcji
+      // Pola dla trybu WAGA
+      weightUnit: 'g', // 'g', 'kg'
+      // Pola dla trybu POWIERZCHNIA
+      surfaceArea: '', // powierzchnia netto
+      surfaceUnit: 'mm2', // 'mm2', 'm2'
+      thickness: '', // grubość [mm]
+      density: '', // gęstość [kg/m³]
+      surfaceWeight: '', // ciężar powierzchniowy [g/m²]
+      surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false }, // które pola są wypełniane (locked), które obliczane
+      sheetLength: '1000', // długość arkusza [mm]
+      sheetWidth: '1000', // szerokość arkusza [mm]
+      partsPerSheet: '', // ilość detali na arkuszu
+      surfaceBrutto: '', // powierzchnia brutto [m²] - obliczona
+      // Pola dla trybu OBJĘTOŚĆ
+      volume: '', // objętość [mm³, cm³, m³]
+      volumeUnit: 'mm3', // 'mm3', 'cm3', 'm3'
+      dimensions: { length: '', width: '', height: '' }, // wymiary dla auto-obliczania objętości
+      volumeWeightOption: 'brutto-auto', // 'netto', 'brutto-auto', 'brutto-manual'
+      // volumeDensity jest już w 'density' powyżej
+      // Pola dla pakowania
       unit: 'kg', // jednostka: kg, g, m2, mm2, cm2, m3, cm3, g_m2
-      dimensions: { length: '', width: '', height: '' }, // dla obliczania objętości
-      density: '', // gęstość g/cm³ lub kg/m³
-      volume: '', // obliczona objętość m³
-      packagingType: null, // ID wybranego opakowania
-      manualPartsPerPackage: '' // ręczne nadpisanie ilości sztuk w opakowaniu
+      packaging: {
+        partsPerLayer: '', // części na warstwę
+        layers: '', // ilość warstw
+        partsInBox: '', // liczba elementów w kartonie (obliczana lub ręczna)
+        manualPartsInBox: false, // checkbox - czy ręczne wprowadzanie
+        compositionId: null, // ID wybranej kompozycji (null = niestandardowa)
+        customPrice: '' // cena dla kompozycji niestandardowej (€)
+      }
     }],
     nextItemId: 2
   }]
@@ -180,6 +226,31 @@ function calculatorReducer(state, action) {
               }
             : tab
         )
+      };
+
+    case CALCULATOR_ACTIONS.DUPLICATE_ITEM:
+      return {
+        ...state,
+        tabs: state.tabs.map(tab => {
+          if (tab.id === action.payload.tabId) {
+            const itemToDuplicate = tab.items.find(item => item.id === action.payload.itemId);
+            if (!itemToDuplicate) return tab;
+
+            const duplicatedItem = {
+              ...itemToDuplicate,
+              id: tab.nextItemId,
+              partId: itemToDuplicate.partId ? `${itemToDuplicate.partId} (kopia)` : '',
+              results: null // Wyczyść wyniki, będą przeliczone automatycznie
+            };
+
+            return {
+              ...tab,
+              items: [...tab.items, duplicatedItem],
+              nextItemId: tab.nextItemId + 1
+            };
+          }
+          return tab;
+        })
       };
 
     case CALCULATOR_ACTIONS.UPDATE_ITEM:
@@ -366,8 +437,11 @@ function calculatorReducer(state, action) {
     case CALCULATOR_ACTIONS.LOAD_CALCULATION:
       // Deep copy kalkulacji z katalogu
       const loadedState = JSON.parse(JSON.stringify(action.payload));
+      // Zachowaj darkMode z obecnej sesji, ale załaduj wszystko inne
       return {
-        ...loadedState,
+        ...state, // Zachowaj obecną konfigurację (darkMode)
+        ...loadedState, // Nadpisz danymi z katalogu
+        darkMode: state.darkMode, // Zachowaj obecny tryb ciemny
         hasUnsavedChanges: false,
         lastSavedState: JSON.stringify(loadedState)
       };
@@ -445,6 +519,7 @@ export function CalculatorProvider({ children }) {
     removeTab: (id) => dispatch({ type: CALCULATOR_ACTIONS.REMOVE_TAB, payload: id }),
 
     addItem: (tabId, item) => dispatch({ type: CALCULATOR_ACTIONS.ADD_ITEM, payload: { tabId, item } }),
+    duplicateItem: (tabId, itemId) => dispatch({ type: CALCULATOR_ACTIONS.DUPLICATE_ITEM, payload: { tabId, itemId } }),
     updateItem: (tabId, itemId, updates) => dispatch({ type: CALCULATOR_ACTIONS.UPDATE_ITEM, payload: { tabId, itemId, updates } }),
     removeItem: (tabId, itemId) => dispatch({ type: CALCULATOR_ACTIONS.REMOVE_ITEM, payload: { tabId, itemId } }),
 

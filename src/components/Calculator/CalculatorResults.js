@@ -23,48 +23,74 @@ export function CalculatorResults({ tab, globalSGA, themeClasses, darkMode }) {
     if (validItems.length === 0) {
       return {
         totalItems: 0,
-        totalMaterialCost: 0,
-        totalBakingCost: 0,
-        totalCleaningCost: 0,
-        totalHandlingCost: 0,
-        totalCustomProcessesCost: 0,
+        costBreakdown: {},
         totalCost: 0,
         totalWithMargin: 0,
         finalPrice: 0
       };
     }
 
-    const summary = validItems.reduce((acc, item) => {
-      acc.totalMaterialCost += item.results.materialCost;
-      acc.totalBakingCost += item.results.bakingCost;
-      acc.totalCleaningCost += item.results.cleaningCost;
-      acc.totalHandlingCost += item.results.handlingCost;
-      acc.totalCustomProcessesCost += item.results.customProcessesCost;
-      acc.totalCost += item.results.totalCost;
+    // Dynamiczne zbieranie wszystkich kategorii kosztów
+    const costBreakdown = {};
+    let totalCost = 0;
+    let totalWithMargin = 0;
 
-      // Sumuj koszt z marżą z każdej pozycji
-      acc.totalWithMargin += item.results.totalWithMargin;
+    validItems.forEach(item => {
+      const results = item.results;
 
-      return acc;
-    }, {
-      totalItems: validItems.length,
-      totalMaterialCost: 0,
-      totalBakingCost: 0,
-      totalCleaningCost: 0,
-      totalHandlingCost: 0,
-      totalCustomProcessesCost: 0,
-      totalCost: 0,
-      totalWithMargin: 0
+      // Agreguj wszystkie koszty z wyników (pomijając sumy i wagi)
+      Object.keys(results).forEach(key => {
+        // Pomijamy pola które nie są kosztami jednostkowymi
+        if (key === 'totalCost' || key === 'totalWithMargin' || key === 'totalWithSGA' ||
+            key === 'nettoWeight' || key === 'bruttoWeight' ||
+            key === 'bakingTime' || key === 'cleaningTime' || key === 'prepTime' ||
+            key === 'customCurveCosts') {
+          return;
+        }
+
+        const value = parseFloat(results[key]) || 0;
+        if (value > 0) {
+          costBreakdown[key] = (costBreakdown[key] || 0) + value;
+        }
+      });
+
+      totalCost += results.totalCost || 0;
+      totalWithMargin += results.totalWithMargin || 0;
     });
 
     // Oblicz finalną cenę z SG&A (aplikowane do ceny po marży)
     const sgaPercent = parseFloat(globalSGA) || 0;
-    summary.finalPrice = summary.totalWithMargin * (1 + sgaPercent / 100);
+    const finalPrice = totalWithMargin * (1 + sgaPercent / 100);
 
-    return summary;
+    return {
+      totalItems: validItems.length,
+      costBreakdown,
+      totalCost,
+      totalWithMargin,
+      finalPrice
+    };
   };
 
   const summary = calculateSummary();
+
+  // Mapowanie nazw kosztów na czytelne etykiety
+  const getCostLabel = (key) => {
+    const labels = {
+      materialCost: 'Materiały',
+      bakingCost: 'Pieczenie',
+      cleaningCost: 'Czyszczenie',
+      handlingCost: 'Obsługa',
+      customProcessesCost: 'Procesy niestandardowe',
+      customCurvesCost: 'Krzywe niestandardowe',
+      // Heatshield
+      prepCost: 'Przygotówka',
+      laserCost: 'Cięcie laserowe',
+      bendingCost: 'Gięcie',
+      joiningCost: 'Łączenie',
+      gluingCost: 'Klejenie'
+    };
+    return labels[key] || key;
+  };
 
   const ResultCard = ({ icon: Icon, title, value, subtitle, color = "blue" }) => (
     <div className={`${themeClasses.card} rounded-lg border p-4`}>
@@ -130,42 +156,22 @@ export function CalculatorResults({ tab, globalSGA, themeClasses, darkMode }) {
           </h3>
 
           <div className="space-y-2">
-            <div className="flex justify-between">
-              <span className={themeClasses.text.secondary}>Materiały:</span>
-              <span className={`font-mono ${themeClasses.text.primary}`}>
-                {summary.totalMaterialCost.toFixed(2)} €
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className={themeClasses.text.secondary}>Pieczenie:</span>
-              <span className={`font-mono ${themeClasses.text.primary}`}>
-                {summary.totalBakingCost.toFixed(2)} €
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className={themeClasses.text.secondary}>Czyszczenie:</span>
-              <span className={`font-mono ${themeClasses.text.primary}`}>
-                {summary.totalCleaningCost.toFixed(2)} €
-              </span>
-            </div>
-
-            <div className="flex justify-between">
-              <span className={themeClasses.text.secondary}>Obsługa:</span>
-              <span className={`font-mono ${themeClasses.text.primary}`}>
-                {summary.totalHandlingCost.toFixed(2)} €
-              </span>
-            </div>
-
-            {summary.totalCustomProcessesCost > 0 && (
-              <div className="flex justify-between">
-                <span className={themeClasses.text.secondary}>Procesy niestandardowe:</span>
-                <span className={`font-mono ${themeClasses.text.primary}`}>
-                  {summary.totalCustomProcessesCost.toFixed(2)} €
-                </span>
-              </div>
-            )}
+            {/* Dynamiczne wyświetlanie wszystkich kategorii kosztów */}
+            {Object.entries(summary.costBreakdown)
+              .sort(([keyA], [keyB]) => {
+                // Sortuj: materialCost na początku, potem alfabetycznie
+                if (keyA === 'materialCost') return -1;
+                if (keyB === 'materialCost') return 1;
+                return getCostLabel(keyA).localeCompare(getCostLabel(keyB));
+              })
+              .map(([key, value]) => (
+                <div key={key} className="flex justify-between">
+                  <span className={themeClasses.text.secondary}>{getCostLabel(key)}:</span>
+                  <span className={`font-mono ${themeClasses.text.primary}`}>
+                    {value.toFixed(2)} €
+                  </span>
+                </div>
+              ))}
 
             <hr className={`my-2 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`} />
 
