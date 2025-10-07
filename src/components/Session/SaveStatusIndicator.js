@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSession } from '../../context/SessionContext';
-import { Save, AlertCircle, Clock, CheckCircle } from 'lucide-react';
+import { AlertCircle, Clock, CheckCircle } from 'lucide-react';
 
 /**
  * SaveStatusIndicator - Komponent wyświetlający status zapisu sesji
@@ -8,12 +8,14 @@ import { Save, AlertCircle, Clock, CheckCircle } from 'lucide-react';
  * Funkcje:
  * - Wyświetla aktualny status zapisu (zapisano, niezapisane, zapisywanie, błąd)
  * - Pokazuje czas od ostatniego auto-save
- * - Pozwala na manualne wymuszenie zapisu
  * - Automatycznie odświeża wyświetlany czas
+ *
+ * Uwaga: Ten komponent pokazuje tylko status auto-save do sesji roboczej.
+ * Właściwy zapis do katalogu odbywa się przez przycisk "Zapisz" w CostCalculator.
  */
 
 export function SaveStatusIndicator({ darkMode, compact = false }) {
-  const { saveStatus, lastAutoSave, hasUnsavedChanges, forceSave } = useSession();
+  const { saveStatus, lastAutoSave, hasUnsavedChanges } = useSession();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Odświeżaj czas co sekundę dla dokładnego wyświetlania "X sekund temu"
@@ -92,13 +94,6 @@ export function SaveStatusIndicator({ darkMode, compact = false }) {
   const timeSince = getTimeSinceLastSave();
   const IconComponent = config.icon;
 
-  // Obsługa manualnego zapisu
-  const handleManualSave = () => {
-    if (hasUnsavedChanges) {
-      forceSave();
-    }
-  };
-
   // Wersja kompaktowa (tylko ikona i status)
   if (compact) {
     return (
@@ -138,21 +133,6 @@ export function SaveStatusIndicator({ darkMode, compact = false }) {
           </span>
         )}
       </div>
-
-      {/* Przycisk manualnego zapisu (tylko gdy są niezapisane zmiany) */}
-      {hasUnsavedChanges && saveStatus !== 'saving' && (
-        <button
-          onClick={handleManualSave}
-          className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
-            darkMode
-              ? 'bg-blue-600 hover:bg-blue-700 text-white'
-              : 'bg-blue-600 hover:bg-blue-700 text-white'
-          }`}
-          title="Zapisz teraz"
-        >
-          <Save size={14} />
-        </button>
-      )}
     </div>
   );
 }
