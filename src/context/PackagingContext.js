@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { packagingApi } from '../services/api';
 
 // Akcje dla reducer'a
 const PACKAGING_ACTIONS = {
@@ -235,22 +236,62 @@ const PackagingContext = createContext();
 // Provider component
 export function PackagingProvider({ children }) {
   const [state, dispatch] = useReducer(packagingReducer, initialPackagingState);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Synchronizacja z localStorage
+  // Pobierz dane z API przy starcie
   useEffect(() => {
-    const savedData = localStorage.getItem('packagingData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: parsedData });
-      } catch (error) {
-        console.error('Błąd wczytywania danych pakowania z localStorage:', error);
-      }
-    }
+    loadPackagingFromAPI();
   }, []);
 
+  const loadPackagingFromAPI = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await packagingApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        const packagingState = response.data[0];
+        dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: packagingState });
+      }
+    } catch (err) {
+      console.error('Błąd wczytywania opakowań z API:', err);
+      setError(err.message || 'Nie udało się załadować opakowań');
+
+      // Fallback do localStorage
+      const savedData = localStorage.getItem('packagingData');
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: parsedData });
+        } catch (error) {
+          console.error('Błąd wczytywania z localStorage:', error);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const savePackagingToAPI = async (packagingState) => {
+    try {
+      const response = await packagingApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        await packagingApi.update(response.data[0].id, packagingState);
+      } else {
+        await packagingApi.create(packagingState);
+      }
+    } catch (err) {
+      console.error('Błąd zapisu opakowań:', err);
+    }
+  };
+
+  // Backup do localStorage i sync z API
   useEffect(() => {
     localStorage.setItem('packagingData', JSON.stringify(state));
+    savePackagingToAPI(state);
   }, [state]);
 
   // Action creators
@@ -310,11 +351,19 @@ export function PackagingProvider({ children }) {
 
     resetPackagingState: () => dispatch({
       type: PACKAGING_ACTIONS.RESET_PACKAGING_STATE
-    })
+    }),
+
+    refreshPackaging: loadPackagingFromAPI
   };
 
   return (
-    <PackagingContext.Provider value={{ state, actions, utils: packagingUtils }}>
+    <PackagingContext.Provider value={{
+      state,
+      actions,
+      utils: packagingUtils,
+      loading,
+      error
+    }}>
       {children}
     </PackagingContext.Provider>
   );
