@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { catalogApi } from '../services/api';
 
 // Akcje dla reducer'a
 const CATALOG_ACTIONS = {
@@ -48,8 +49,7 @@ function catalogReducer(state, action) {
     case CATALOG_ACTIONS.ADD_CALCULATION:
       return {
         ...state,
-        calculations: [...state.calculations, { ...action.payload, id: state.nextCalculationId }],
-        nextCalculationId: state.nextCalculationId + 1
+        calculations: [...state.calculations, action.payload]
       };
 
     case CATALOG_ACTIONS.UPDATE_CALCULATION:
@@ -57,7 +57,7 @@ function catalogReducer(state, action) {
         ...state,
         calculations: state.calculations.map(calc =>
           calc.id === action.payload.id
-            ? { ...calc, ...action.payload.updates, modifiedDate: new Date().toISOString() }
+            ? action.payload.updates
             : calc
         )
       };
@@ -184,48 +184,137 @@ const CatalogContext = createContext();
 // Provider component
 export function CatalogProvider({ children }) {
   const [state, dispatch] = useReducer(catalogReducer, initialCatalogState);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Synchronizacja z localStorage
+  // Pobierz dane z API przy starcie
   useEffect(() => {
-    const savedData = localStorage.getItem('catalogData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        dispatch({ type: CATALOG_ACTIONS.LOAD_CATALOG_DATA, payload: parsedData });
-      } catch (error) {
-        console.error('Błąd wczytywania danych katalogu z localStorage:', error);
-      }
-    }
+    loadCalculationsFromAPI();
   }, []);
 
+  // Funkcja do pobierania danych z API
+  const loadCalculationsFromAPI = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await catalogApi.getAll();
+
+      if (response.success && response.data) {
+        // Przekształć dane z API do formatu state
+        const catalogState = {
+          calculations: response.data,
+          nextCalculationId: Math.max(...response.data.map(c => parseInt(c.id) || 0), 0) + 1,
+          filters: initialCatalogState.filters,
+          sortBy: initialCatalogState.sortBy,
+          sortOrder: initialCatalogState.sortOrder
+        };
+
+        dispatch({ type: CATALOG_ACTIONS.LOAD_CATALOG_DATA, payload: catalogState });
+      }
+    } catch (err) {
+      console.error('Błąd wczytywania katalogu z API:', err);
+      setError(err.message || 'Nie udało się załadować katalogu');
+
+      // Fallback do localStorage jeśli API nie działa
+      const savedData = localStorage.getItem('catalogData');
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          dispatch({ type: CATALOG_ACTIONS.LOAD_CATALOG_DATA, payload: parsedData });
+        } catch (error) {
+          console.error('Błąd wczytywania z localStorage:', error);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Backup do localStorage (cache)
   useEffect(() => {
-    localStorage.setItem('catalogData', JSON.stringify(state));
+    if (state.calculations.length > 0) {
+      localStorage.setItem('catalogData', JSON.stringify(state));
+    }
   }, [state]);
 
   // Action creators
   const actions = {
-    addCalculation: (calculation) => {
-      const newCalc = {
-        ...calculation,
-        createdDate: new Date().toISOString(),
-        modifiedDate: new Date().toISOString(),
-        status: calculation.status || CALCULATION_STATUS.DRAFT
-      };
-      dispatch({
-        type: CATALOG_ACTIONS.ADD_CALCULATION,
-        payload: newCalc
-      });
+    addCalculation: async (calculation) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const newCalc = {
+          ...calculation,
+          status: calculation.status || CALCULATION_STATUS.DRAFT
+        };
+
+        const response = await catalogApi.create(newCalc);
+
+        if (response.success && response.data) {
+          dispatch({
+            type: CATALOG_ACTIONS.ADD_CALCULATION,
+            payload: response.data
+          });
+          return response.data;
+        }
+      } catch (err) {
+        console.error('Błąd dodawania kalkulacji:', err);
+        setError(err.message || 'Nie udało się dodać kalkulacji');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
     },
 
-    updateCalculation: (id, updates) => dispatch({
-      type: CATALOG_ACTIONS.UPDATE_CALCULATION,
-      payload: { id, updates }
-    }),
+    updateCalculation: async (id, updates) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-    removeCalculation: (id) => dispatch({
-      type: CATALOG_ACTIONS.REMOVE_CALCULATION,
-      payload: id
-    }),
+        const response = await catalogApi.update(id, updates);
+
+        if (response.success && response.data) {
+          dispatch({
+            type: CATALOG_ACTIONS.UPDATE_CALCULATION,
+            payload: { id, updates: response.data }
+          });
+          return response.data;
+        }
+      } catch (err) {
+        console.error('Błąd aktualizacji kalkulacji:', err);
+        setError(err.message || 'Nie udało się zaktualizować kalkulacji');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+
+    removeCalculation: async (id) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await catalogApi.delete(id);
+
+        if (response.success) {
+          dispatch({
+            type: CATALOG_ACTIONS.REMOVE_CALCULATION,
+            payload: id
+          });
+          return true;
+        }
+      } catch (err) {
+        console.error('Błąd usuwania kalkulacji:', err);
+        setError(err.message || 'Nie udało się usunąć kalkulacji');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+
+    refreshCatalog: loadCalculationsFromAPI,
 
     setFilter: (filters) => dispatch({
       type: CATALOG_ACTIONS.SET_FILTER,
@@ -270,7 +359,15 @@ export function CatalogProvider({ children }) {
   });
 
   return (
-    <CatalogContext.Provider value={{ state, actions, utils: catalogUtils, filteredCalculations: sortedCalculations, summary }}>
+    <CatalogContext.Provider value={{
+      state,
+      actions,
+      utils: catalogUtils,
+      filteredCalculations: sortedCalculations,
+      summary,
+      loading,
+      error
+    }}>
       {children}
     </CatalogContext.Provider>
   );

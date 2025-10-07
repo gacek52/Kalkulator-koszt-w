@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { clientsApi } from '../services/api';
 
 /**
  * Kontekst zarządzania klientami
@@ -104,14 +105,9 @@ const initialState = {
 function clientReducer(state, action) {
   switch (action.type) {
     case CLIENT_ACTIONS.ADD_CLIENT: {
-      const newClient = {
-        ...action.payload,
-        id: state.nextClientId
-      };
       return {
         ...state,
-        clients: [...state.clients, newClient],
-        nextClientId: state.nextClientId + 1
+        clients: [...state.clients, action.payload]
       };
     }
 
@@ -120,7 +116,7 @@ function clientReducer(state, action) {
         ...state,
         clients: state.clients.map(client =>
           client.id === action.payload.id
-            ? { ...client, ...action.payload.updates }
+            ? action.payload.updates
             : client
         )
       };
@@ -211,61 +207,144 @@ const ClientContext = createContext();
 // Provider
 export function ClientProvider({ children }) {
   const [state, dispatch] = useReducer(clientReducer, initialState);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Załaduj dane z localStorage przy starcie
+  // Pobierz dane z API przy starcie
   useEffect(() => {
-    const savedData = localStorage.getItem('clientData');
-    if (savedData) {
-      try {
-        const data = JSON.parse(savedData);
-        dispatch({
-          type: CLIENT_ACTIONS.LOAD_CLIENTS,
-          payload: data
-        });
-      } catch (error) {
-        console.error('Error loading client data:', error);
-      }
-    }
+    loadClientsFromAPI();
   }, []);
 
-  // Zapisz dane do localStorage przy każdej zmianie
+  const loadClientsFromAPI = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await clientsApi.getAll();
+
+      if (response.success && response.data) {
+        dispatch({
+          type: CLIENT_ACTIONS.LOAD_CLIENTS,
+          payload: {
+            clients: response.data,
+            nextClientId: Math.max(...response.data.map(c => parseInt(c.id) || 0), 0) + 1
+          }
+        });
+      }
+    } catch (err) {
+      console.error('Błąd wczytywania klientów z API:', err);
+      setError(err.message || 'Nie udało się załadować klientów');
+
+      // Fallback do localStorage
+      const savedData = localStorage.getItem('clientData');
+      if (savedData) {
+        try {
+          const data = JSON.parse(savedData);
+          dispatch({
+            type: CLIENT_ACTIONS.LOAD_CLIENTS,
+            payload: data
+          });
+        } catch (error) {
+          console.error('Błąd wczytywania z localStorage:', error);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Backup do localStorage (cache)
   useEffect(() => {
-    localStorage.setItem('clientData', JSON.stringify({
-      clients: state.clients,
-      nextClientId: state.nextClientId
-    }));
+    if (state.clients.length > 0) {
+      localStorage.setItem('clientData', JSON.stringify({
+        clients: state.clients,
+        nextClientId: state.nextClientId
+      }));
+    }
   }, [state]);
 
   // Akcje
   const actions = {
-    addClient: (clientData) => {
+    addClient: async (clientData) => {
       const errors = clientUtils.validateClient(clientData);
       if (errors.length > 0) {
         alert(`Błąd walidacji:\n${errors.join('\n')}`);
         return false;
       }
-      dispatch({
-        type: CLIENT_ACTIONS.ADD_CLIENT,
-        payload: clientData
-      });
-      return true;
-    },
 
-    updateClient: (id, updates) => {
-      dispatch({
-        type: CLIENT_ACTIONS.UPDATE_CLIENT,
-        payload: { id, updates }
-      });
-    },
+      try {
+        setLoading(true);
+        setError(null);
 
-    removeClient: (id) => {
-      if (window.confirm('Czy na pewno chcesz usunąć tego klienta?')) {
-        dispatch({
-          type: CLIENT_ACTIONS.REMOVE_CLIENT,
-          payload: { id }
-        });
+        const response = await clientsApi.create(clientData);
+
+        if (response.success && response.data) {
+          dispatch({
+            type: CLIENT_ACTIONS.ADD_CLIENT,
+            payload: response.data
+          });
+          return response.data;
+        }
+      } catch (err) {
+        console.error('Błąd dodawania klienta:', err);
+        setError(err.message || 'Nie udało się dodać klienta');
+        throw err;
+      } finally {
+        setLoading(false);
       }
     },
+
+    updateClient: async (id, updates) => {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await clientsApi.update(id, updates);
+
+        if (response.success && response.data) {
+          dispatch({
+            type: CLIENT_ACTIONS.UPDATE_CLIENT,
+            payload: { id, updates: response.data }
+          });
+          return response.data;
+        }
+      } catch (err) {
+        console.error('Błąd aktualizacji klienta:', err);
+        setError(err.message || 'Nie udało się zaktualizować klienta');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+
+    removeClient: async (id) => {
+      if (!window.confirm('Czy na pewno chcesz usunąć tego klienta?')) {
+        return false;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const response = await clientsApi.delete(id);
+
+        if (response.success) {
+          dispatch({
+            type: CLIENT_ACTIONS.REMOVE_CLIENT,
+            payload: { id }
+          });
+          return true;
+        }
+      } catch (err) {
+        console.error('Błąd usuwania klienta:', err);
+        setError(err.message || 'Nie udało się usunąć klienta');
+        throw err;
+      } finally {
+        setLoading(false);
+      }
+    },
+
+    refreshClients: loadClientsFromAPI,
 
     loadClients: (data) => {
       dispatch({
@@ -284,7 +363,13 @@ export function ClientProvider({ children }) {
   };
 
   return (
-    <ClientContext.Provider value={{ state, actions, utils: clientUtils }}>
+    <ClientContext.Provider value={{
+      state,
+      actions,
+      utils: clientUtils,
+      loading,
+      error
+    }}>
       {children}
     </ClientContext.Provider>
   );
