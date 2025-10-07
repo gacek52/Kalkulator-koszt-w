@@ -30,8 +30,9 @@ export function LocalStorageViewer({ darkMode, onClose }) {
     ];
 
     keys.forEach(key => {
+      let item = null;
       try {
-        const item = localStorage.getItem(key);
+        item = localStorage.getItem(key);
         if (item) {
           data[key] = {
             raw: item,
