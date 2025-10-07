@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
+import { useSession } from '../../context/SessionContext';
+import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
 
 /**
  * Komponent widoku katalogu kalkulacji
@@ -8,9 +10,40 @@ import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/Cat
 export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenClientManualSettings, onOpenClientManualPreview, hasActiveCalculation }) {
   const { state: catalogState, actions: catalogActions, filteredCalculations, summary } = useCatalog();
   const { filters, sortBy, sortOrder } = catalogState;
+  const { activeSession, clearSession, loadCalculationToSession } = useSession();
 
   const [expandedCalculations, setExpandedCalculations] = useState({});
   const [showFilters, setShowFilters] = useState(false);
+  const [showSessionRestoreDialog, setShowSessionRestoreDialog] = useState(false);
+  const [sessionRestoreChecked, setSessionRestoreChecked] = useState(false);
+
+  // Sprawdź czy jest aktywna sesja przy pierwszym wejściu
+  useEffect(() => {
+    if (!sessionRestoreChecked && activeSession && !hasActiveCalculation) {
+      setShowSessionRestoreDialog(true);
+      setSessionRestoreChecked(true);
+    }
+  }, [activeSession, sessionRestoreChecked, hasActiveCalculation]);
+
+  // Obsługa przywracania sesji
+  const handleRestoreSession = () => {
+    if (activeSession && activeSession.calculation) {
+      // Załaduj kalkulację z sesji
+      onLoadCalculation(activeSession.calculation);
+    }
+    setShowSessionRestoreDialog(false);
+  };
+
+  // Obsługa odrzucenia sesji
+  const handleDiscardSession = () => {
+    clearSession();
+    setShowSessionRestoreDialog(false);
+  };
+
+  // Obsługa anulowania
+  const handleCancelRestore = () => {
+    setShowSessionRestoreDialog(false);
+  };
 
   // Toggle rozwinięcia kalkulacji
   const toggleExpanded = (calcId) => {
@@ -426,6 +459,17 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
           </div>
         </div>
       </div>
+
+      {/* Session Restore Dialog */}
+      {showSessionRestoreDialog && (
+        <SessionRestoreDialog
+          session={activeSession}
+          onRestore={handleRestoreSession}
+          onDiscard={handleDiscardSession}
+          onCancel={handleCancelRestore}
+          darkMode={darkMode}
+        />
+      )}
     </div>
   );
 }
