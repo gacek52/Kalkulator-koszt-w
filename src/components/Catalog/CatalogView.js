@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 
 /**
  * Komponent widoku katalogu kalkulacji
  */
-export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, hasActiveCalculation }) {
+export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenClientManualSettings, onOpenClientManualPreview, hasActiveCalculation }) {
   const { state: catalogState, actions: catalogActions, filteredCalculations, summary } = useCatalog();
   const { filters, sortBy, sortOrder } = catalogState;
 
@@ -108,6 +108,23 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                 <Users size={16} />
                 Klienci
               </button>
+
+              <div className="flex">
+                <button
+                  onClick={onOpenClientManualSettings}
+                  className={`px-3 py-2 rounded-l-lg font-medium ${themeClasses.button.secondary} border-r ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+                  title="Ustawienia Client Manual - edycja stawek i kosztów"
+                >
+                  <Settings size={16} />
+                </button>
+                <button
+                  onClick={onOpenClientManualPreview}
+                  className={`px-4 py-2 rounded-r-lg font-medium ${themeClasses.button.secondary}`}
+                  title="Podgląd Client Manual - tylko do odczytu"
+                >
+                  Client Manual
+                </button>
+              </div>
 
               <button
                 onClick={onNewCalculation}

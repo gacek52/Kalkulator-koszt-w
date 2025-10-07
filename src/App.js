@@ -3,15 +3,17 @@ import { CalculatorProvider, useCalculator } from './context/CalculatorContext';
 import { PackagingProvider } from './context/PackagingContext';
 import { MaterialProvider } from './context/MaterialContext';
 import { ClientProvider } from './context/ClientContext';
+import { ClientManualProvider } from './context/ClientManualContext';
 import { CatalogProvider } from './context/CatalogContext';
 import { CostCalculator } from './components/Calculator/CostCalculator';
 import { CatalogView } from './components/Catalog/CatalogView';
 import { PackagingManager } from './components/Packaging/PackagingManager';
 import { MaterialManager } from './components/Materials/MaterialManager';
 import { ClientManager } from './components/Clients/ClientManager';
+import { ClientManualManager } from './components/ClientManual/ClientManualManager';
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', or 'clients'
+  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', 'clients', 'client-manual-settings', or 'client-manual-preview'
   const [calculationToLoad, setCalculationToLoad] = useState(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -116,48 +118,65 @@ function AppContent() {
   return (
     <PackagingProvider>
       <ClientProvider>
-        <MaterialProvider>
-          <CatalogProvider>
-            {currentView === 'catalog' ? (
-              <CatalogView
-                themeClasses={themeClasses}
-                darkMode={darkMode}
-                onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-                onNewCalculation={handleNewCalculation}
-                onLoadCalculation={handleLoadCalculation}
-                onBackToCalculator={handleBackToCalculator}
-                onOpenPackaging={() => setCurrentView('packaging')}
-                onOpenMaterials={() => setCurrentView('materials')}
-                onOpenClients={() => setCurrentView('clients')}
-                hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
-              />
-            ) : currentView === 'calculator' ? (
-              <CostCalculator
-                onBackToCatalog={handleBackToCatalog}
-                calculationToLoad={calculationToLoad}
-                onSaveRef={saveCalculationRef}
-              />
-            ) : currentView === 'packaging' ? (
-              <PackagingManager
-                darkMode={darkMode}
-                onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-                onBack={() => setCurrentView('catalog')}
-                themeClasses={themeClasses}
-              />
-            ) : currentView === 'materials' ? (
-              <MaterialManager
-                darkMode={darkMode}
-                onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-                onBack={() => setCurrentView('catalog')}
-                themeClasses={themeClasses}
-              />
-            ) : (
-              <ClientManager
-                darkMode={darkMode}
-                themeClasses={themeClasses}
-                onClose={() => setCurrentView('catalog')}
-              />
-            )}
+        <ClientManualProvider>
+          <MaterialProvider>
+            <CatalogProvider>
+              {currentView === 'catalog' ? (
+                <CatalogView
+                  themeClasses={themeClasses}
+                  darkMode={darkMode}
+                  onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                  onNewCalculation={handleNewCalculation}
+                  onLoadCalculation={handleLoadCalculation}
+                  onBackToCalculator={handleBackToCalculator}
+                  onOpenPackaging={() => setCurrentView('packaging')}
+                  onOpenMaterials={() => setCurrentView('materials')}
+                  onOpenClients={() => setCurrentView('clients')}
+                  onOpenClientManualSettings={() => setCurrentView('client-manual-settings')}
+                  onOpenClientManualPreview={() => setCurrentView('client-manual-preview')}
+                  hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
+                />
+              ) : currentView === 'calculator' ? (
+                <CostCalculator
+                  onBackToCatalog={handleBackToCatalog}
+                  calculationToLoad={calculationToLoad}
+                  onSaveRef={saveCalculationRef}
+                />
+              ) : currentView === 'packaging' ? (
+                <PackagingManager
+                  darkMode={darkMode}
+                  onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                  onBack={() => setCurrentView('catalog')}
+                  themeClasses={themeClasses}
+                />
+              ) : currentView === 'materials' ? (
+                <MaterialManager
+                  darkMode={darkMode}
+                  onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                  onBack={() => setCurrentView('catalog')}
+                  themeClasses={themeClasses}
+                />
+              ) : currentView === 'clients' ? (
+                <ClientManager
+                  darkMode={darkMode}
+                  themeClasses={themeClasses}
+                  onClose={() => setCurrentView('catalog')}
+                />
+              ) : currentView === 'client-manual-settings' ? (
+                <ClientManualManager
+                  darkMode={darkMode}
+                  themeClasses={themeClasses}
+                  onClose={() => setCurrentView('catalog')}
+                  readOnly={false}
+                />
+              ) : currentView === 'client-manual-preview' ? (
+                <ClientManualManager
+                  darkMode={darkMode}
+                  themeClasses={themeClasses}
+                  onClose={() => setCurrentView('catalog')}
+                  readOnly={true}
+                />
+              ) : null}
 
           {/* Dialog niezapisanych zmian */}
           {showUnsavedChangesDialog && (
@@ -202,8 +221,9 @@ function AppContent() {
               </div>
             </div>
           )}
-          </CatalogProvider>
-        </MaterialProvider>
+            </CatalogProvider>
+          </MaterialProvider>
+        </ClientManualProvider>
       </ClientProvider>
     </PackagingProvider>
   );
