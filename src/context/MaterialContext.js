@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { materialsApi } from '../services/api';
 
 // Akcje dla reducer'a
 const MATERIAL_ACTIONS = {
@@ -292,22 +293,67 @@ const MaterialContext = createContext();
 // Provider component
 export function MaterialProvider({ children }) {
   const [state, dispatch] = useReducer(materialReducer, initialMaterialState);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  // Synchronizacja z localStorage
+  // Pobierz dane z API przy starcie
   useEffect(() => {
-    const savedData = localStorage.getItem('materialData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        dispatch({ type: MATERIAL_ACTIONS.LOAD_MATERIAL_DATA, payload: parsedData });
-      } catch (error) {
-        console.error('Błąd wczytywania danych materiałów z localStorage:', error);
-      }
-    }
+    loadMaterialsFromAPI();
   }, []);
 
+  const loadMaterialsFromAPI = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await materialsApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        // Zakładamy że pierwszy element to cały stan materiałów
+        const materialState = response.data[0];
+        dispatch({ type: MATERIAL_ACTIONS.LOAD_MATERIAL_DATA, payload: materialState });
+      }
+    } catch (err) {
+      console.error('Błąd wczytywania materiałów z API:', err);
+      setError(err.message || 'Nie udało się załadować materiałów');
+
+      // Fallback do localStorage
+      const savedData = localStorage.getItem('materialData');
+      if (savedData) {
+        try {
+          const parsedData = JSON.parse(savedData);
+          dispatch({ type: MATERIAL_ACTIONS.LOAD_MATERIAL_DATA, payload: parsedData });
+        } catch (error) {
+          console.error('Błąd wczytywania z localStorage:', error);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Zapisz do API po każdej zmianie (debounced by reducer)
+  const saveMaterialsToAPI = async (materialState) => {
+    try {
+      // Sprawdź czy już istnieje dokument
+      const response = await materialsApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        // Update istniejącego
+        await materialsApi.update(response.data[0].id, materialState);
+      } else {
+        // Create nowego
+        await materialsApi.create(materialState);
+      }
+    } catch (err) {
+      console.error('Błąd zapisu materiałów:', err);
+    }
+  };
+
+  // Backup do localStorage i sync z API
   useEffect(() => {
     localStorage.setItem('materialData', JSON.stringify(state));
+    saveMaterialsToAPI(state);
   }, [state]);
 
   // Action creators
@@ -349,11 +395,19 @@ export function MaterialProvider({ children }) {
 
     resetMaterialState: () => dispatch({
       type: MATERIAL_ACTIONS.RESET_MATERIAL_STATE
-    })
+    }),
+
+    refreshMaterials: loadMaterialsFromAPI
   };
 
   return (
-    <MaterialContext.Provider value={{ state, actions, utils: materialUtils }}>
+    <MaterialContext.Provider value={{
+      state,
+      actions,
+      utils: materialUtils,
+      loading,
+      error
+    }}>
       {children}
     </MaterialContext.Provider>
   );
