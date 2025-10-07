@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 import { useSession } from '../../context/SessionContext';
 import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
+import { LocalStorageViewer } from '../DevTools/LocalStorageViewer';
 
 /**
  * Komponent widoku katalogu kalkulacji
@@ -16,6 +17,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
   const [showFilters, setShowFilters] = useState(false);
   const [showSessionRestoreDialog, setShowSessionRestoreDialog] = useState(false);
   const [sessionRestoreChecked, setSessionRestoreChecked] = useState(false);
+  const [showDevTools, setShowDevTools] = useState(false);
 
   // Sprawdź czy jest aktywna sesja przy pierwszym wejściu
   useEffect(() => {
@@ -98,6 +100,14 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                   ← Powrót do kalkulatora
                 </button>
               )}
+
+              <button
+                onClick={() => setShowDevTools(true)}
+                className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
+                title="DevTools - podgląd localStorage"
+              >
+                <Database size={20} />
+              </button>
 
               <button
                 onClick={onToggleDarkMode}
@@ -468,6 +478,14 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
           onDiscard={handleDiscardSession}
           onCancel={handleCancelRestore}
           darkMode={darkMode}
+        />
+      )}
+
+      {/* DevTools */}
+      {showDevTools && (
+        <LocalStorageViewer
+          darkMode={darkMode}
+          onClose={() => setShowDevTools(false)}
         />
       )}
     </div>
