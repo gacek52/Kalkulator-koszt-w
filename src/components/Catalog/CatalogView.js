@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 import { useSession } from '../../context/SessionContext';
 import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
@@ -157,10 +157,15 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 relative`}
               >
                 <Filter size={16} />
                 Filtry
+                {(filters.calculationId || filters.client || filters.status || filters.dateFrom || filters.dateTo || filters.partSearch || filters.showOnlyWithNotes) && (
+                  <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {filteredCalculations.length}
+                  </span>
+                )}
               </button>
 
               <button
@@ -223,6 +228,19 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className={`block text-sm font-medium ${themeClasses.text.secondary} mb-1`}>
+                    ID Kalkulacji
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.calculationId}
+                    onChange={(e) => catalogActions.setFilter({ calculationId: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                    placeholder="np. 251008-01"
+                  />
+                </div>
+
+                <div>
+                  <label className={`block text-sm font-medium ${themeClasses.text.secondary} mb-1`}>
                     Klient
                   </label>
                   <input
@@ -272,6 +290,34 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     onChange={(e) => catalogActions.setFilter({ dateTo: e.target.value })}
                     className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
                   />
+                </div>
+              </div>
+
+              {/* Drugi wiersz filtrów - wyszukiwanie po częściach */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                <div className="md:col-span-2">
+                  <label className={`block text-sm font-medium ${themeClasses.text.secondary} mb-1`}>
+                    Wyszukaj część (ID lub nazwa materiału)
+                  </label>
+                  <input
+                    type="text"
+                    value={filters.partSearch}
+                    onChange={(e) => catalogActions.setFilter({ partSearch: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                    placeholder="np. 12345 lub HT800..."
+                  />
+                </div>
+                <div className="flex items-end">
+                  <label className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${themeClasses.text.primary}`}>
+                    <input
+                      type="checkbox"
+                      checked={filters.showOnlyWithNotes}
+                      onChange={(e) => catalogActions.setFilter({ showOnlyWithNotes: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <StickyNote size={16} className="text-yellow-500" />
+                    <span className="text-sm">Tylko z notatkami</span>
+                  </label>
                 </div>
               </div>
             </div>
@@ -387,7 +433,24 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     return (
                     <React.Fragment key={calc.id}>
                       <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750">
-                        <td className={`px-4 py-3 ${themeClasses.text.primary}`}>#{calc.id}</td>
+                        <td className={`px-4 py-3 ${themeClasses.text.primary}`}>
+                          <div className="flex items-center gap-2">
+                            <span>#{calc.id}</span>
+                            {calc.notes && calc.notes.trim() !== '' && (
+                              <div className="relative group">
+                                <StickyNote
+                                  size={16}
+                                  className="text-yellow-500 cursor-help"
+                                />
+                                <div className="absolute left-0 top-6 hidden group-hover:block z-10 w-64 p-2 bg-yellow-50 dark:bg-yellow-900 border border-yellow-200 dark:border-yellow-700 rounded-lg shadow-lg">
+                                  <p className="text-xs text-gray-700 dark:text-gray-200 whitespace-pre-wrap break-words">
+                                    {calc.notes}
+                                  </p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </td>
                         <td className={`px-4 py-3 ${themeClasses.text.primary}`}>{calc.client || '-'}</td>
                         <td className={`px-4 py-3 ${themeClasses.text.secondary} text-sm`}>
                           {formatDate(calc.modifiedDate || calc.createdDate)}

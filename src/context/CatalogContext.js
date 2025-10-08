@@ -37,7 +37,10 @@ const initialCatalogState = {
     client: '',
     status: '',
     dateFrom: '',
-    dateTo: ''
+    dateTo: '',
+    partSearch: '', // Wyszukiwanie po ID części lub nazwie
+    calculationId: '', // Wyszukiwanie po ID kalkulacji
+    showOnlyWithNotes: false // Pokaż tylko kalkulacje z notatkami
   },
   sortBy: 'date', // 'date', 'client', 'calculationId', 'status', 'revenue', 'profit'
   sortOrder: 'desc' // 'asc' or 'desc'
@@ -115,6 +118,9 @@ export const catalogUtils = {
   // Filtrowanie kalkulacji
   filterCalculations: (calculations, filters) => {
     return calculations.filter(calc => {
+      if (filters.calculationId && !calc.id?.toString().toLowerCase().includes(filters.calculationId.toLowerCase())) {
+        return false;
+      }
       if (filters.client && !calc.client?.toLowerCase().includes(filters.client.toLowerCase())) {
         return false;
       }
@@ -130,6 +136,21 @@ export const catalogUtils = {
         const calcDate = new Date(calc.createdDate);
         const filterDate = new Date(filters.dateTo);
         if (calcDate > filterDate) return false;
+      }
+      // Filtrowanie po ID części lub nazwie zakładki
+      if (filters.partSearch) {
+        const searchLower = filters.partSearch.toLowerCase();
+        const hasMatchingPart = calc.items?.some(item =>
+          item.partId?.toLowerCase().includes(searchLower) ||
+          item.tabName?.toLowerCase().includes(searchLower)
+        );
+        if (!hasMatchingPart) return false;
+      }
+      // Filtrowanie - tylko z notatkami
+      if (filters.showOnlyWithNotes) {
+        if (!calc.notes || calc.notes.trim() === '') {
+          return false;
+        }
       }
       return true;
     });
