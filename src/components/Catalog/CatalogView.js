@@ -4,6 +4,7 @@ import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/Cat
 import { useSession } from '../../context/SessionContext';
 import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
 import { LocalStorageViewer } from '../DevTools/LocalStorageViewer';
+import { catalogApi } from '../../services/api';
 
 /**
  * Komponent widoku katalogu kalkulacji
@@ -70,6 +71,43 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
   // Formatowanie waluty
   const formatCurrency = (value) => {
     return `€${parseFloat(value || 0).toFixed(2)}`;
+  };
+
+  // Obsługa edycji kalkulacji - wczytaj pełne dane z API
+  const handleEditCalculation = async (calc) => {
+    try {
+      // Pobierz pełną kalkulację z calculations/{id}.json
+      const response = await catalogApi.getById(calc.id);
+
+      if (response.success && response.data) {
+        const fullCalculation = response.data;
+
+        // Przekształć dane do formatu oczekiwanego przez CalculatorContext
+        // Kalkulacja zapisana ma pola na poziomie głównym (client, status, notes...)
+        // ale CalculatorContext oczekuje ich w calculationMeta
+        const restructuredCalculation = {
+          ...fullCalculation,
+          calculationMeta: {
+            client: fullCalculation.client || '',
+            status: fullCalculation.status || 'draft',
+            notes: fullCalculation.notes || '',
+            createdDate: fullCalculation.createdDate || fullCalculation.createdAt,
+            modifiedDate: fullCalculation.modifiedDate || fullCalculation.updatedAt,
+            catalogId: fullCalculation.id, // Ustaw ID aby system wiedział że edytujemy istniejącą
+            clientId: fullCalculation.clientId || null,
+            clientCity: fullCalculation.clientCity || ''
+          }
+        };
+
+        // Wczytaj pełną kalkulację do edytora
+        onLoadCalculation(restructuredCalculation);
+      } else {
+        alert('Nie udało się wczytać kalkulacji');
+      }
+    } catch (error) {
+      console.error('Błąd wczytywania kalkulacji:', error);
+      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+    }
   };
 
   return (
@@ -381,7 +419,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                               {expandedCalculations[calc.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </button>
                             <button
-                              onClick={() => onLoadCalculation(calc)}
+                              onClick={() => handleEditCalculation(calc)}
                               className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
                               title="Wczytaj kalkulację"
                             >

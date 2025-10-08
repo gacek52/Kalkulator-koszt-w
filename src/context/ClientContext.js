@@ -222,14 +222,19 @@ export function ClientProvider({ children }) {
 
       const response = await clientsApi.getAll();
 
-      if (response.success && response.data) {
-        dispatch({
-          type: CLIENT_ACTIONS.LOAD_CLIENTS,
-          payload: {
-            clients: response.data,
-            nextClientId: Math.max(...response.data.map(c => parseInt(c.id) || 0), 0) + 1
-          }
-        });
+      if (response.success && response.data && response.data.length > 0) {
+        // Szukaj dokumentu który zawiera cały stan (ma pole clients jako tablicę)
+        const stateDoc = response.data.find(doc => doc.clients && Array.isArray(doc.clients));
+
+        if (stateDoc) {
+          dispatch({
+            type: CLIENT_ACTIONS.LOAD_CLIENTS,
+            payload: {
+              clients: stateDoc.clients,
+              nextClientId: stateDoc.nextClientId
+            }
+          });
+        }
       }
     } catch (err) {
       console.error('Błąd wczytywania klientów z API:', err);
@@ -253,14 +258,41 @@ export function ClientProvider({ children }) {
     }
   };
 
-  // Backup do localStorage (cache)
-  useEffect(() => {
-    if (state.clients.length > 0) {
-      localStorage.setItem('clientData', JSON.stringify({
-        clients: state.clients,
-        nextClientId: state.nextClientId
-      }));
+  const saveClientsToAPI = async (clientState) => {
+    try {
+      const response = await clientsApi.getAll();
+
+      if (response.success && response.data && response.data.length > 0) {
+        // Jeśli istnieje dokument "całego stanu", zaktualizuj go
+        const stateDoc = response.data.find(doc => doc.clients && Array.isArray(doc.clients));
+        if (stateDoc) {
+          await clientsApi.update(stateDoc.id, clientState);
+        } else {
+          // Brak dokumentu stanu - utwórz nowy
+          await clientsApi.create(clientState);
+        }
+      } else {
+        // Brak danych - utwórz nowy dokument stanu
+        await clientsApi.create(clientState);
+      }
+    } catch (err) {
+      console.error('Błąd zapisu klientów:', err);
     }
+  };
+
+  // Backup do localStorage i sync z API
+  useEffect(() => {
+    const stateToSave = {
+      clients: state.clients,
+      nextClientId: state.nextClientId
+    };
+
+    if (state.clients.length > 0) {
+      localStorage.setItem('clientData', JSON.stringify(stateToSave));
+    }
+
+    // Zapisz do API po każdej zmianie
+    saveClientsToAPI(stateToSave);
   }, [state]);
 
   // Akcje

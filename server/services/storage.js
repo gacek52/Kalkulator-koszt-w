@@ -174,8 +174,145 @@ class StorageService {
   }
 
   _generateId() {
-    // Generuj ID podobne do Firebase (timestamp + random)
-    return `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    // Generuj ID w formacie: RRMMDD-NN (np. 251008-01)
+    const now = new Date();
+    const year = now.getFullYear().toString().slice(-2); // 2025 -> 25
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const datePrefix = `${year}${month}${day}`;
+
+    // Znajdź najwyższy numer dla dzisiejszego dnia
+    try {
+      const catalogPath = path.join(this.dataDir, 'catalog.json');
+      let existingIds = [];
+
+      if (fs.existsSync(catalogPath)) {
+        const data = fs.readFileSync(catalogPath, 'utf8');
+        const catalog = JSON.parse(data);
+        existingIds = catalog
+          .map(item => item.id)
+          .filter(id => id && id.startsWith(datePrefix));
+      }
+
+      // Znajdź najwyższy numer
+      let maxNumber = 0;
+      existingIds.forEach(id => {
+        const match = id.match(/-(\d+)$/);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxNumber) maxNumber = num;
+        }
+      });
+
+      const nextNumber = String(maxNumber + 1).padStart(2, '0');
+      return `${datePrefix}-${nextNumber}`;
+    } catch (error) {
+      console.error('Error generating ID, using fallback:', error);
+      // Fallback: użyj timestamp jeśli coś pójdzie nie tak
+      return `${datePrefix}-${Date.now().toString().slice(-4)}`;
+    }
+  }
+
+  /**
+   * CALCULATION-SPECIFIC METHODS
+   * Kalkulacje przechowywane są w dwóch miejscach:
+   * - catalog.json - metadata (ID, klient, status, obrót, przychód, items)
+   * - calculations/{id}.json - pełna kalkulacja (tabs, curves, itp.)
+   */
+
+  /**
+   * Zapisz kalkulację (metadata + pełne dane)
+   */
+  async saveCalculation(metadata, fullData) {
+    const id = metadata.id || this._generateId();
+
+    // Metadata do catalog.json
+    const metadataToSave = {
+      id,
+      client: metadata.client || '',
+      status: metadata.status || 'draft',
+      notes: metadata.notes || '',
+      createdDate: metadata.createdDate || new Date().toISOString(),
+      modifiedDate: new Date().toISOString(),
+      catalogId: metadata.catalogId || null,
+      clientId: metadata.clientId || null,
+      clientCity: metadata.clientCity || '',
+      totalRevenue: metadata.totalRevenue || 0,
+      totalProfit: metadata.totalProfit || 0,
+      items: fullData.items || [], // Items do wyświetlenia w katalogu
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Pełne dane do calculations/{id}.json
+    const fullDataToSave = {
+      id,
+      ...fullData,
+      createdAt: metadata.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+
+    // Zapisz metadata do catalog.json
+    const catalogItems = await this.getAll('catalog');
+    const existingIndex = catalogItems.findIndex(item => item.id === id);
+
+    if (existingIndex >= 0) {
+      catalogItems[existingIndex] = metadataToSave;
+    } else {
+      catalogItems.push(metadataToSave);
+    }
+
+    await this._saveAll('catalog', catalogItems);
+
+    // Zapisz pełne dane do calculations/{id}.json
+    const calculationPath = path.join(this.dataDir, 'calculations', `${id}.json`);
+    await this._writeFile(calculationPath, JSON.stringify(fullDataToSave, null, 2));
+
+    return metadataToSave;
+  }
+
+  /**
+   * Pobierz pełną kalkulację
+   */
+  async getCalculationFull(id) {
+    try {
+      const calculationPath = path.join(this.dataDir, 'calculations', `${id}.json`);
+      const data = await this._readFile(calculationPath);
+      return JSON.parse(data);
+    } catch (error) {
+      console.error(`Error reading calculation ${id}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Usuń kalkulację (metadata + pełne dane)
+   */
+  async deleteCalculation(id) {
+    // Usuń z catalog.json
+    const catalogItems = await this.getAll('catalog');
+    const filtered = catalogItems.filter(item => item.id !== id);
+
+    if (filtered.length === catalogItems.length) {
+      return false; // Nie znaleziono
+    }
+
+    await this._saveAll('catalog', filtered);
+
+    // Usuń plik calculations/{id}.json
+    try {
+      const calculationPath = path.join(this.dataDir, 'calculations', `${id}.json`);
+      await new Promise((resolve, reject) => {
+        fs.unlink(calculationPath, (err) => {
+          if (err && err.code !== 'ENOENT') reject(err);
+          else resolve();
+        });
+      });
+    } catch (error) {
+      console.error(`Error deleting calculation file ${id}:`, error);
+    }
+
+    return true;
   }
 }
 
