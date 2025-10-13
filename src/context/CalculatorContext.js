@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { useAuth } from './AuthContext';
 
 // Akcje dla reducer'a
 const CALCULATOR_ACTIONS = {
@@ -45,7 +46,8 @@ const initialState = {
     notes: '',
     createdDate: new Date().toISOString(),
     modifiedDate: new Date().toISOString(),
-    catalogId: null
+    catalogId: null,
+    sharedAccess: false // Czy kalkulacja jest odblokowana do edycji przez innych użytkowników
   },
   tabs: [{
     id: 1,
@@ -59,7 +61,7 @@ const initialState = {
     prepCost: '90', // Koszt przygotówki dla heatshield (€/8h)
     // Procesy niestandardowe
     customProcesses: [
-      // { id: 1, name: 'Proces 1', cost: '10', unit: 'euro/szt', efficiency: '1' }
+      // { id: 1, name: 'Proces 1', cost: '10', unit: 'euro/szt', efficiency: '1', workstationId: null, workstationEfficiency: '' }
     ],
     nextProcessId: 1,
     showAdvanced: false,
@@ -135,6 +137,11 @@ const initialState = {
       customValues: {}, // wartości dla procesów niestandardowych
       results: null,
       annualVolume: '', // roczna ilość produkcji
+      // Pola dla stanowisk produkcyjnych
+      workstation: {
+        id: null,  // ID stanowiska z WorkstationContext
+        efficiency: ''  // szt/8h
+      },
       // Pola dla trybu WAGA
       weightUnit: 'g', // 'g', 'kg'
       // Pola dla trybu POWIERZCHNIA
@@ -154,6 +161,53 @@ const initialState = {
       dimensions: { length: '', width: '', height: '' }, // wymiary dla auto-obliczania objętości
       volumeWeightOption: 'brutto-auto', // 'netto', 'brutto-auto', 'brutto-manual'
       // volumeDensity jest już w 'density' powyżej
+      // Pola dla trybu HEATSHIELD
+      heatshield: {
+        surfaceNettoInput: '',
+        surfaceNetto: '',
+        surfaceUnit: 'mm2',
+        sheetThickness: '',
+        sheetDensity: '',
+        sheetPrice: '',
+        sheetPriceUnit: 'kg',
+        matThickness: '',
+        matDensity: '',
+        matPrice: '',
+        matPriceUnit: 'm2',
+        bendingCost: '',
+        joiningCost: '0',
+        gluingCost: '',
+        surfaceBruttoSheet: '',
+        surfaceNettoSheet: '',
+        surfaceNettoMat: '',
+        sheetWeight: '',
+        matWeight: ''
+      },
+      // Pola dla trybu MULTILAYER
+      multilayer: {
+        layers: [
+          {
+            id: 1,
+            name: 'Warstwa 1',
+            thickness: '',
+            density: '',
+            priceUnit: 'kg',
+            price: '',
+            surfaceNettoInput: '',
+            surfaceUnit: 'mm2',
+            surfaceNetto: '',
+            sheetLength: '',
+            sheetWidth: '',
+            partsPerSheet: '',
+            surfaceBrutto: '',
+            weightNetto: '',
+            weightBrutto: '',
+            curveScope: 'global',
+            customCurveValues: {}
+          }
+        ],
+        nextLayerId: 2
+      },
       // Pola dla pakowania
       unit: 'kg', // jednostka: kg, g, m2, mm2, cm2, m3, cm3, g_m2
       packaging: {
@@ -472,6 +526,20 @@ const CalculatorContext = createContext();
 // Provider component
 export function CalculatorProvider({ children }) {
   const [state, dispatch] = useReducer(calculatorReducer, initialState);
+  const { currentUser } = useAuth();
+  const prevUserRef = useRef();
+
+  // Reset state on new login
+  useEffect(() => {
+    const prevUser = prevUserRef.current;
+
+    // If user just logged in (was null, now has user)
+    if (!prevUser && currentUser) {
+      dispatch({ type: CALCULATOR_ACTIONS.RESET_STATE });
+    }
+
+    prevUserRef.current = currentUser;
+  }, [currentUser]);
 
   // Synchronizacja z localStorage
   useEffect(() => {
@@ -491,7 +559,8 @@ export function CalculatorProvider({ children }) {
             notes: '',
             createdDate: new Date().toISOString(),
             modifiedDate: new Date().toISOString(),
-            catalogId: null
+            catalogId: null,
+            sharedAccess: false
           }
         };
 

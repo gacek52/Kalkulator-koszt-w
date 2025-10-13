@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
 import { useClient, clientUtils } from '../../context/ClientContext';
-import { Plus, Edit2, Trash2, Search, Upload, Download, X, Check } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Plus, Edit2, Trash2, Search, Upload, Download, X, Check, Cloud } from 'lucide-react';
 
 /**
  * Komponent zarządzania klientami
  */
 export function ClientManager({ themeClasses, darkMode, onClose }) {
   const { state, actions } = useClient();
+  const { isAdmin } = useAuth();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingClient, setEditingClient] = useState(null);
+  const [isPushing, setIsPushing] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     code: '',
@@ -102,6 +105,29 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
     reader.readAsText(file);
   };
 
+  // Push do Firestore (tylko admin)
+  const handlePushToFirestore = async () => {
+    if (!isAdmin) {
+      alert('Tylko administrator może synchronizować dane z bazą.');
+      return;
+    }
+
+    if (!window.confirm('Czy na pewno chcesz zsynchronizować klientów z bazą Firestore?')) {
+      return;
+    }
+
+    setIsPushing(true);
+    try {
+      const result = await actions.pushToFirestore();
+      alert(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
+    } catch (error) {
+      console.error('Błąd podczas synchronizacji:', error);
+      alert(`Błąd synchronizacji: ${error.message}`);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   return (
     <div className={`${themeClasses.background} min-h-screen p-6`}>
       <div className="max-w-7xl mx-auto">
@@ -126,6 +152,21 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
 
           {/* Akcje */}
           <div className="flex flex-wrap gap-2">
+            {isAdmin && (
+              <button
+                onClick={handlePushToFirestore}
+                disabled={isPushing}
+                className={`px-4 py-2 rounded-lg ${
+                  isPushing
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                } flex items-center gap-2`}
+                title="Synchronizuj klientów z bazą Firestore"
+              >
+                <Cloud size={16} />
+                {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+              </button>
+            )}
             <button
               onClick={handleExport}
               className={`px-4 py-2 rounded-lg ${themeClasses.button.secondary} flex items-center gap-2`}

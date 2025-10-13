@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Users collection - każdy może czytać swój dokument, tylko sam użytkownik może go modyfikować
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwner(userId);
+    }
+
+    // Catalog collection (metadata kalkulacji)
+    match /catalog/{calculationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() &&
+                             (resource.data.ownerId == request.auth.uid ||
+                              resource.data.sharedAccess == true ||
+                              isAdmin());
+    }
+
+    // Calculations collection (pełne dane kalkulacji)
+    match /calculations/{calculationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update, delete: if isAuthenticated() &&
+                             (get(/databases/$(database)/documents/catalog/$(calculationId)).data.ownerId == request.auth.uid ||
+                              get(/databases/$(database)/documents/catalog/$(calculationId)).data.sharedAccess == true ||
+                              isAdmin());
+    }
+
+    // Clients collection
+    match /clients/{clientId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Wszyscy zalogowani mogą zarządzać klientami
+    }
+
+    // Materials collection
+    match /materials/{materialId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Wszyscy zalogowani mogą zarządzać materiałami
+    }
+
+    // Packaging collection
+    match /packaging/{packagingId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Wszyscy zalogowani mogą zarządzać opakowaniami
+    }
+
+    // Client Manual collection
+    match /client-manual/{manualId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin(); // Tylko admini mogą modyfikować instrukcje
+    }
+
+    // Sessions collection - każdy użytkownik ma dostęp tylko do swojej sesji
+    match /sessions/{userId} {
+      allow read, write: if isOwner(userId);
+    }
+  }
+}

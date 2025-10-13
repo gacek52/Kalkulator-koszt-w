@@ -242,6 +242,11 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
         customCurveValues: {},
         results: null,
         annualVolume: '',
+        // Pola dla stanowisk produkcyjnych
+        workstation: {
+          id: null,
+          efficiency: ''
+        },
         // Pola dla trybu WAGA
         weightUnit: 'g',
         // Pola dla trybu POWIERZCHNIA
@@ -284,7 +289,28 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
         },
         // Pola dla trybu MULTILAYER
         multilayer: {
-          layers: []
+          layers: [
+            {
+              id: 1,
+              name: 'Warstwa 1',
+              thickness: '',
+              density: '',
+              priceUnit: 'kg',
+              price: '',
+              surfaceNettoInput: '',
+              surfaceUnit: 'mm2',
+              surfaceNetto: '',
+              sheetLength: '',
+              sheetWidth: '',
+              partsPerSheet: '',
+              surfaceBrutto: '',
+              weightNetto: '',
+              weightBrutto: '',
+              curveScope: 'global',
+              customCurveValues: {}
+            }
+          ],
+          nextLayerId: 2
         },
         // Pola dla pakowania
         unit: 'kg',
@@ -545,7 +571,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
                   if (!clientId) {
                     actions.updateCalculationMeta({ clientId: null, client: '', clientCity: '' });
                   } else {
-                    const selectedClient = clientState.clients.find(c => c.id === parseInt(clientId));
+                    const selectedClient = clientState.clients.find(c => c.id == clientId);
                     if (selectedClient) {
                       actions.updateCalculationMeta({
                         clientId: selectedClient.id,
@@ -593,6 +619,20 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
                 placeholder="Dodatkowe informacje..."
               />
             </div>
+          </div>
+
+          {/* Checkbox dla współdzielenia */}
+          <div className="flex items-center gap-2 mt-2">
+            <input
+              type="checkbox"
+              id="sharedAccess"
+              checked={calculationMeta.sharedAccess || false}
+              onChange={(e) => actions.updateCalculationMeta({ sharedAccess: e.target.checked })}
+              className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <label htmlFor="sharedAccess" className={`text-sm ${themeClasses.text.secondary} cursor-pointer`}>
+              Odblokowany do ingerencji (inni użytkownicy mogą edytować tę kalkulację)
+            </label>
           </div>
 
           <div className="relative flex">

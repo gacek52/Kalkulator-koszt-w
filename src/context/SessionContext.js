@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useRef } from 'react';
 import { sessionApi } from '../services/api';
+import { useAuth } from './AuthContext';
 
 /**
  * SessionContext - Zarządzanie sesją roboczą użytkownika
@@ -10,6 +11,7 @@ import { sessionApi } from '../services/api';
  * - Ochronę przed utratą danych
  * - Kontynuację sesji po zamknięciu aplikacji
  * - Synchronizacja między urządzeniami/kartami
+ * - Sesje per użytkownik (każdy użytkownik ma swoją sesję)
  */
 
 const SessionContext = createContext();
@@ -17,6 +19,7 @@ const SessionContext = createContext();
 const AUTO_SAVE_INTERVAL = 30000; // 30 sekund
 
 export function SessionProvider({ children }) {
+  const { currentUser } = useAuth();
   const [activeSession, setActiveSession] = useState(null);
   const [lastAutoSave, setLastAutoSave] = useState(null);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -24,14 +27,23 @@ export function SessionProvider({ children }) {
   const autoSaveTimerRef = useRef(null);
   const lastStateRef = useRef(null);
 
-  // Załaduj sesję przy starcie z API
+  // Załaduj sesję przy starcie z API (gdy użytkownik się zaloguje)
   useEffect(() => {
-    loadSessionFromAPI();
-  }, []);
+    if (currentUser) {
+      loadSessionFromAPI();
+    } else {
+      // Wyczyść sesję gdy użytkownik się wyloguje
+      setActiveSession(null);
+      setHasUnsavedChanges(false);
+      setSaveStatus('saved');
+    }
+  }, [currentUser]);
 
   const loadSessionFromAPI = async () => {
+    if (!currentUser) return;
+
     try {
-      const response = await sessionApi.get();
+      const response = await sessionApi.get(currentUser.uid);
 
       if (response.success && response.data) {
         const session = response.data;
@@ -42,8 +54,8 @@ export function SessionProvider({ children }) {
     } catch (error) {
       console.error('Błąd wczytywania sesji z API:', error);
 
-      // Fallback do localStorage
-      const savedSession = localStorage.getItem('activeSession');
+      // Fallback do localStorage (per user)
+      const savedSession = localStorage.getItem(`activeSession_${currentUser.uid}`);
       if (savedSession) {
         try {
           const session = JSON.parse(savedSession);
@@ -77,7 +89,7 @@ export function SessionProvider({ children }) {
 
   // Funkcja auto-save - zapisuje do API
   const autoSaveSession = async () => {
-    if (!activeSession) return;
+    if (!activeSession || !currentUser) return;
 
     try {
       setSaveStatus('saving');
@@ -86,11 +98,11 @@ export function SessionProvider({ children }) {
         lastAutoSave: new Date().toISOString()
       };
 
-      // Zapisz do API
-      await sessionApi.save(sessionToSave);
+      // Zapisz do API (per user)
+      await sessionApi.save(currentUser.uid, sessionToSave);
 
-      // Backup do localStorage (cache)
-      localStorage.setItem('activeSession', JSON.stringify(sessionToSave));
+      // Backup do localStorage (cache per user)
+      localStorage.setItem(`activeSession_${currentUser.uid}`, JSON.stringify(sessionToSave));
 
       setLastAutoSave(new Date());
       setHasUnsavedChanges(false);
@@ -102,7 +114,7 @@ export function SessionProvider({ children }) {
 
       // Spróbuj przynajmniej zapisać do localStorage
       try {
-        localStorage.setItem('activeSession', JSON.stringify({
+        localStorage.setItem(`activeSession_${currentUser.uid}`, JSON.stringify({
           ...activeSession,
           lastAutoSave: new Date().toISOString()
         }));
@@ -177,15 +189,17 @@ export function SessionProvider({ children }) {
 
   // Funkcja do czyszczenia sesji (po zapisie) - usuwa z API i localStorage
   const clearSession = async () => {
+    if (!currentUser) return;
+
     try {
       // Usuń z API
-      await sessionApi.delete();
+      await sessionApi.delete(currentUser.uid);
     } catch (error) {
       console.error('Błąd usuwania sesji z API:', error);
     }
 
-    // Usuń z localStorage
-    localStorage.removeItem('activeSession');
+    // Usuń z localStorage (per user)
+    localStorage.removeItem(`activeSession_${currentUser.uid}`);
 
     // Zresetuj state
     setActiveSession(null);

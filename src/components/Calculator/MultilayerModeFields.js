@@ -1,15 +1,17 @@
 import React, { useEffect } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
+import { useWorkstation } from '../../context/WorkstationContext';
 
 /**
  * Pola wejściowe dla trybu kalkulacji MULTILAYER
  * Wielowarstwowe produkty z wieloma materiałami
  */
-export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode }) {
+export function MultilayerModeFields({ item, tab, onUpdate, themeClasses, darkMode }) {
   const [expandedLayers, setExpandedLayers] = React.useState({});
   const [selectedMaterialTypes, setSelectedMaterialTypes] = React.useState({});
   const { state: materialState } = useMaterial();
+  const { state: workstationState } = useWorkstation();
 
   const multilayer = item.multilayer || {
     layers: [
@@ -30,7 +32,8 @@ export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode })
         surfaceBrutto: '',
         weightNetto: '',
         weightBrutto: '',
-        curveScope: 'global' // 'global' lub 'layer'
+        curveScope: 'global', // 'global' lub 'layer'
+        customCurveValues: {} // wartości krzywych per-warstwa
       }
     ],
     nextLayerId: 2
@@ -123,8 +126,15 @@ export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode })
       surfaceBrutto: '',
       weightNetto: '',
       weightBrutto: '',
-      curveScope: 'global'
+      curveScope: 'global',
+      customCurveValues: {}
     };
+
+    // Automatycznie rozwiń nowo dodaną warstwę
+    setExpandedLayers(prev => ({
+      ...prev,
+      [multilayer.nextLayerId]: true
+    }));
 
     onUpdate({
       multilayer: {
@@ -508,6 +518,112 @@ export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode })
                     </div>
                   </div>
 
+                  {/* Krzywe niestandardowe per-warstwa */}
+                  {layer.curveScope === 'layer' && tab.customCurves && tab.customCurves.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className={`text-sm font-medium ${themeClasses.text.secondary}`}>
+                        Krzywe niestandardowe (per warstwa)
+                      </h4>
+                      {tab.customCurves.map((curve) => {
+                        const inputMode = curve.inputMode || 'x';
+                        const curveValues = layer.customCurveValues?.[curve.id] || {};
+                        const dataSource = curveValues.source || 'manual';
+
+                        const inputLabel = inputMode === 'x'
+                          ? `Wartość X (${curve.xUnit})`
+                          : `Wartość Y (${curve.yUnit})`;
+                        const outputUnit = inputMode === 'x' ? curve.yUnit : curve.xUnit;
+
+                        // Odczytaj wyniki z item.results
+                        const layerResults = item.results?.layerCurveCosts?.[layer.id]?.[curve.id];
+                        const outputValue = inputMode === 'x' ? layerResults?.interpolatedY : layerResults?.interpolatedX;
+                        const cost = layerResults?.cost;
+
+                        return (
+                          <div key={curve.id} className={`p-3 rounded border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                            <div className="text-sm font-medium mb-2">{curve.name}</div>
+                            <div className="grid grid-cols-3 gap-2">
+                              {/* Dropdown źródła danych */}
+                              <div>
+                                <label className={`block text-xs ${themeClasses.text.secondary} mb-1`}>
+                                  Źródło danych
+                                </label>
+                                <select
+                                  value={dataSource}
+                                  onChange={(e) => {
+                                    const newCustomCurveValues = {
+                                      ...(layer.customCurveValues || {}),
+                                      [curve.id]: {
+                                        ...curveValues,
+                                        source: e.target.value
+                                      }
+                                    };
+                                    updateLayer(layer.id, { customCurveValues: newCustomCurveValues });
+                                  }}
+                                  className={`w-full px-2 py-1 text-xs border rounded ${themeClasses.input}`}
+                                >
+                                  <option value="manual">Ręczne</option>
+                                  <option value="weightNetto">Waga netto</option>
+                                  <option value="weightBrutto">Waga brutto</option>
+                                  <option value="surfaceNetto">Powierzchnia netto</option>
+                                  <option value="surfaceBrutto">Powierzchnia brutto</option>
+                                </select>
+                              </div>
+
+                              {/* Pole input - disabled jeśli automatyczne */}
+                              <div>
+                                <label className={`block text-xs ${themeClasses.text.secondary} mb-1`}>
+                                  {inputLabel}
+                                </label>
+                                {dataSource === 'manual' ? (
+                                  <input
+                                    type="number"
+                                    value={curveValues.input || ''}
+                                    onChange={(e) => {
+                                      const newCustomCurveValues = {
+                                        ...(layer.customCurveValues || {}),
+                                        [curve.id]: {
+                                          ...curveValues,
+                                          input: e.target.value
+                                        }
+                                      };
+                                      updateLayer(layer.id, { customCurveValues: newCustomCurveValues });
+                                    }}
+                                    className={`w-full px-2 py-1 text-xs border rounded ${themeClasses.input}`}
+                                    step="0.1"
+                                    placeholder="0"
+                                  />
+                                ) : (
+                                  <div className={`w-full px-2 py-1 text-xs border rounded bg-gray-100 dark:bg-gray-700 ${themeClasses.text.secondary} flex items-center`}>
+                                    <span className="text-green-600 mr-1">✓</span> Auto
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Wynik */}
+                              <div>
+                                <label className={`block text-xs ${themeClasses.text.secondary} mb-1`}>
+                                  Wynik
+                                </label>
+                                <div className={`px-2 py-1 text-xs ${themeClasses.text.secondary}`}>
+                                  {outputValue
+                                    ? `${outputValue.toFixed(2)} ${outputUnit}`
+                                    : '-'}
+                                  <br />
+                                  <span className="font-semibold text-blue-600 dark:text-blue-400">
+                                    {cost
+                                      ? `${cost.toFixed(3)} €`
+                                      : '-'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
                   {/* Podsumowanie warstwy */}
                   <div className={`p-2 rounded text-xs ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
                     <div className="space-y-1">
@@ -568,6 +684,57 @@ export function MultilayerModeFields({ item, onUpdate, themeClasses, darkMode })
           </div>
         </div>
       )}
+
+      {/* Stanowisko produkcyjne */}
+      <div className={`p-4 rounded-lg border ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
+        <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
+          🏭 Stanowisko produkcyjne
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Stanowisko
+            </label>
+            <select
+              value={item.workstation?.id || ''}
+              onChange={(e) => onUpdate({
+                workstation: {
+                  ...item.workstation,
+                  id: e.target.value ? parseInt(e.target.value) : null
+                }
+              })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+            >
+              <option value="">-- Wybierz stanowisko --</option>
+              {workstationState.workstations.map(ws => (
+                <option key={ws.id} value={ws.id}>
+                  {ws.name} ({ws.type})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Wydajność (szt/8h)
+            </label>
+            <input
+              type="number"
+              value={item.workstation?.efficiency || ''}
+              onChange={(e) => onUpdate({
+                workstation: {
+                  ...item.workstation,
+                  efficiency: e.target.value
+                }
+              })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="0"
+              step="1"
+              placeholder="np. 100"
+            />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

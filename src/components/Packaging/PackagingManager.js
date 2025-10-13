@@ -1,15 +1,18 @@
 import React, { useState } from 'react';
-import { Package, Plus, Edit2, Trash2, Download, Sun, Moon, ArrowLeft } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Cloud } from 'lucide-react';
 import { usePackaging } from '../../context/PackagingContext';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Główny komponent zarządzania pakowaniem
  */
 export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClasses }) {
   const { state, actions } = usePackaging();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('types'); // 'types' or 'compositions'
   const [editingType, setEditingType] = useState(null);
   const [editingComposition, setEditingComposition] = useState(null);
+  const [isPushing, setIsPushing] = useState(false);
 
   // Formularz typu opakowania
   const [typeForm, setTypeForm] = useState({
@@ -186,6 +189,119 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     URL.revokeObjectURL(url);
   };
 
+  // Import z JSON
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+
+        if (!importedData.packagingTypes || !importedData.compositions) {
+          alert('Nieprawidłowy format pliku JSON. Plik musi zawierać packagingTypes i compositions.');
+          return;
+        }
+
+        // Opcja: nadpisz wszystkie dane lub dodaj do istniejących
+        const shouldReplace = window.confirm(
+          `Zaimportowano:\n- ${importedData.packagingTypes.length} typów opakowań\n- ${importedData.compositions.length} kompozycji\n\nKliknij OK aby ZASTĄPIĆ istniejące dane, lub Anuluj aby DODAĆ do istniejących.`
+        );
+
+        if (shouldReplace) {
+          // Zastąp dane
+          const newState = {
+            packagingTypes: importedData.packagingTypes,
+            compositions: importedData.compositions,
+            nextPackagingId: Math.max(...importedData.packagingTypes.map(t => t.id), 0) + 1,
+            nextCompositionId: Math.max(...importedData.compositions.map(c => c.id), 0) + 1,
+            calculations: {},
+            transportCostPerPallet: importedData.transportCostPerPallet || 25.0
+          };
+          actions.loadPackagingData(newState);
+          alert('Dane zostały zastąpione zaimportowanymi danymi!');
+        } else {
+          // Dodaj do istniejących
+          let addedTypes = 0;
+          let addedCompositions = 0;
+
+          // Dodaj typy opakowań
+          importedData.packagingTypes.forEach(type => {
+            // Sprawdź czy taki typ już istnieje (po nazwie)
+            const exists = state.packagingTypes.some(t => t.name === type.name);
+            if (!exists) {
+              actions.addPackagingType({
+                name: type.name,
+                dimensions: type.dimensions,
+                cost: type.cost
+              });
+              addedTypes++;
+            }
+          });
+
+          // Dodaj kompozycje
+          importedData.compositions.forEach(comp => {
+            // Znajdź odpowiadający typ opakowania w nowym state
+            const matchingType = state.packagingTypes.find(t => t.name === importedData.packagingTypes.find(it => it.id === comp.packagingTypeId)?.name);
+
+            if (matchingType) {
+              // Sprawdź czy taka kompozycja już istnieje (po nazwie)
+              const exists = (state.compositions || []).some(c => c.name === comp.name);
+
+              if (!exists) {
+                // Oblicz koszt kompozycji
+                const compositionCost = (matchingType.cost * comp.packagesPerPallet + comp.palletCost) * comp.palletsPerSpace;
+
+                actions.addComposition({
+                  name: comp.name,
+                  packagingTypeId: matchingType.id,
+                  packagesPerPallet: comp.packagesPerPallet,
+                  palletsPerSpace: comp.palletsPerSpace,
+                  palletCost: comp.palletCost,
+                  compositionCost: compositionCost
+                });
+                addedCompositions++;
+              }
+            }
+          });
+
+          alert(`Import zakończony!\nDodano:\n- ${addedTypes} nowych typów opakowań\n- ${addedCompositions} nowych kompozycji\n\n(Pominięto duplikaty)`);
+        }
+
+        // Reset input file
+        event.target.value = '';
+      } catch (error) {
+        console.error('Błąd importu:', error);
+        alert(`Błąd importu: ${error.message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Push do Firestore (tylko admin)
+  const handlePushToFirestore = async () => {
+    if (!isAdmin) {
+      alert('Tylko administrator może synchronizować dane z bazą.');
+      return;
+    }
+
+    if (!window.confirm('Czy na pewno chcesz zsynchronizować pakowanie z bazą Firestore?')) {
+      return;
+    }
+
+    setIsPushing(true);
+    try {
+      const result = await actions.pushToFirestore();
+      alert(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
+    } catch (error) {
+      console.error('Błąd podczas synchronizacji:', error);
+      alert(`Błąd synchronizacji: ${error.message}`);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   return (
     <div className={`${themeClasses.background} min-h-screen`}>
       <div className="container mx-auto px-4 py-6">
@@ -221,6 +337,22 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
+              {isAdmin && (
+                <button
+                  onClick={handlePushToFirestore}
+                  disabled={isPushing}
+                  className={`px-4 py-2 rounded-lg font-medium ${
+                    isPushing
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  } flex items-center gap-2`}
+                  title="Synchronizuj pakowanie z bazą Firestore"
+                >
+                  <Cloud size={16} />
+                  {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+                </button>
+              )}
+
               <button
                 onClick={handleExport}
                 className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
@@ -228,6 +360,17 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 <Download size={16} />
                 Eksportuj JSON
               </button>
+
+              <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
+                <Upload size={16} />
+                Importuj JSON
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </label>
             </div>
           </div>
         </div>

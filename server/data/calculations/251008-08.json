@@ -1,0 +1,422 @@
+{
+  "id": "251008-08",
+  "client": "Tenneco Zwickau",
+  "status": "in_progress",
+  "notes": "JD 2 referencje wysoka marża, tooling 400e/szt.",
+  "createdDate": "2025-10-08T12:07:22.888Z",
+  "modifiedDate": "2025-10-08T12:40:22.935Z",
+  "catalogId": "251008-08",
+  "clientId": 4,
+  "clientCity": "Zwickau",
+  "tabs": [
+    {
+      "id": 1,
+      "name": "ECR-26-4680 PES+MYL ",
+      "calculationType": "surface",
+      "materialCost": "2.21",
+      "materialPriceUnit": "kg",
+      "bakingCost": "0",
+      "cleaningCost": "0",
+      "handlingCost": "0.08",
+      "prepCost": "90",
+      "customProcesses": [],
+      "nextProcessId": 2,
+      "showAdvanced": false,
+      "editingCurves": {
+        "baking": [
+          {
+            "x": 50,
+            "y": 45
+          },
+          {
+            "x": 100,
+            "y": 55
+          },
+          {
+            "x": 500,
+            "y": 70
+          },
+          {
+            "x": 1000,
+            "y": 80
+          },
+          {
+            "x": 2000,
+            "y": 90
+          },
+          {
+            "x": 3000,
+            "y": 95
+          }
+        ],
+        "cleaning": [
+          {
+            "x": 50,
+            "y": 45
+          },
+          {
+            "x": 100,
+            "y": 55
+          },
+          {
+            "x": 500,
+            "y": 70
+          },
+          {
+            "x": 1000,
+            "y": 80
+          },
+          {
+            "x": 2000,
+            "y": 90
+          },
+          {
+            "x": 3000,
+            "y": 95
+          }
+        ],
+        "bruttoWeight": [
+          {
+            "x": 50,
+            "y": 60
+          },
+          {
+            "x": 100,
+            "y": 120
+          },
+          {
+            "x": 500,
+            "y": 600
+          },
+          {
+            "x": 1000,
+            "y": 1200
+          },
+          {
+            "x": 2000,
+            "y": 2300
+          },
+          {
+            "x": 3000,
+            "y": 3300
+          }
+        ],
+        "heatshieldPrep": [
+          {
+            "x": 0.01,
+            "y": 30
+          },
+          {
+            "x": 0.05,
+            "y": 45
+          },
+          {
+            "x": 0.1,
+            "y": 60
+          },
+          {
+            "x": 0.5,
+            "y": 120
+          },
+          {
+            "x": 1,
+            "y": 180
+          },
+          {
+            "x": 2,
+            "y": 300
+          }
+        ],
+        "heatshieldLaser": [
+          {
+            "x": 0,
+            "y": 5
+          },
+          {
+            "x": 0.01,
+            "y": 5
+          },
+          {
+            "x": 0.05,
+            "y": 8
+          },
+          {
+            "x": 0.1,
+            "y": 12
+          },
+          {
+            "x": 0.5,
+            "y": 25
+          },
+          {
+            "x": 1,
+            "y": 40
+          },
+          {
+            "x": 2,
+            "y": 70
+          }
+        ]
+      },
+      "customCurves": [],
+      "nextCurveId": 1,
+      "items": [
+        {
+          "id": 1,
+          "partId": "82885092",
+          "weight": "106.9",
+          "weightOption": "netto",
+          "bruttoWeight": "134.6",
+          "cleaningOption": "scaled",
+          "manualCleaningTime": "45",
+          "margin": "90",
+          "customValues": {},
+          "results": {
+            "materialCost": 0.297466,
+            "bakingCost": 0,
+            "cleaningCost": 0,
+            "handlingCost": 0.08,
+            "customProcessesCost": 0,
+            "customCurvesCost": 0,
+            "customCurveCosts": {},
+            "packagingCost": 0.014464285714285714,
+            "totalCost": 0.39193028571428573,
+            "totalWithMargin": 0.7446675428571429,
+            "totalWithSGA": 0.8340276480000001,
+            "nettoWeight": 106.9,
+            "bruttoWeight": 134.6,
+            "bakingTime": 56.2975,
+            "cleaningTime": 55.25875
+          },
+          "annualVolume": "2950",
+          "weightUnit": "g",
+          "surfaceArea": "22841",
+          "surfaceUnit": "mm2",
+          "thickness": "26",
+          "density": "180",
+          "surfaceWeight": "4680",
+          "surfaceCalcLocked": {
+            "thickness": true,
+            "density": false,
+            "surfaceWeight": true
+          },
+          "sheetLength": "1000",
+          "sheetWidth": "230",
+          "partsPerSheet": "8",
+          "surfaceBrutto": "0.0288",
+          "volume": "",
+          "volumeUnit": "mm3",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "volumeWeightOption": "brutto-auto",
+          "unit": "kg",
+          "packaging": {
+            "partsPerLayer": "14",
+            "layers": "20",
+            "partsInBox": "",
+            "manualPartsInBox": false,
+            "compositionId": "3",
+            "customPrice": ""
+          }
+        },
+        {
+          "id": 2,
+          "partId": "82885102",
+          "weight": "124.3",
+          "weightOption": "netto",
+          "bruttoWeight": "134.6",
+          "cleaningOption": "scaled",
+          "manualCleaningTime": "45",
+          "margin": "90",
+          "customValues": {},
+          "results": {
+            "materialCost": 0.297466,
+            "bakingCost": 0,
+            "cleaningCost": 0,
+            "handlingCost": 0.08,
+            "customProcessesCost": 0,
+            "customCurvesCost": 0,
+            "customCurveCosts": {},
+            "packagingCost": 0.014464285714285714,
+            "totalCost": 0.39193028571428573,
+            "totalWithMargin": 0.7446675428571429,
+            "totalWithSGA": 0.8340276480000001,
+            "nettoWeight": 124.3,
+            "bruttoWeight": 134.6,
+            "bakingTime": 56.2975,
+            "cleaningTime": 55.91125
+          },
+          "annualVolume": "2950",
+          "weightUnit": "g",
+          "surfaceArea": "26558.7",
+          "surfaceUnit": "mm2",
+          "thickness": "26",
+          "density": "180",
+          "surfaceWeight": "4680",
+          "surfaceCalcLocked": {
+            "thickness": true,
+            "density": false,
+            "surfaceWeight": true
+          },
+          "sheetLength": "1000",
+          "sheetWidth": "230",
+          "partsPerSheet": "8",
+          "surfaceBrutto": "0.0288",
+          "volume": "",
+          "volumeUnit": "mm3",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "volumeWeightOption": "brutto-auto",
+          "unit": "kg",
+          "packaging": {
+            "partsPerLayer": "14",
+            "layers": "20",
+            "partsInBox": "",
+            "manualPartsInBox": false,
+            "compositionId": "3",
+            "customPrice": ""
+          }
+        }
+      ],
+      "nextItemId": 3,
+      "isCustomName": true
+    }
+  ],
+  "globalSGA": "12",
+  "items": [
+    {
+      "id": 1,
+      "partId": "82885092",
+      "weight": "106.9",
+      "weightOption": "netto",
+      "bruttoWeight": "134.6",
+      "cleaningOption": "scaled",
+      "manualCleaningTime": "45",
+      "margin": "90",
+      "customValues": {},
+      "results": {
+        "materialCost": 0.297466,
+        "bakingCost": 0,
+        "cleaningCost": 0,
+        "handlingCost": 0.08,
+        "customProcessesCost": 0,
+        "customCurvesCost": 0,
+        "customCurveCosts": {},
+        "packagingCost": 0.014464285714285714,
+        "totalCost": 0.39193028571428573,
+        "totalWithMargin": 0.7446675428571429,
+        "totalWithSGA": 0.8340276480000001,
+        "nettoWeight": 106.9,
+        "bruttoWeight": 134.6,
+        "bakingTime": 56.2975,
+        "cleaningTime": 55.25875
+      },
+      "annualVolume": "2950",
+      "weightUnit": "g",
+      "surfaceArea": "22841",
+      "surfaceUnit": "mm2",
+      "thickness": "26",
+      "density": "180",
+      "surfaceWeight": "4680",
+      "surfaceCalcLocked": {
+        "thickness": true,
+        "density": false,
+        "surfaceWeight": true
+      },
+      "sheetLength": "1000",
+      "sheetWidth": "230",
+      "partsPerSheet": "8",
+      "surfaceBrutto": "0.0288",
+      "volume": "",
+      "volumeUnit": "mm3",
+      "dimensions": {
+        "length": "",
+        "width": "",
+        "height": ""
+      },
+      "volumeWeightOption": "brutto-auto",
+      "unit": "kg",
+      "packaging": {
+        "partsPerLayer": "14",
+        "layers": "20",
+        "partsInBox": "",
+        "manualPartsInBox": false,
+        "compositionId": "3",
+        "customPrice": ""
+      },
+      "tabName": "ECR-26-4680 PES+MYL "
+    },
+    {
+      "id": 2,
+      "partId": "82885102",
+      "weight": "124.3",
+      "weightOption": "netto",
+      "bruttoWeight": "134.6",
+      "cleaningOption": "scaled",
+      "manualCleaningTime": "45",
+      "margin": "90",
+      "customValues": {},
+      "results": {
+        "materialCost": 0.297466,
+        "bakingCost": 0,
+        "cleaningCost": 0,
+        "handlingCost": 0.08,
+        "customProcessesCost": 0,
+        "customCurvesCost": 0,
+        "customCurveCosts": {},
+        "packagingCost": 0.014464285714285714,
+        "totalCost": 0.39193028571428573,
+        "totalWithMargin": 0.7446675428571429,
+        "totalWithSGA": 0.8340276480000001,
+        "nettoWeight": 124.3,
+        "bruttoWeight": 134.6,
+        "bakingTime": 56.2975,
+        "cleaningTime": 55.91125
+      },
+      "annualVolume": "2950",
+      "weightUnit": "g",
+      "surfaceArea": "26558.7",
+      "surfaceUnit": "mm2",
+      "thickness": "26",
+      "density": "180",
+      "surfaceWeight": "4680",
+      "surfaceCalcLocked": {
+        "thickness": true,
+        "density": false,
+        "surfaceWeight": true
+      },
+      "sheetLength": "1000",
+      "sheetWidth": "230",
+      "partsPerSheet": "8",
+      "surfaceBrutto": "0.0288",
+      "volume": "",
+      "volumeUnit": "mm3",
+      "dimensions": {
+        "length": "",
+        "width": "",
+        "height": ""
+      },
+      "volumeWeightOption": "brutto-auto",
+      "unit": "kg",
+      "packaging": {
+        "partsPerLayer": "14",
+        "layers": "20",
+        "partsInBox": "",
+        "manualPartsInBox": false,
+        "compositionId": "3",
+        "customPrice": ""
+      },
+      "tabName": "ECR-26-4680 PES+MYL "
+    }
+  ],
+  "totalRevenue": 0,
+  "totalProfit": 0,
+  "createdAt": "2025-10-08T12:40:40.342Z",
+  "updatedAt": "2025-10-08T12:40:40.342Z"
+}

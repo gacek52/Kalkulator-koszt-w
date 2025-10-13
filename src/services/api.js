@@ -20,20 +20,39 @@ class ApiError extends Error {
 }
 
 /**
+ * Get Firebase Auth token for current user
+ */
+async function getAuthToken() {
+  // Import auth dynamically to avoid circular dependency
+  const { auth } = await import('../firebase');
+  const user = auth.currentUser;
+
+  if (!user) {
+    throw new ApiError('User not authenticated', 401);
+  }
+
+  return await user.getIdToken();
+}
+
+/**
  * Podstawowa funkcja do wykonywania requestów
  */
 async function request(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
 
-  const config = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  };
-
   try {
+    // Get Firebase Auth token
+    const token = await getAuthToken();
+
+    const config = {
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+      ...options,
+    };
+
     const response = await fetch(url, config);
     const data = await response.json();
 
@@ -167,6 +186,110 @@ export const packagingApi = {
 };
 
 /**
+ * API endpoints dla typów materiałów
+ */
+export const materialTypesApi = {
+  getAll: () => request('/material-types'),
+
+  getById: (id) => request(`/material-types/${id}`),
+
+  create: (materialType) =>
+    request('/material-types', {
+      method: 'POST',
+      body: JSON.stringify(materialType),
+    }),
+
+  update: (id, materialType) =>
+    request(`/material-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(materialType),
+    }),
+
+  delete: (id) =>
+    request(`/material-types/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+/**
+ * API endpoints dla kompozycji materiałów
+ */
+export const materialCompositionsApi = {
+  getAll: () => request('/material-compositions'),
+
+  getById: (id) => request(`/material-compositions/${id}`),
+
+  create: (composition) =>
+    request('/material-compositions', {
+      method: 'POST',
+      body: JSON.stringify(composition),
+    }),
+
+  update: (id, composition) =>
+    request(`/material-compositions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(composition),
+    }),
+
+  delete: (id) =>
+    request(`/material-compositions/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+/**
+ * API endpoints dla typów opakowań
+ */
+export const packagingTypesApi = {
+  getAll: () => request('/packaging-types'),
+
+  getById: (id) => request(`/packaging-types/${id}`),
+
+  create: (packagingType) =>
+    request('/packaging-types', {
+      method: 'POST',
+      body: JSON.stringify(packagingType),
+    }),
+
+  update: (id, packagingType) =>
+    request(`/packaging-types/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(packagingType),
+    }),
+
+  delete: (id) =>
+    request(`/packaging-types/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+/**
+ * API endpoints dla kompozycji opakowań
+ */
+export const packagingCompositionsApi = {
+  getAll: () => request('/packaging-compositions'),
+
+  getById: (id) => request(`/packaging-compositions/${id}`),
+
+  create: (composition) =>
+    request('/packaging-compositions', {
+      method: 'POST',
+      body: JSON.stringify(composition),
+    }),
+
+  update: (id, composition) =>
+    request(`/packaging-compositions/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(composition),
+    }),
+
+  delete: (id) =>
+    request(`/packaging-compositions/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+/**
  * API endpoints dla instrukcji klientów
  */
 export const clientManualApi = {
@@ -193,19 +316,19 @@ export const clientManualApi = {
 };
 
 /**
- * API endpoints dla sesji
+ * API endpoints dla sesji (per użytkownik)
  */
 export const sessionApi = {
-  get: () => request('/session'),
+  get: (userId) => request(`/session?userId=${encodeURIComponent(userId)}`),
 
-  save: (session) =>
+  save: (userId, session) =>
     request('/session', {
       method: 'POST',
-      body: JSON.stringify(session),
+      body: JSON.stringify({ userId, ...session }),
     }),
 
-  delete: () =>
-    request('/session', {
+  delete: (userId) =>
+    request(`/session?userId=${encodeURIComponent(userId)}`, {
       method: 'DELETE',
     }),
 };

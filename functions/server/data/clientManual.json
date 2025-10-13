@@ -1,0 +1,37 @@
+[
+  {
+    "id": "1759839465139_mpu0iq6sr",
+    "manuals": [
+      {
+        "clientId": 1,
+        "clientName": "Tenneco Polska",
+        "laborCost": "11.5",
+        "laborCostNotes": "",
+        "machineCost": "11.5",
+        "machineCostNotes": "",
+        "id": 1,
+        "materials": [
+          {
+            "type": "e-glass",
+            "costPerKg": "2.5",
+            "notes": "",
+            "id": 1
+          }
+        ],
+        "nextMaterialId": 2,
+        "margins": [
+          {
+            "productType": "Seria e-glass",
+            "margin": "35",
+            "notes": "",
+            "id": 1
+          }
+        ],
+        "nextMarginId": 2
+      }
+    ],
+    "nextManualId": 2,
+    "createdAt": "2025-10-07T12:17:45.139Z",
+    "updatedAt": "2025-10-08T11:41:55.463Z"
+  }
+]

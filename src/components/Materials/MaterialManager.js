@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
-import { Layers, Plus, Edit2, Trash2, Download, Sun, Moon, ArrowLeft } from 'lucide-react';
+import { Layers, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Lock, Cloud } from 'lucide-react';
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
+import { useAuth } from '../../context/AuthContext';
 
 /**
  * Główny komponent zarządzania materiałami
  */
 export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClasses }) {
   const { state, actions } = useMaterial();
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState('types'); // 'types' or 'compositions'
   const [editingType, setEditingType] = useState(null);
   const [editingComposition, setEditingComposition] = useState(null);
   const [showBulkHelper, setShowBulkHelper] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
 
   // Formularz typu materiału
   const [typeForm, setTypeForm] = useState({
@@ -36,6 +39,11 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
 
   // Dodaj/edytuj typ materiału
   const handleSaveType = () => {
+    if (!isAdmin) {
+      alert('Tylko administrator może dodawać/edytować materiały');
+      return;
+    }
+
     if (!typeForm.name || !typeForm.pricePerKg) {
       alert('Wypełnij wszystkie pola');
       return;
@@ -210,6 +218,116 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
     URL.revokeObjectURL(url);
   };
 
+  // Import z JSON
+  const handleImport = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const importedData = JSON.parse(e.target.result);
+
+        if (!importedData.materialTypes || !importedData.materialCompositions) {
+          alert('Nieprawidłowy format pliku JSON. Plik musi zawierać materialTypes i materialCompositions.');
+          return;
+        }
+
+        // Opcja: nadpisz wszystkie dane lub dodaj do istniejących
+        const shouldReplace = window.confirm(
+          `Zaimportowano:\n- ${importedData.materialTypes.length} typów materiałów\n- ${importedData.materialCompositions.length} kombinacji\n\nKliknij OK aby ZASTĄPIĆ istniejące dane, lub Anuluj aby DODAĆ do istniejących.`
+        );
+
+        if (shouldReplace) {
+          // Zastąp dane
+          const newState = {
+            materialTypes: importedData.materialTypes,
+            materialCompositions: importedData.materialCompositions,
+            nextMaterialTypeId: Math.max(...importedData.materialTypes.map(t => t.id), 0) + 1,
+            nextCompositionId: Math.max(...importedData.materialCompositions.map(c => c.id), 0) + 1
+          };
+          actions.loadMaterialData(newState);
+          alert('Dane zostały zastąpione zaimportowanymi danymi!');
+        } else {
+          // Dodaj do istniejących
+          let addedTypes = 0;
+          let addedCompositions = 0;
+
+          // Dodaj typy materiałów
+          importedData.materialTypes.forEach(type => {
+            // Sprawdź czy taki typ już istnieje (po nazwie)
+            const exists = state.materialTypes.some(t => t.name === type.name);
+            if (!exists) {
+              actions.addMaterialType({
+                name: type.name,
+                pricePerKg: type.pricePerKg,
+                color: type.color
+              });
+              addedTypes++;
+            }
+          });
+
+          // Dodaj kombinacje materiałów
+          importedData.materialCompositions.forEach(comp => {
+            // Znajdź odpowiadający typ materiału w nowym state
+            const matchingType = state.materialTypes.find(t => t.name === importedData.materialTypes.find(it => it.id === comp.materialTypeId)?.name);
+
+            if (matchingType) {
+              // Sprawdź czy taka kombinacja już istnieje
+              const exists = state.materialCompositions.some(c =>
+                c.materialTypeId === matchingType.id &&
+                c.thickness === comp.thickness &&
+                c.density === comp.density
+              );
+
+              if (!exists) {
+                actions.addMaterialComposition({
+                  materialTypeId: matchingType.id,
+                  thickness: comp.thickness,
+                  density: comp.density,
+                  name: comp.name
+                });
+                addedCompositions++;
+              }
+            }
+          });
+
+          alert(`Import zakończony!\nDodano:\n- ${addedTypes} nowych typów materiałów\n- ${addedCompositions} nowych kombinacji\n\n(Pominięto duplikaty)`);
+        }
+
+        // Reset input file
+        event.target.value = '';
+      } catch (error) {
+        console.error('Błąd importu:', error);
+        alert(`Błąd importu: ${error.message}`);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // Push do Firestore (tylko admin)
+  const handlePushToFirestore = async () => {
+    if (!isAdmin) {
+      alert('Tylko administrator może synchronizować dane z bazą.');
+      return;
+    }
+
+    if (!window.confirm('Czy na pewno chcesz zsynchronizować materiały z bazą Firestore?')) {
+      return;
+    }
+
+    setIsPushing(true);
+    try {
+      const result = await actions.pushToFirestore();
+      alert(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
+    } catch (error) {
+      console.error('Błąd podczas synchronizacji:', error);
+      alert(`Błąd synchronizacji: ${error.message}`);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   return (
     <div className={`${themeClasses.background} min-h-screen`}>
       <div className="container mx-auto px-4 py-6">
@@ -245,6 +363,22 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
+              {isAdmin && (
+                <button
+                  onClick={handlePushToFirestore}
+                  disabled={isPushing}
+                  className={`px-4 py-2 rounded-lg font-medium ${
+                    isPushing
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  } flex items-center gap-2`}
+                  title="Synchronizuj materiały z bazą Firestore"
+                >
+                  <Cloud size={16} />
+                  {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+                </button>
+              )}
+
               <button
                 onClick={handleExport}
                 className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
@@ -252,6 +386,17 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
                 <Download size={16} />
                 Eksportuj JSON
               </button>
+
+              <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
+                <Upload size={16} />
+                Importuj JSON
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </label>
             </div>
           </div>
         </div>

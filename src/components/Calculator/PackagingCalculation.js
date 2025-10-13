@@ -36,7 +36,7 @@ export function PackagingCalculation({
     if (!item.packaging.compositionId) return null;
 
     const composition = packagingState.compositions.find(
-      c => c.id === parseInt(item.packaging.compositionId)
+      c => c.id == item.packaging.compositionId
     );
 
     if (!composition) return null;

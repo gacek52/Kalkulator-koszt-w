@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote, LogOut, Upload, FileBarChart, ClipboardList, Wrench, Truck, Activity, CheckSquare, Square } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 import { useSession } from '../../context/SessionContext';
+import { useAuth } from '../../context/AuthContext';
+import { useClient } from '../../context/ClientContext';
+import { useMaterial } from '../../context/MaterialContext';
+import { usePackaging } from '../../context/PackagingContext';
 import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
 import { LocalStorageViewer } from '../DevTools/LocalStorageViewer';
 import { catalogApi } from '../../services/api';
@@ -9,16 +13,24 @@ import { catalogApi } from '../../services/api';
 /**
  * Komponent widoku katalogu kalkulacji
  */
-export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenClientManualSettings, onOpenClientManualPreview, hasActiveCalculation }) {
+export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenWorkstations, onOpenWorkstationCapacity, onOpenClientManualSettings, onOpenClientManualPreview, hasActiveCalculation }) {
   const { state: catalogState, actions: catalogActions, filteredCalculations, summary } = useCatalog();
   const { filters, sortBy, sortOrder } = catalogState;
   const { activeSession, clearSession, loadCalculationToSession } = useSession();
+  const { currentUser, logout, userRole, isAdmin } = useAuth();
+  const { actions: clientActions } = useClient();
+  const { actions: materialActions } = useMaterial();
+  const { actions: packagingActions } = usePackaging();
 
   const [expandedCalculations, setExpandedCalculations] = useState({});
   const [showFilters, setShowFilters] = useState(false);
   const [showSessionRestoreDialog, setShowSessionRestoreDialog] = useState(false);
   const [sessionRestoreChecked, setSessionRestoreChecked] = useState(false);
   const [showDevTools, setShowDevTools] = useState(false);
+  const [isPushing, setIsPushing] = useState(false);
+  const [showReport, setShowReport] = useState(false);
+  const [reportContent, setReportContent] = useState('');
+  const [showFormsDropdown, setShowFormsDropdown] = useState(false);
 
   // Sprawdź czy jest aktywna sesja przy pierwszym wejściu
   useEffect(() => {
@@ -73,6 +85,55 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     return `€${parseFloat(value || 0).toFixed(2)}`;
   };
 
+  // Obsługa pushowania danych do Firestore (tylko admin)
+  const handlePushToFirestore = async () => {
+    if (!isAdmin) {
+      alert('Tylko administrator może synchronizować dane z bazą.');
+      return;
+    }
+
+    if (!window.confirm('Czy na pewno chcesz zsynchronizować wszystkie dane (klienci, materiały, pakowanie) z bazą Firestore?')) {
+      return;
+    }
+
+    setIsPushing(true);
+    const results = [];
+
+    try {
+      // Push klientów
+      try {
+        const clientResult = await clientActions.pushToFirestore();
+        results.push(`✅ Klienci: ${clientResult.message}`);
+      } catch (error) {
+        results.push(`❌ Klienci: ${error.message}`);
+      }
+
+      // Push materiałów
+      try {
+        const materialResult = await materialActions.pushToFirestore();
+        results.push(`✅ Materiały: ${materialResult.message}`);
+      } catch (error) {
+        results.push(`❌ Materiały: ${error.message}`);
+      }
+
+      // Push opakowań
+      try {
+        const packagingResult = await packagingActions.pushToFirestore();
+        results.push(`✅ Pakowanie: ${packagingResult.message}`);
+      } catch (error) {
+        results.push(`❌ Pakowanie: ${error.message}`);
+      }
+
+      // Pokaż podsumowanie
+      alert('Synchronizacja zakończona:\n\n' + results.join('\n'));
+    } catch (error) {
+      console.error('Błąd podczas synchronizacji:', error);
+      alert('Wystąpił nieoczekiwany błąd podczas synchronizacji danych.');
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
   // Obsługa edycji kalkulacji - wczytaj pełne dane z API
   const handleEditCalculation = async (calc) => {
     try {
@@ -110,6 +171,189 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     }
   };
 
+  // Obsługa zaznaczania wszystkich widocznych kalkulacji dla capacity
+  const handleSelectAllVisible = () => {
+    // Zabezpieczenie przed undefined
+    if (!catalogState.capacityFilters || !catalogActions.toggleCalculationForCapacity) return;
+
+    // Zaznacz wszystkie widoczne kalkulacje (lub odznacz jeśli wszystkie są zaznaczone)
+    const customIds = catalogState.capacityFilters.customSelectedIds || [];
+    const allSelected = filteredCalculations.every(calc =>
+      customIds.includes(calc.id)
+    );
+
+    if (allSelected) {
+      // Odznacz wszystkie
+      filteredCalculations.forEach(calc => {
+        if (customIds.includes(calc.id)) {
+          catalogActions.toggleCalculationForCapacity(calc.id);
+        }
+      });
+    } else {
+      // Zaznacz wszystkie
+      filteredCalculations.forEach(calc => {
+        if (!customIds.includes(calc.id)) {
+          catalogActions.toggleCalculationForCapacity(calc.id);
+        }
+      });
+    }
+  };
+
+  // Generowanie raportu z widocznych kalkulacji
+  const handleGenerateReport = () => {
+    // Filtruj tylko rozwinięte kalkulacje
+    const expandedCalcs = filteredCalculations.filter(calc => expandedCalculations[calc.id]);
+
+    if (expandedCalcs.length === 0) {
+      alert('Brak rozwiniętych kalkulacji do raportu. Rozwiń przynajmniej jedną kalkulację aby wygenerować raport.');
+      return;
+    }
+
+    let report = '═══════════════════════════════════════════════════════\n';
+    report += '             RAPORT KALKULACJI KOSZTÓW\n';
+    report += '═══════════════════════════════════════════════════════\n\n';
+    report += `Data wygenerowania: ${new Date().toLocaleString('pl-PL')}\n`;
+    report += `Liczba kalkulacji: ${expandedCalcs.length}\n`;
+    report += `Liczba widocznych (z filtrów): ${filteredCalculations.length}\n\n`;
+
+    // Podsumowanie ogólne
+    let totalRevenue = 0;
+    let totalProfit = 0;
+    let totalParts = 0;
+
+    expandedCalcs.forEach(calc => {
+      const calcRevenue = (calc.items || []).reduce((sum, item) => {
+        const annualVolume = parseFloat(item.annualVolume || 0);
+        const unitCost = item.results?.totalWithSGA || 0;
+        return sum + (annualVolume * unitCost);
+      }, 0);
+
+      const calcProfit = (calc.items || []).reduce((sum, item) => {
+        const annualVolume = parseFloat(item.annualVolume || 0);
+        const marginPercent = parseFloat(item.margin || 0);
+        const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
+        return sum + (annualVolume * unitMargin);
+      }, 0);
+
+      totalRevenue += calcRevenue;
+      totalProfit += calcProfit;
+      totalParts += (calc.items || []).length;
+    });
+
+    report += '─────────────────────────────────────────────────────\n';
+    report += '  PODSUMOWANIE\n';
+    report += '─────────────────────────────────────────────────────\n';
+    report += `  Całkowity obrót:     ${formatCurrency(totalRevenue)}\n`;
+    report += `  Całkowity przychód:  ${formatCurrency(totalProfit)}\n`;
+    report += `  Łączna liczba detali: ${totalParts}\n\n`;
+
+    // Szczegóły każdej kalkulacji
+    report += '═══════════════════════════════════════════════════════\n';
+    report += '  SZCZEGÓŁY KALKULACJI\n';
+    report += '═══════════════════════════════════════════════════════\n\n';
+
+    expandedCalcs.forEach((calc, idx) => {
+      report += `\n[${ idx + 1 }] KALKULACJA #${calc.id}\n`;
+      report += '─────────────────────────────────────────────────────\n';
+      report += `  Klient:           ${calc.client || '-'}\n`;
+      report += `  Status:           ${STATUS_LABELS[calc.status] || '-'}\n`;
+      report += `  Data modyfikacji: ${formatDate(calc.modifiedDate || calc.createdDate)}\n`;
+      report += `  Właściciel:       ${calc.ownerName || calc.ownerId || '-'}\n`;
+
+      if (calc.notes && calc.notes.trim() !== '') {
+        report += `  Notatki:          ${calc.notes.replace(/\n/g, '\n                    ')}\n`;
+      }
+
+      // Oblicz sumy dla kalkulacji
+      const calcRevenue = (calc.items || []).reduce((sum, item) => {
+        const annualVolume = parseFloat(item.annualVolume || 0);
+        const unitCost = item.results?.totalWithSGA || 0;
+        return sum + (annualVolume * unitCost);
+      }, 0);
+
+      const calcProfit = (calc.items || []).reduce((sum, item) => {
+        const annualVolume = parseFloat(item.annualVolume || 0);
+        const marginPercent = parseFloat(item.margin || 0);
+        const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
+        return sum + (annualVolume * unitMargin);
+      }, 0);
+
+      report += `\n  Obrót:            ${formatCurrency(calcRevenue)}\n`;
+      report += `  Przychód:         ${formatCurrency(calcProfit)}\n`;
+      report += `  Liczba detali:    ${(calc.items || []).length}\n\n`;
+
+      // Detale
+      if (calc.items && calc.items.length > 0) {
+        report += '  DETALE:\n';
+        report += '  ─────────────────────────────────────────────────\n';
+
+        calc.items.forEach((item, itemIdx) => {
+          const annualVolume = parseFloat(item.annualVolume || 0);
+          const unitCost = item.results?.totalWithSGA || 0;
+          const itemRevenue = annualVolume * unitCost;
+          const marginPercent = parseFloat(item.margin || 0);
+          const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
+          const itemProfit = annualVolume * unitMargin;
+
+          report += `\n  ${itemIdx + 1}. ${item.partId || 'Bez ID'}\n`;
+          report += `     Materiał:              ${item.tabName || '-'}\n`;
+          report += `     Roczna ilość:          ${annualVolume.toLocaleString('pl-PL')} szt.\n`;
+
+          // Zużycie materiału
+          if (item.results) {
+            const weightNetto = parseFloat(item.weight || 0);
+            const weightBrutto = parseFloat(item.bruttoWeight || item.results.bruttoWeight || 0);
+            const yearlyWeightNetto = (weightNetto / 1000) * annualVolume; // kg
+            const yearlyWeightBrutto = (weightBrutto / 1000) * annualVolume; // kg
+
+            report += `\n     ZUŻYCIE MATERIAŁU:\n`;
+            report += `       Waga netto (szt.):   ${weightNetto.toFixed(2)} g\n`;
+            report += `       Waga brutto (szt.):  ${weightBrutto.toFixed(2)} g\n`;
+            report += `       Roczne zużycie netto: ${yearlyWeightNetto.toFixed(2)} kg\n`;
+            report += `       Roczne zużycie brutto: ${yearlyWeightBrutto.toFixed(2)} kg\n`;
+
+            if (item.surfaceArea) {
+              const surfaceInM2 = item.surfaceUnit === 'mm2'
+                ? parseFloat(item.surfaceArea) / 1000000
+                : parseFloat(item.surfaceArea);
+              const yearlySurface = surfaceInM2 * annualVolume;
+              report += `       Powierzchnia (szt.): ${surfaceInM2.toFixed(4)} m²\n`;
+              report += `       Roczna powierzchnia: ${yearlySurface.toFixed(2)} m²\n`;
+            }
+
+            if (item.heatshield) {
+              const surfaceNetto = parseFloat(item.heatshield.surfaceNetto || 0);
+              const surfaceBruttoSheet = parseFloat(item.heatshield.surfaceBruttoSheet || 0);
+              const surfaceBruttoMat = parseFloat(item.heatshield.surfaceBruttoMat || 0);
+
+              report += `\n     HEATSHIELD - Zużycie:\n`;
+              report += `       Powierzchnia netto:   ${surfaceNetto.toFixed(4)} m²\n`;
+              report += `       Blacha brutto (szt.): ${surfaceBruttoSheet.toFixed(4)} m²\n`;
+              report += `       Mata brutto (szt.):   ${surfaceBruttoMat.toFixed(4)} m²\n`;
+              report += `       Roczne zużycie blachy: ${(surfaceBruttoSheet * annualVolume).toFixed(2)} m²\n`;
+              report += `       Roczne zużycie maty:   ${(surfaceBruttoMat * annualVolume).toFixed(2)} m²\n`;
+            }
+          }
+
+          report += `\n     KOSZTY:\n`;
+          report += `       Koszt jednostkowy:     ${formatCurrency(unitCost)}\n`;
+          report += `       Marża:                 ${marginPercent}%\n`;
+          report += `       Wpływ na obrót:        ${formatCurrency(itemRevenue)}\n`;
+          report += `       Wpływ na przychód:     ${formatCurrency(itemProfit)}\n`;
+        });
+      }
+
+      report += '\n';
+    });
+
+    report += '\n═══════════════════════════════════════════════════════\n';
+    report += '  KONIEC RAPORTU\n';
+    report += '═══════════════════════════════════════════════════════\n';
+
+    setReportContent(report);
+    setShowReport(true);
+  };
+
   return (
     <div className={`${themeClasses.background} min-h-screen`}>
       <div className="container mx-auto px-4 py-6">
@@ -139,13 +383,15 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                 </button>
               )}
 
-              <button
-                onClick={() => setShowDevTools(true)}
-                className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
-                title="DevTools - podgląd localStorage"
-              >
-                <Database size={20} />
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => setShowDevTools(true)}
+                  className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
+                  title="DevTools - podgląd localStorage"
+                >
+                  <Database size={20} />
+                </button>
+              )}
 
               <button
                 onClick={onToggleDarkMode}
@@ -153,6 +399,15 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                 title={darkMode ? 'Przełącz na jasny motyw' : 'Przełącz na ciemny motyw'}
               >
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+              </button>
+
+              <button
+                onClick={logout}
+                className={`px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white flex items-center gap-2`}
+                title={`Wyloguj (${currentUser?.displayName || currentUser?.email || 'użytkownik'}${isAdmin ? ' - Admin' : ''})`}
+              >
+                <LogOut size={16} />
+                Wyloguj
               </button>
 
               <button
@@ -169,31 +424,109 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               </button>
 
               <button
-                onClick={onOpenPackaging}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
-                title="Zarządzanie pakowaniem"
+                onClick={handleGenerateReport}
+                className={`px-4 py-2 rounded-lg font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2`}
+                title="Generuj raport z rozwiniętych kalkulacji"
               >
-                <Package size={16} />
-                Pakowanie
+                <FileBarChart size={16} />
+                Raport
               </button>
 
-              <button
-                onClick={onOpenMaterials}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
-                title="Zarządzanie materiałami"
-              >
-                <Layers size={16} />
-                Materiały
-              </button>
+              {/* Dropdown Formularze */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowFormsDropdown(!showFormsDropdown)}
+                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                  title="Formularze zarządzania danymi"
+                >
+                  <ClipboardList size={16} />
+                  Formularze
+                  <ChevronDown size={14} />
+                </button>
 
-              <button
-                onClick={onOpenClients}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
-                title="Zarządzanie klientami"
-              >
-                <Users size={16} />
-                Klienci
-              </button>
+                {showFormsDropdown && (
+                  <div className={`absolute top-full right-0 mt-1 ${themeClasses.card} rounded-lg border shadow-lg z-10 min-w-[220px]`}>
+                    <button
+                      onClick={() => {
+                        onOpenClients();
+                        setShowFormsDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-t-lg flex items-center gap-2`}
+                    >
+                      <Users size={16} />
+                      Klienci
+                    </button>
+                    <button
+                      onClick={() => {
+                        onOpenPackaging();
+                        setShowFormsDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <Package size={16} />
+                      Pakowanie
+                    </button>
+                    <button
+                      onClick={() => {
+                        onOpenMaterials();
+                        setShowFormsDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <Layers size={16} />
+                      Materiały
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (onOpenWorkstations) {
+                          onOpenWorkstations();
+                          setShowFormsDropdown(false);
+                        }
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <Wrench size={16} />
+                      Stanowiska produkcyjne
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (onOpenWorkstationCapacity) {
+                          onOpenWorkstationCapacity();
+                          setShowFormsDropdown(false);
+                        }
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <Activity size={16} />
+                      Dashboard zajętości
+                    </button>
+                    <button
+                      disabled
+                      className={`w-full text-left px-4 py-2 ${themeClasses.text.muted} rounded-b-lg flex items-center gap-2 cursor-not-allowed opacity-50`}
+                      title="Wkrótce dostępne"
+                    >
+                      <Truck size={16} />
+                      Transport (wkrótce)
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {isAdmin && (
+                <button
+                  onClick={handlePushToFirestore}
+                  disabled={isPushing}
+                  className={`px-4 py-2 rounded-lg font-medium ${
+                    isPushing
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
+                      : 'bg-purple-600 hover:bg-purple-700 text-white'
+                  } flex items-center gap-2`}
+                  title="Synchronizuj wszystkie dane (klienci, materiały, pakowanie) z bazą Firestore"
+                >
+                  <Upload size={16} />
+                  {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+                </button>
+              )}
 
               <div className="flex">
                 <button
@@ -307,7 +640,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     placeholder="np. 12345 lub HT800..."
                   />
                 </div>
-                <div className="flex items-end">
+                <div className="flex items-end gap-4">
                   <label className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${themeClasses.text.primary}`}>
                     <input
                       type="checkbox"
@@ -317,6 +650,16 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     />
                     <StickyNote size={16} className="text-yellow-500" />
                     <span className="text-sm">Tylko z notatkami</span>
+                  </label>
+                  <label className={`flex items-center gap-2 px-3 py-2 cursor-pointer ${themeClasses.text.primary}`}>
+                    <input
+                      type="checkbox"
+                      checked={filters.showOnlyMine}
+                      onChange={(e) => catalogActions.setFilter({ showOnlyMine: e.target.checked })}
+                      className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    />
+                    <Users size={16} className="text-blue-500" />
+                    <span className="text-sm">Tylko moje</span>
                   </label>
                 </div>
               </div>
@@ -342,12 +685,36 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
           </div>
         </div>
 
+        {/* Sekcja zaznaczania kalkulacji dla capacity */}
+        <div className={`${themeClasses.card} rounded-lg border p-4 mb-4`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <button
+                onClick={handleSelectAllVisible}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Zaznacz/odznacz wszystkie widoczne kalkulacje dla dashboardu zajętości"
+              >
+                <CheckSquare size={16} />
+                Zaznacz wszystkie widoczne
+              </button>
+              <span className={`text-sm ${themeClasses.text.secondary}`}>
+                Zaznaczono dla capacity: <span className="font-semibold text-blue-600">{catalogState.capacityFilters?.customSelectedIds?.length || 0}</span> kalkulacji
+              </span>
+            </div>
+          </div>
+        </div>
+
         {/* Tabela kalkulacji */}
         <div className={`${themeClasses.card} rounded-lg border overflow-hidden`}>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className={`${themeClasses.background} border-b border-gray-200 dark:border-gray-600`}>
                 <tr>
+                  <th className="px-4 py-3 text-center w-12">
+                    <span className={`text-xs font-medium ${themeClasses.text.secondary}`} title="Zaznacz dla dashboardu zajętości">
+                      📊
+                    </span>
+                  </th>
                   <th className="px-4 py-3 text-left">
                     <button
                       onClick={() => handleSort('calculationId')}
@@ -384,6 +751,9 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                       {sortBy === 'status' && (sortOrder === 'asc' ? '↑' : '↓')}
                     </button>
                   </th>
+                  <th className="px-4 py-3 text-left">
+                    <span className={`text-sm font-medium ${themeClasses.text.secondary}`}>Właściciel</span>
+                  </th>
                   <th className="px-4 py-3 text-right">
                     <button
                       onClick={() => handleSort('revenue')}
@@ -410,7 +780,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               <tbody>
                 {filteredCalculations.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="px-4 py-8 text-center">
+                    <td colSpan="9" className="px-4 py-8 text-center">
                       <p className={themeClasses.text.secondary}>Brak kalkulacji do wyświetlenia</p>
                     </td>
                   </tr>
@@ -430,9 +800,20 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                       return sum + (annualVolume * unitMargin);
                     }, 0);
 
+                    const isSelectedForCapacity = catalogState.capacityFilters?.customSelectedIds?.includes(calc.id) || false;
+
                     return (
                     <React.Fragment key={calc.id}>
                       <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750">
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => catalogActions.toggleCalculationForCapacity(calc.id)}
+                            className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${isSelectedForCapacity ? 'text-blue-600' : themeClasses.text.secondary}`}
+                            title={isSelectedForCapacity ? 'Odznacz dla dashboardu zajętości' : 'Zaznacz dla dashboardu zajętości'}
+                          >
+                            {isSelectedForCapacity ? <CheckSquare size={18} /> : <Square size={18} />}
+                          </button>
+                        </td>
                         <td className={`px-4 py-3 ${themeClasses.text.primary}`}>
                           <div className="flex items-center gap-2">
                             <span>#{calc.id}</span>
@@ -465,6 +846,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                           }`}>
                             {STATUS_LABELS[calc.status] || '-'}
                           </span>
+                        </td>
+                        <td className={`px-4 py-3 ${themeClasses.text.secondary} text-sm`}>
+                          {calc.ownerName || calc.ownerId || '-'}
+                          {calc.ownerId === currentUser?.uid && (
+                            <span className="ml-1 text-blue-500">(ty)</span>
+                          )}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${themeClasses.text.primary}`}>
                           {formatCurrency(calculatedRevenue)}
@@ -502,7 +889,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                       {/* Rozwinięte szczegóły */}
                       {expandedCalculations[calc.id] && (
                         <tr className={darkMode ? 'bg-gray-800' : 'bg-gray-50'}>
-                          <td colSpan="7" className="px-4 py-4">
+                          <td colSpan="9" className="px-4 py-4">
                             <div className="space-y-4">
                               {/* Notatki */}
                               {calc.notes && (
@@ -588,6 +975,63 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
           darkMode={darkMode}
           onClose={() => setShowDevTools(false)}
         />
+      )}
+
+      {/* Report Modal */}
+      {showReport && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className={`${themeClasses.card} rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] flex flex-col`}>
+            {/* Header */}
+            <div className={`flex items-center justify-between p-4 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <h2 className={`text-xl font-bold ${themeClasses.text.primary} flex items-center gap-2`}>
+                <FileBarChart className="text-indigo-600" size={24} />
+                Raport Kalkulacji
+              </h2>
+              <button
+                onClick={() => setShowReport(false)}
+                className={`px-3 py-1 rounded ${themeClasses.button.secondary}`}
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto p-4">
+              <pre className={`${themeClasses.text.primary} text-xs font-mono whitespace-pre-wrap break-words`}>
+                {reportContent}
+              </pre>
+            </div>
+
+            {/* Footer with actions */}
+            <div className={`flex items-center justify-end gap-2 p-4 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(reportContent);
+                  alert('Raport skopiowany do schowka!');
+                }}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary}`}
+              >
+                Kopiuj do schowka
+              </button>
+              <button
+                onClick={() => {
+                  const blob = new Blob([reportContent], { type: 'text/plain;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `raport_kalkulacji_${new Date().toISOString().split('T')[0]}.txt`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                }}
+                className={`px-4 py-2 rounded-lg font-medium bg-indigo-600 hover:bg-indigo-700 text-white`}
+              >
+                Pobierz jako plik
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

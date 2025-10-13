@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { clientsApi } from '../services/api';
+import { useAuth } from './AuthContext';
 
 /**
  * Kontekst zarządzania klientami
@@ -14,91 +15,10 @@ const CLIENT_ACTIONS = {
   RESET_CLIENTS: 'RESET_CLIENTS'
 };
 
-// Domyślni klienci (przykładowe dane)
-const defaultClients = [
-  {
-    id: 1,
-    name: 'Tenneco Polska',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Rybnik',
-    country: 'Polska',
-    notes: ''
-  },
-  {
-    id: 2,
-    name: 'Tenneco Edenkoben',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Edenkoben',
-    country: 'Niemcy',
-    notes: ''
-  },
-  {
-    id: 3,
-    name: 'Tenneco Edenkoben Prototypy',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Edenkoben',
-    country: 'Niemcy',
-    notes: ''
-  },
-  {
-    id: 4,
-    name: 'Tenneco Zwickau',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Zwickau',
-    country: 'Niemcy',
-    notes: ''
-  },
-  {
-    id: 5,
-    name: 'Purem Tondela',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Tondela',
-    country: 'Portugalia',
-    notes: ''
-  },
-  {
-    id: 6,
-    name: 'Purem Rakovnik',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Rakovnik',
-    country: 'Czechy',
-    notes: ''
-  },
-  {
-    id: 7,
-    name: 'Purem Neunkirchen',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Neunkirchen',
-    country: 'Niemcy',
-    notes: ''
-  }
-];
-
-// Stan początkowy
+// Stan początkowy (puste - dane z Firestore)
 const initialState = {
-  clients: defaultClients,
-  nextClientId: 8
+  clients: [],
+  nextClientId: 1
 };
 
 // Reducer
@@ -107,7 +27,8 @@ function clientReducer(state, action) {
     case CLIENT_ACTIONS.ADD_CLIENT: {
       return {
         ...state,
-        clients: [...state.clients, action.payload]
+        clients: [...state.clients, action.payload],
+        nextClientId: state.nextClientId + 1
       };
     }
 
@@ -148,9 +69,9 @@ function clientReducer(state, action) {
 
 // Utility functions
 export const clientUtils = {
-  // Znajdź klienta po ID
+  // Znajdź klienta po ID (obsługuje string i number)
   getClientById: (state, clientId) => {
-    return state.clients.find(c => c.id === clientId);
+    return state.clients.find(c => c.id == clientId);
   },
 
   // Znajdź klienta po kodzie
@@ -206,6 +127,7 @@ const ClientContext = createContext();
 
 // Provider
 export function ClientProvider({ children }) {
+  const { currentUser, isAdmin } = useAuth();
   const [state, dispatch] = useReducer(clientReducer, initialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -222,19 +144,26 @@ export function ClientProvider({ children }) {
 
       const response = await clientsApi.getAll();
 
-      if (response.success && response.data && response.data.length > 0) {
-        // Szukaj dokumentu który zawiera cały stan (ma pole clients jako tablicę)
-        const stateDoc = response.data.find(doc => doc.clients && Array.isArray(doc.clients));
+      if (response.success && response.data) {
+        // API zwraca tablicę dokumentów - użyj jej bezpośrednio
+        const clients = response.data;
 
-        if (stateDoc) {
-          dispatch({
-            type: CLIENT_ACTIONS.LOAD_CLIENTS,
-            payload: {
-              clients: stateDoc.clients,
-              nextClientId: stateDoc.nextClientId
-            }
-          });
-        }
+        // Oblicz nextClientId na podstawie największego ID w bazie
+        const maxId = clients.length > 0 ? Math.max(...clients.map(c => parseInt(c.id) || 0), 0) : 0;
+
+        dispatch({
+          type: CLIENT_ACTIONS.LOAD_CLIENTS,
+          payload: {
+            clients: clients,
+            nextClientId: maxId + 1
+          }
+        });
+
+        // Zapisz do localStorage jako backup
+        localStorage.setItem('clientData', JSON.stringify({
+          clients: clients,
+          nextClientId: maxId + 1
+        }));
       }
     } catch (err) {
       console.error('Błąd wczytywania klientów z API:', err);
@@ -251,36 +180,25 @@ export function ClientProvider({ children }) {
           });
         } catch (error) {
           console.error('Błąd wczytywania z localStorage:', error);
+          // Brak danych - pozostaw pusty state
+          dispatch({
+            type: CLIENT_ACTIONS.LOAD_CLIENTS,
+            payload: {
+              clients: [],
+              nextClientId: 1
+            }
+          });
         }
+      } else {
+        // Brak danych w localStorage - pozostaw pusty state
+        console.log('Brak danych klientów - załaduj z Firestore przez initializeDatabase');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const saveClientsToAPI = async (clientState) => {
-    try {
-      const response = await clientsApi.getAll();
-
-      if (response.success && response.data && response.data.length > 0) {
-        // Jeśli istnieje dokument "całego stanu", zaktualizuj go
-        const stateDoc = response.data.find(doc => doc.clients && Array.isArray(doc.clients));
-        if (stateDoc) {
-          await clientsApi.update(stateDoc.id, clientState);
-        } else {
-          // Brak dokumentu stanu - utwórz nowy
-          await clientsApi.create(clientState);
-        }
-      } else {
-        // Brak danych - utwórz nowy dokument stanu
-        await clientsApi.create(clientState);
-      }
-    } catch (err) {
-      console.error('Błąd zapisu klientów:', err);
-    }
-  };
-
-  // Backup do localStorage i sync z API
+  // Backup do localStorage (zawsze)
   useEffect(() => {
     const stateToSave = {
       clients: state.clients,
@@ -290,9 +208,6 @@ export function ClientProvider({ children }) {
     if (state.clients.length > 0) {
       localStorage.setItem('clientData', JSON.stringify(stateToSave));
     }
-
-    // Zapisz do API po każdej zmianie
-    saveClientsToAPI(stateToSave);
   }, [state]);
 
   // Akcje
@@ -304,49 +219,58 @@ export function ClientProvider({ children }) {
         return false;
       }
 
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await clientsApi.create(clientData);
-
-        if (response.success && response.data) {
-          dispatch({
-            type: CLIENT_ACTIONS.ADD_CLIENT,
-            payload: response.data
-          });
-          return response.data;
+      // ADMIN - zapisz bezpośrednio do Firestore
+      if (isAdmin) {
+        try {
+          const response = await clientsApi.create(clientData);
+          if (response.success) {
+            // Odśwież listę z API
+            await loadClientsFromAPI();
+            return response.data;
+          }
+        } catch (err) {
+          console.error('Błąd dodawania klienta do API:', err);
+          alert('Nie udało się dodać klienta do bazy danych');
+          return false;
         }
-      } catch (err) {
-        console.error('Błąd dodawania klienta:', err);
-        setError(err.message || 'Nie udało się dodać klienta');
-        throw err;
-      } finally {
-        setLoading(false);
       }
+
+      // USER - zapisz tylko lokalnie (z nowym ID)
+      const newClient = {
+        ...clientData,
+        id: `local-${state.nextClientId}`, // Prefix 'local-' dla rozróżnienia
+        isLocal: true // Flaga że to dane lokalne
+      };
+
+      dispatch({
+        type: CLIENT_ACTIONS.ADD_CLIENT,
+        payload: newClient
+      });
+
+      return newClient;
     },
 
     updateClient: async (id, updates) => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await clientsApi.update(id, updates);
-
-        if (response.success && response.data) {
-          dispatch({
-            type: CLIENT_ACTIONS.UPDATE_CLIENT,
-            payload: { id, updates: response.data }
-          });
-          return response.data;
+      // ADMIN - aktualizuj w Firestore (tylko jeśli nie jest lokalny)
+      if (isAdmin && !id.toString().startsWith('local-')) {
+        try {
+          const response = await clientsApi.update(id, updates);
+          if (response.success) {
+            // Odśwież listę z API
+            await loadClientsFromAPI();
+            return;
+          }
+        } catch (err) {
+          console.error('Błąd aktualizacji klienta w API:', err);
+          alert('Nie udało się zaktualizować klienta w bazie danych');
         }
-      } catch (err) {
-        console.error('Błąd aktualizacji klienta:', err);
-        setError(err.message || 'Nie udało się zaktualizować klienta');
-        throw err;
-      } finally {
-        setLoading(false);
       }
+
+      // USER lub klient lokalny - aktualizuj tylko w state
+      dispatch({
+        type: CLIENT_ACTIONS.UPDATE_CLIENT,
+        payload: { id, updates: { ...updates, id } }
+      });
     },
 
     removeClient: async (id) => {
@@ -354,26 +278,29 @@ export function ClientProvider({ children }) {
         return false;
       }
 
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await clientsApi.delete(id);
-
-        if (response.success) {
-          dispatch({
-            type: CLIENT_ACTIONS.REMOVE_CLIENT,
-            payload: { id }
-          });
-          return true;
+      // ADMIN - usuń z Firestore (tylko jeśli nie jest lokalny)
+      if (isAdmin && !id.toString().startsWith('local-')) {
+        try {
+          const response = await clientsApi.delete(id);
+          if (response.success) {
+            // Odśwież listę z API
+            await loadClientsFromAPI();
+            return true;
+          }
+        } catch (err) {
+          console.error('Błąd usuwania klienta z API:', err);
+          alert('Nie udało się usunąć klienta z bazy danych');
+          return false;
         }
-      } catch (err) {
-        console.error('Błąd usuwania klienta:', err);
-        setError(err.message || 'Nie udało się usunąć klienta');
-        throw err;
-      } finally {
-        setLoading(false);
       }
+
+      // USER lub klient lokalny - usuń tylko z state
+      dispatch({
+        type: CLIENT_ACTIONS.REMOVE_CLIENT,
+        payload: { id }
+      });
+
+      return true;
     },
 
     refreshClients: loadClientsFromAPI,
@@ -390,6 +317,47 @@ export function ClientProvider({ children }) {
         dispatch({
           type: CLIENT_ACTIONS.RESET_CLIENTS
         });
+      }
+    },
+
+    // Manualne pchnięcie danych do Firestore (tylko dla admin)
+    pushToFirestore: async () => {
+      if (!isAdmin) {
+        throw new Error('Tylko admin może zapisywać do Firestore');
+      }
+
+      try {
+        // Filtruj tylko klientów globalnych (bez prefix 'local-')
+        const globalClients = state.clients.filter(client => !client.id.toString().startsWith('local-'));
+
+        // Pobierz istniejące klienty z bazy
+        const response = await clientsApi.getAll();
+        const existingClients = response.success && response.data ? response.data : [];
+        const existingIds = new Set(existingClients.map(c => c.id));
+
+        let created = 0;
+        let updated = 0;
+
+        // Zapisz każdego klienta
+        for (const client of globalClients) {
+          if (existingIds.has(client.id)) {
+            // Klient już istnieje - aktualizuj
+            await clientsApi.update(client.id, client);
+            updated++;
+          } else {
+            // Nowy klient - utwórz
+            await clientsApi.create(client);
+            created++;
+          }
+        }
+
+        return {
+          success: true,
+          message: `Zapisano ${created + updated} klientów do Firestore (${created} nowych, ${updated} zaktualizowanych)`
+        };
+      } catch (error) {
+        console.error('Błąd podczas pushowania klientów:', error);
+        throw new Error('Nie udało się zapisać klientów do Firestore');
       }
     }
   };

@@ -419,17 +419,11 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                             </div>
                             <div>
                               <label className={`block text-xs font-medium mb-1 ${themeClasses.text.secondary}`}>
-                                Automatyczne powiązanie
+                                Źródło danych
                               </label>
-                              <select
-                                value={curve.autoBindSource || 'manual'}
-                                onChange={(e) => actions.updateCustomCurve(tabId, curve.id, { autoBindSource: e.target.value })}
-                                className={`w-full px-3 py-2 text-sm border rounded ${themeClasses.input}`}
-                              >
-                                <option value="manual">Ręczne wprowadzanie</option>
-                                <option value="weight">Waga netto (g)</option>
-                                <option value="bruttoWeight">Waga brutto (g)</option>
-                              </select>
+                              <div className={`w-full px-3 py-2 text-sm border rounded bg-gray-100 dark:bg-gray-700 ${themeClasses.text.secondary}`}>
+                                Ustawiasz per element
+                              </div>
                             </div>
                           </div>
                         </div>

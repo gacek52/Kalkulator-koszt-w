@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { catalogApi } from '../services/api';
+import { useAuth } from './AuthContext';
 
 // Akcje dla reducer'a
 const CATALOG_ACTIONS = {
@@ -8,6 +9,8 @@ const CATALOG_ACTIONS = {
   REMOVE_CALCULATION: 'REMOVE_CALCULATION',
   SET_FILTER: 'SET_FILTER',
   SET_SORT: 'SET_SORT',
+  SET_CAPACITY_FILTERS: 'SET_CAPACITY_FILTERS',
+  TOGGLE_CALCULATION_FOR_CAPACITY: 'TOGGLE_CALCULATION_FOR_CAPACITY',
   LOAD_CATALOG_DATA: 'LOAD_CATALOG_DATA',
   RESET_CATALOG_STATE: 'RESET_CATALOG_STATE'
 };
@@ -40,10 +43,19 @@ const initialCatalogState = {
     dateTo: '',
     partSearch: '', // Wyszukiwanie po ID części lub nazwie
     calculationId: '', // Wyszukiwanie po ID kalkulacji
-    showOnlyWithNotes: false // Pokaż tylko kalkulacje z notatkami
+    showOnlyWithNotes: false, // Pokaż tylko kalkulacje z notatkami
+    showOnlyMine: true // Pokaż tylko moje kalkulacje (domyślnie włączone)
   },
   sortBy: 'date', // 'date', 'client', 'calculationId', 'status', 'revenue', 'profit'
-  sortOrder: 'desc' // 'asc' or 'desc'
+  sortOrder: 'desc', // 'asc' or 'desc'
+  capacityFilters: {
+    includeDraft: false,
+    includeInProgress: false,
+    includeSent: false,
+    includeNominated: true, // Domyślnie włączone
+    includeNotNominated: false,
+    customSelectedIds: [] // Ręcznie zaznaczone kalkulacje
+  }
 };
 
 // Reducer dla zarządzania stanem katalogu
@@ -84,8 +96,34 @@ function catalogReducer(state, action) {
         sortOrder: action.payload.sortOrder || state.sortOrder
       };
 
+    case CATALOG_ACTIONS.SET_CAPACITY_FILTERS:
+      return {
+        ...state,
+        capacityFilters: { ...state.capacityFilters, ...action.payload }
+      };
+
+    case CATALOG_ACTIONS.TOGGLE_CALCULATION_FOR_CAPACITY:
+      const calcId = action.payload;
+      const customIds = state.capacityFilters.customSelectedIds;
+      const isSelected = customIds.includes(calcId);
+
+      return {
+        ...state,
+        capacityFilters: {
+          ...state.capacityFilters,
+          customSelectedIds: isSelected
+            ? customIds.filter(id => id !== calcId)
+            : [...customIds, calcId]
+        }
+      };
+
     case CATALOG_ACTIONS.LOAD_CATALOG_DATA:
-      return { ...action.payload };
+      // Merguj z initialState żeby mieć pewność że capacityFilters istnieje
+      return {
+        ...initialCatalogState,
+        ...action.payload,
+        capacityFilters: action.payload.capacityFilters || initialCatalogState.capacityFilters
+      };
 
     case CATALOG_ACTIONS.RESET_CATALOG_STATE:
       return { ...initialCatalogState };
@@ -116,7 +154,7 @@ export const catalogUtils = {
   },
 
   // Filtrowanie kalkulacji
-  filterCalculations: (calculations, filters) => {
+  filterCalculations: (calculations, filters, currentUserId = null) => {
     return calculations.filter(calc => {
       if (filters.calculationId && !calc.id?.toString().toLowerCase().includes(filters.calculationId.toLowerCase())) {
         return false;
@@ -152,7 +190,39 @@ export const catalogUtils = {
           return false;
         }
       }
+      // Filtrowanie - tylko moje kalkulacje
+      if (filters.showOnlyMine && currentUserId) {
+        if (calc.ownerId !== currentUserId) {
+          return false;
+        }
+      }
       return true;
+    });
+  },
+
+  // Filtrowanie kalkulacji dla capacity dashboard
+  filterCalculationsForCapacity: (calculations, capacityFilters) => {
+    return calculations.filter(calc => {
+      // Jeśli jest w customSelectedIds, zawsze włącz
+      if (capacityFilters.customSelectedIds.includes(calc.id)) {
+        return true;
+      }
+
+      // W przeciwnym razie sprawdź status
+      switch (calc.status) {
+        case CALCULATION_STATUS.DRAFT:
+          return capacityFilters.includeDraft;
+        case CALCULATION_STATUS.IN_PROGRESS:
+          return capacityFilters.includeInProgress;
+        case CALCULATION_STATUS.SENT:
+          return capacityFilters.includeSent;
+        case CALCULATION_STATUS.NOMINATED:
+          return capacityFilters.includeNominated;
+        case CALCULATION_STATUS.NOT_NOMINATED:
+          return capacityFilters.includeNotNominated;
+        default:
+          return false;
+      }
     });
   },
 
@@ -204,6 +274,7 @@ const CatalogContext = createContext();
 
 // Provider component
 export function CatalogProvider({ children }) {
+  const { currentUser } = useAuth();
   const [state, dispatch] = useReducer(catalogReducer, initialCatalogState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -228,7 +299,8 @@ export function CatalogProvider({ children }) {
           nextCalculationId: Math.max(...response.data.map(c => parseInt(c.id) || 0), 0) + 1,
           filters: initialCatalogState.filters,
           sortBy: initialCatalogState.sortBy,
-          sortOrder: initialCatalogState.sortOrder
+          sortOrder: initialCatalogState.sortOrder,
+          capacityFilters: initialCatalogState.capacityFilters
         };
 
         dispatch({ type: CATALOG_ACTIONS.LOAD_CATALOG_DATA, payload: catalogState });
@@ -268,7 +340,9 @@ export function CatalogProvider({ children }) {
 
         const newCalc = {
           ...calculation,
-          status: calculation.status || CALCULATION_STATUS.DRAFT
+          status: calculation.status || CALCULATION_STATUS.DRAFT,
+          ownerId: currentUser?.uid || null,
+          ownerName: currentUser?.displayName || currentUser?.email || 'Nieznany użytkownik'
         };
 
         const response = await catalogApi.create(newCalc);
@@ -294,7 +368,14 @@ export function CatalogProvider({ children }) {
         setLoading(true);
         setError(null);
 
-        const response = await catalogApi.update(id, updates);
+        // Dodaj ownerId jeśli go nie ma (dla kompatybilności wstecznej)
+        const updatedCalc = {
+          ...updates,
+          ownerId: updates.ownerId || currentUser?.uid || null,
+          ownerName: updates.ownerName || currentUser?.displayName || currentUser?.email || 'Nieznany użytkownik'
+        };
+
+        const response = await catalogApi.update(id, updatedCalc);
 
         if (response.success && response.data) {
           dispatch({
@@ -347,6 +428,16 @@ export function CatalogProvider({ children }) {
       payload: { sortBy, sortOrder }
     }),
 
+    setCapacityFilters: (filters) => dispatch({
+      type: CATALOG_ACTIONS.SET_CAPACITY_FILTERS,
+      payload: filters
+    }),
+
+    toggleCalculationForCapacity: (calcId) => dispatch({
+      type: CATALOG_ACTIONS.TOGGLE_CALCULATION_FOR_CAPACITY,
+      payload: calcId
+    }),
+
     loadCatalogData: (data) => dispatch({
       type: CATALOG_ACTIONS.LOAD_CATALOG_DATA,
       payload: data
@@ -357,8 +448,12 @@ export function CatalogProvider({ children }) {
     })
   };
 
-  // Oblicz filtrowane i posortowane kalkulacje
-  const filteredCalculations = catalogUtils.filterCalculations(state.calculations, state.filters);
+  // Oblicz filtrowane i posortowane kalkulacje (z uwzględnieniem currentUser)
+  const filteredCalculations = catalogUtils.filterCalculations(
+    state.calculations,
+    state.filters,
+    currentUser?.uid
+  );
   const sortedCalculations = catalogUtils.sortCalculations(filteredCalculations, state.sortBy, state.sortOrder);
 
   // Oblicz sumaryczne wartości - zsumuj obrót i przychód z każdej kalkulacji

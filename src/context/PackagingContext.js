@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
-import { packagingApi } from '../services/api';
+import { packagingTypesApi, packagingCompositionsApi } from '../services/api';
+import { useAuth } from './AuthContext';
 
 // Akcje dla reducer'a
 const PACKAGING_ACTIONS = {
@@ -15,95 +16,12 @@ const PACKAGING_ACTIONS = {
   RESET_PACKAGING_STATE: 'RESET_PACKAGING_STATE'
 };
 
-// Początkowe typy opakowań - standardowe opakowania
-const defaultPackagingTypes = [
-  {
-    id: 1,
-    name: 'Karton B1',
-    dimensions: { length: 1200, width: 800, height: 1000 },
-    cost: 9.6,
-    volume: 0.96
-  },
-  {
-    id: 2,
-    name: 'Karton B2',
-    dimensions: { length: 600, width: 800, height: 500 },
-    cost: 3.6,
-    volume: 0.24
-  },
-  {
-    id: 3,
-    name: 'Karton B4',
-    dimensions: { length: 600, width: 400, height: 370 },
-    cost: 1.6,
-    volume: 0.0888
-  }
-];
-
-// Początkowe kompozycje pakowania
-const defaultCompositions = [
-  {
-    id: 1,
-    name: 'Karton B1 pojedyńczy',
-    packagingTypeId: 1,
-    packagesPerPallet: 1,
-    palletsPerSpace: 1,
-    palletCost: 3.6,
-    compositionCost: 13.2
-  },
-  {
-    id: 2,
-    name: 'Karton B1 podwójny',
-    packagingTypeId: 1,
-    packagesPerPallet: 2,
-    palletsPerSpace: 1,
-    palletCost: 3.6,
-    compositionCost: 22.8
-  },
-  {
-    id: 3,
-    name: 'Paleta B2 standard',
-    packagingTypeId: 2,
-    packagesPerPallet: 8,
-    palletsPerSpace: 1,
-    palletCost: 3.6,
-    compositionCost: 32.4
-  },
-  {
-    id: 4,
-    name: 'Paleta B4 mała 2 stack',
-    packagingTypeId: 3,
-    packagesPerPallet: 12,
-    palletsPerSpace: 2,
-    palletCost: 3.6,
-    compositionCost: 45.6
-  },
-  {
-    id: 5,
-    name: 'Paleta B4 mała 3 stack',
-    packagingTypeId: 3,
-    packagesPerPallet: 12,
-    palletsPerSpace: 3,
-    palletCost: 3.6,
-    compositionCost: 68.4
-  },
-  {
-    id: 6,
-    name: 'Paleta B4 standard',
-    packagingTypeId: 3,
-    packagesPerPallet: 20,
-    palletsPerSpace: 1,
-    palletCost: 3.6,
-    compositionCost: 35.6
-  }
-];
-
-// Początkowy stan
+// Początkowy stan (puste - dane z Firestore)
 const initialPackagingState = {
-  packagingTypes: defaultPackagingTypes,
-  nextPackagingId: 4,
-  compositions: defaultCompositions,
-  nextCompositionId: 7,
+  packagingTypes: [],
+  nextPackagingId: 1,
+  compositions: [],
+  nextCompositionId: 1,
   calculations: {}, // { calculationId: { packaging, annualVolume, etc. } }
   transportCostPerPallet: 25.0 // € default transport cost
 };
@@ -235,6 +153,7 @@ const PackagingContext = createContext();
 
 // Provider component
 export function PackagingProvider({ children }) {
+  const { currentUser, isAdmin } = useAuth();
   const [state, dispatch] = useReducer(packagingReducer, initialPackagingState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -249,11 +168,33 @@ export function PackagingProvider({ children }) {
       setLoading(true);
       setError(null);
 
-      const response = await packagingApi.getAll();
+      // Pobierz typy opakowań i kompozycje z osobnych kolekcji
+      const [typesResponse, compositionsResponse] = await Promise.all([
+        packagingTypesApi.getAll(),
+        packagingCompositionsApi.getAll()
+      ]);
 
-      if (response.success && response.data && response.data.length > 0) {
-        const packagingState = response.data[0];
-        dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: packagingState });
+      if (typesResponse.success && compositionsResponse.success) {
+        const packagingTypes = typesResponse.data || [];
+        const compositions = compositionsResponse.data || [];
+
+        // Oblicz nextIds na podstawie największych ID w bazie
+        const maxTypeId = packagingTypes.length > 0 ? Math.max(...packagingTypes.map(t => parseInt(t.id) || 0), 0) : 0;
+        const maxCompositionId = compositions.length > 0 ? Math.max(...compositions.map(c => parseInt(c.id) || 0), 0) : 0;
+
+        const loadedState = {
+          packagingTypes: packagingTypes,
+          compositions: compositions,
+          nextPackagingId: maxTypeId + 1,
+          nextCompositionId: maxCompositionId + 1,
+          calculations: {},
+          transportCostPerPallet: 25.0
+        };
+
+        dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: loadedState });
+
+        // Backup do localStorage
+        localStorage.setItem('packagingData', JSON.stringify(loadedState));
       }
     } catch (err) {
       console.error('Błąd wczytywania opakowań z API:', err);
@@ -267,31 +208,29 @@ export function PackagingProvider({ children }) {
           dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: parsedData });
         } catch (error) {
           console.error('Błąd wczytywania z localStorage:', error);
+          // Brak danych - pozostaw pusty state
+          dispatch({ type: PACKAGING_ACTIONS.LOAD_PACKAGING_DATA, payload: {
+            packagingTypes: [],
+            compositions: [],
+            nextPackagingId: 1,
+            nextCompositionId: 1,
+            calculations: {},
+            transportCostPerPallet: 25.0
+          }});
         }
+      } else {
+        // Brak danych w localStorage - pozostaw pusty state
+        console.log('Brak danych opakowań - załaduj z Firestore przez initializeDatabase');
       }
     } finally {
       setLoading(false);
     }
   };
 
-  const savePackagingToAPI = async (packagingState) => {
-    try {
-      const response = await packagingApi.getAll();
-
-      if (response.success && response.data && response.data.length > 0) {
-        await packagingApi.update(response.data[0].id, packagingState);
-      } else {
-        await packagingApi.create(packagingState);
-      }
-    } catch (err) {
-      console.error('Błąd zapisu opakowań:', err);
-    }
-  };
-
-  // Backup do localStorage i sync z API
+  // Backup do localStorage (zawsze)
+  // Nie zapisujemy automatycznie do Firestore - tylko na żądanie przez pushToFirestore
   useEffect(() => {
     localStorage.setItem('packagingData', JSON.stringify(state));
-    savePackagingToAPI(state);
   }, [state]);
 
   // Action creators
@@ -353,7 +292,65 @@ export function PackagingProvider({ children }) {
       type: PACKAGING_ACTIONS.RESET_PACKAGING_STATE
     }),
 
-    refreshPackaging: loadPackagingFromAPI
+    refreshPackaging: loadPackagingFromAPI,
+
+    // Manualne pchnięcie danych do Firestore (tylko dla admin)
+    pushToFirestore: async () => {
+      if (!isAdmin) {
+        throw new Error('Tylko admin może zapisywać do Firestore');
+      }
+
+      try {
+        // Pobierz istniejące dane z Firestore
+        const [existingTypesResponse, existingCompositionsResponse] = await Promise.all([
+          packagingTypesApi.getAll(),
+          packagingCompositionsApi.getAll()
+        ]);
+
+        const existingTypes = existingTypesResponse.success ? (existingTypesResponse.data || []) : [];
+        const existingCompositions = existingCompositionsResponse.success ? (existingCompositionsResponse.data || []) : [];
+
+        const existingTypeIds = new Set(existingTypes.map(t => t.id));
+        const existingCompositionIds = new Set(existingCompositions.map(c => c.id));
+
+        let typesCreated = 0;
+        let typesUpdated = 0;
+        let compositionsCreated = 0;
+        let compositionsUpdated = 0;
+
+        // Zapisz typy opakowań
+        for (const packagingType of state.packagingTypes) {
+          if (existingTypeIds.has(packagingType.id)) {
+            // Aktualizuj istniejący
+            await packagingTypesApi.update(packagingType.id, packagingType);
+            typesUpdated++;
+          } else {
+            // Utwórz nowy
+            await packagingTypesApi.create({ ...packagingType, id: packagingType.id });
+            typesCreated++;
+          }
+        }
+
+        // Zapisz kompozycje opakowań
+        for (const composition of state.compositions) {
+          if (existingCompositionIds.has(composition.id)) {
+            // Aktualizuj istniejący
+            await packagingCompositionsApi.update(composition.id, composition);
+            compositionsUpdated++;
+          } else {
+            // Utwórz nowy
+            await packagingCompositionsApi.create({ ...composition, id: composition.id });
+            compositionsCreated++;
+          }
+        }
+
+        const message = `Synchronizacja zakończona!\n\nTypy opakowań: ${typesCreated} nowych, ${typesUpdated} zaktualizowanych\nKompozycje: ${compositionsCreated} nowych, ${compositionsUpdated} zaktualizowanych`;
+        return { success: true, message };
+      } catch (error) {
+        console.error('Błąd podczas pushowania opakowań:', error);
+        throw new Error('Nie udało się zapisać opakowań do Firestore');
+      }
+    }
   };
 
   return (

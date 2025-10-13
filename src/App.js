@@ -5,22 +5,44 @@ import { PackagingProvider } from './context/PackagingContext';
 import { MaterialProvider } from './context/MaterialContext';
 import { ClientProvider } from './context/ClientContext';
 import { ClientManualProvider } from './context/ClientManualContext';
+import { WorkstationProvider } from './context/WorkstationContext';
 import { CatalogProvider } from './context/CatalogContext';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import { CostCalculator } from './components/Calculator/CostCalculator';
 import { CatalogView } from './components/Catalog/CatalogView';
 import { PackagingManager } from './components/Packaging/PackagingManager';
 import { MaterialManager } from './components/Materials/MaterialManager';
 import { ClientManager } from './components/Clients/ClientManager';
 import { ClientManualManager } from './components/ClientManual/ClientManualManager';
+import { WorkstationManager } from './components/Workstations/WorkstationManager';
+import { WorkstationCapacityDashboard } from './components/Workstations/WorkstationCapacityDashboard';
+import LoginScreen from './components/Auth/LoginScreen';
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', 'clients', 'client-manual-settings', or 'client-manual-preview'
+  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', 'clients', 'client-manual-settings', 'client-manual-preview', 'workstation-capacity'
   const [calculationToLoad, setCalculationToLoad] = useState(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const { state, actions } = useCalculator();
   const { darkMode, hasUnsavedChanges } = state;
+  const { currentUser, loading } = useAuth();
   const saveCalculationRef = useRef(null);
+
+  // Show login screen if user is not authenticated
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-100">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Ładowanie...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentUser) {
+    return <LoginScreen />;
+  }
 
   const handleLoadCalculation = (calc) => {
     if (hasUnsavedChanges) {
@@ -121,63 +143,92 @@ function AppContent() {
       <ClientProvider>
         <ClientManualProvider>
           <MaterialProvider>
-            <CatalogProvider>
-              {currentView === 'catalog' ? (
-                <CatalogView
-                  themeClasses={themeClasses}
-                  darkMode={darkMode}
-                  onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-                  onNewCalculation={handleNewCalculation}
-                  onLoadCalculation={handleLoadCalculation}
-                  onBackToCalculator={handleBackToCalculator}
-                  onOpenPackaging={() => setCurrentView('packaging')}
-                  onOpenMaterials={() => setCurrentView('materials')}
-                  onOpenClients={() => setCurrentView('clients')}
-                  onOpenClientManualSettings={() => setCurrentView('client-manual-settings')}
-                  onOpenClientManualPreview={() => setCurrentView('client-manual-preview')}
-                  hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
-                />
-              ) : currentView === 'calculator' ? (
-                <CostCalculator
-                  onBackToCatalog={handleBackToCatalog}
-                  calculationToLoad={calculationToLoad}
-                  onSaveRef={saveCalculationRef}
-                />
-              ) : currentView === 'packaging' ? (
-                <PackagingManager
-                  darkMode={darkMode}
-                  onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-                  onBack={() => setCurrentView('catalog')}
-                  themeClasses={themeClasses}
-                />
-              ) : currentView === 'materials' ? (
-                <MaterialManager
-                  darkMode={darkMode}
-                  onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
-                  onBack={() => setCurrentView('catalog')}
-                  themeClasses={themeClasses}
-                />
-              ) : currentView === 'clients' ? (
-                <ClientManager
-                  darkMode={darkMode}
-                  themeClasses={themeClasses}
-                  onClose={() => setCurrentView('catalog')}
-                />
-              ) : currentView === 'client-manual-settings' ? (
-                <ClientManualManager
-                  darkMode={darkMode}
-                  themeClasses={themeClasses}
-                  onClose={() => setCurrentView('catalog')}
-                  readOnly={false}
-                />
-              ) : currentView === 'client-manual-preview' ? (
-                <ClientManualManager
-                  darkMode={darkMode}
-                  themeClasses={themeClasses}
-                  onClose={() => setCurrentView('catalog')}
-                  readOnly={true}
-                />
-              ) : null}
+            <WorkstationProvider>
+              <CatalogProvider>
+              <div className="min-h-screen flex flex-col">
+                {/* Main content */}
+                <div className="flex-1">
+                  {currentView === 'catalog' ? (
+                    <CatalogView
+                      themeClasses={themeClasses}
+                      darkMode={darkMode}
+                      onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                      onNewCalculation={handleNewCalculation}
+                      onLoadCalculation={handleLoadCalculation}
+                      onBackToCalculator={handleBackToCalculator}
+                      onOpenPackaging={() => setCurrentView('packaging')}
+                      onOpenMaterials={() => setCurrentView('materials')}
+                      onOpenClients={() => setCurrentView('clients')}
+                      onOpenWorkstations={() => setCurrentView('workstations')}
+                      onOpenWorkstationCapacity={() => setCurrentView('workstation-capacity')}
+                      onOpenClientManualSettings={() => setCurrentView('client-manual-settings')}
+                      onOpenClientManualPreview={() => setCurrentView('client-manual-preview')}
+                      hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
+                    />
+                  ) : currentView === 'calculator' ? (
+                    <CostCalculator
+                      onBackToCatalog={handleBackToCatalog}
+                      calculationToLoad={calculationToLoad}
+                      onSaveRef={saveCalculationRef}
+                    />
+                  ) : currentView === 'packaging' ? (
+                    <PackagingManager
+                      darkMode={darkMode}
+                      onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                      onBack={() => setCurrentView('catalog')}
+                      themeClasses={themeClasses}
+                    />
+                  ) : currentView === 'materials' ? (
+                    <MaterialManager
+                      darkMode={darkMode}
+                      onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                      onBack={() => setCurrentView('catalog')}
+                      themeClasses={themeClasses}
+                    />
+                  ) : currentView === 'clients' ? (
+                    <ClientManager
+                      darkMode={darkMode}
+                      themeClasses={themeClasses}
+                      onClose={() => setCurrentView('catalog')}
+                    />
+                  ) : currentView === 'workstations' ? (
+                    <WorkstationManager
+                      darkMode={darkMode}
+                      onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                      onBack={() => setCurrentView('catalog')}
+                      themeClasses={themeClasses}
+                    />
+                  ) : currentView === 'workstation-capacity' ? (
+                    <WorkstationCapacityDashboard
+                      darkMode={darkMode}
+                      onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                      onBack={() => setCurrentView('catalog')}
+                      themeClasses={themeClasses}
+                    />
+                  ) : currentView === 'client-manual-settings' ? (
+                    <ClientManualManager
+                      darkMode={darkMode}
+                      themeClasses={themeClasses}
+                      onClose={() => setCurrentView('catalog')}
+                      readOnly={false}
+                    />
+                  ) : currentView === 'client-manual-preview' ? (
+                    <ClientManualManager
+                      darkMode={darkMode}
+                      themeClasses={themeClasses}
+                      onClose={() => setCurrentView('catalog')}
+                      readOnly={true}
+                    />
+                  ) : null}
+                </div>
+
+                {/* Footer with signature */}
+                <footer className={`py-3 text-center border-t ${
+                  darkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-white border-gray-200 text-gray-500'
+                }`}>
+                  <p className="text-xs">by Patryk Spławski</p>
+                </footer>
+              </div>
 
           {/* Dialog niezapisanych zmian */}
           {showUnsavedChangesDialog && (
@@ -232,7 +283,8 @@ function AppContent() {
               </div>
             </div>
           )}
-            </CatalogProvider>
+              </CatalogProvider>
+            </WorkstationProvider>
           </MaterialProvider>
         </ClientManualProvider>
       </ClientProvider>
@@ -243,11 +295,13 @@ function AppContent() {
 function App() {
   return (
     <div className="App">
-      <CalculatorProvider>
-        <SessionProvider>
-          <AppContent />
-        </SessionProvider>
-      </CalculatorProvider>
+      <AuthProvider>
+        <CalculatorProvider>
+          <SessionProvider>
+            <AppContent />
+          </SessionProvider>
+        </CalculatorProvider>
+      </AuthProvider>
     </div>
   );
 }

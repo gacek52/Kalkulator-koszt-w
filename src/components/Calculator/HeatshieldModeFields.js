@@ -1,10 +1,12 @@
 import React, { useEffect } from 'react';
+import { useWorkstation } from '../../context/WorkstationContext';
 
 /**
  * Pola wejściowe dla trybu kalkulacji PROSTE HEATSHIELD'Y
  * Blacha + mata izolacyjna z procesami standardowymi
  */
 export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode }) {
+  const { state: workstationState } = useWorkstation();
 
   // Inicjalizacja domyślnych wartości
   useEffect(() => {
@@ -50,13 +52,22 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
     let updates = {};
 
     if (surfaceNetto > 0) {
-      // Powierzchnia brutto blachy = powierzchnia netto × 2
-      const surfaceBruttoSheet = surfaceNetto * 2;
+      // Zastosuj margines jeśli aktywny dla małych części
+      let effectiveSurfaceNetto = surfaceNetto;
+      const marginPercent = parseFloat(item.heatshield?.surfaceMarginPercent || '15');
+      const marginAuto = item.heatshield?.surfaceMarginAuto !== false; // Domyślnie true
+
+      if (surfaceNetto < 0.1 && marginAuto) {
+        effectiveSurfaceNetto = surfaceNetto * (1 + marginPercent / 100);
+      }
+
+      // Powierzchnia brutto blachy = powierzchnia netto (z marginesem) × 2
+      const surfaceBruttoSheet = effectiveSurfaceNetto * 2;
       updates.surfaceBruttoSheet = surfaceBruttoSheet.toFixed(4);
 
-      // Powierzchnia netto blachy = powierzchnia netto maty
-      updates.surfaceNettoSheet = surfaceNetto.toFixed(4);
-      updates.surfaceNettoMat = surfaceNetto.toFixed(4);
+      // Powierzchnia netto blachy = powierzchnia netto maty (z marginesem)
+      updates.surfaceNettoSheet = effectiveSurfaceNetto.toFixed(4);
+      updates.surfaceNettoMat = effectiveSurfaceNetto.toFixed(4);
 
       // Oblicz wagi
       if (sheetDensity > 0 && sheetThickness > 0) {
@@ -94,7 +105,9 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
     item.heatshield?.sheetDensity,
     item.heatshield?.sheetThickness,
     item.heatshield?.matDensity,
-    item.heatshield?.matThickness
+    item.heatshield?.matThickness,
+    item.heatshield?.surfaceMarginPercent,
+    item.heatshield?.surfaceMarginAuto
   ]);
 
   // Merge z domyślnymi wartościami przy każdym renderze
@@ -165,6 +178,60 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
             <option value="m2">m²</option>
           </select>
         </div>
+      </div>
+
+      {/* Margines dla małych części */}
+      <div className={`p-3 rounded border ${
+        (parseFloat(heatshield.surfaceNetto) || 0) < 0.1 && (parseFloat(heatshield.surfaceNetto) || 0) > 0
+          ? darkMode ? 'bg-yellow-900/30 border-yellow-700' : 'bg-yellow-50 border-yellow-300'
+          : darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'
+      }`}>
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-xs font-medium">
+            {(parseFloat(heatshield.surfaceNetto) || 0) < 0.1 && (parseFloat(heatshield.surfaceNetto) || 0) > 0 ? '⚠️' : '📐'} Margines powierzchni
+          </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={heatshield.surfaceMarginAuto !== false}
+              onChange={(e) => onUpdate({
+                heatshield: { ...heatshield, surfaceMarginAuto: e.target.checked }
+              })}
+              className="rounded"
+            />
+            <span className="text-xs">Auto dla {'<'}0,1m²</span>
+          </label>
+        </div>
+        <div className="flex items-center gap-2">
+          <label className={`text-xs ${themeClasses.text.secondary} whitespace-nowrap`}>
+            Dodatek [%]:
+          </label>
+          <input
+            type="number"
+            value={heatshield.surfaceMarginPercent || '15'}
+            onChange={(e) => onUpdate({
+              heatshield: { ...heatshield, surfaceMarginPercent: e.target.value }
+            })}
+            className={`w-24 px-2 py-1 text-sm border rounded ${themeClasses.input}`}
+            placeholder="15"
+            step="1"
+            min="0"
+            max="100"
+          />
+          <span className={`text-xs ${themeClasses.text.secondary}`}>
+            {(parseFloat(heatshield.surfaceNetto) || 0) < 0.1 &&
+             (parseFloat(heatshield.surfaceNetto) || 0) > 0 &&
+             (heatshield.surfaceMarginAuto !== false)
+              ? `(aktywny: +${((parseFloat(heatshield.surfaceNetto) || 0) * (parseFloat(heatshield.surfaceMarginPercent || '15') / 100)).toFixed(4)} m²)`
+              : ''
+            }
+          </span>
+        </div>
+        {(parseFloat(heatshield.surfaceNetto) || 0) < 0.1 && (parseFloat(heatshield.surfaceNetto) || 0) > 0 && (
+          <div className={`mt-2 text-xs ${darkMode ? 'text-yellow-400' : 'text-yellow-700'}`}>
+            💡 Mała część - automatyczny margines zapewni wystarczającą ilość materiału
+          </div>
+        )}
       </div>
 
       {/* Parametry blachy */}
@@ -414,6 +481,57 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
               <span className={themeClasses.text.primary}>Waga całkowita:</span>
               <span className={themeClasses.text.primary}>{heatshield.totalWeight ? `${parseFloat(heatshield.totalWeight).toFixed(1)} g` : '-'}</span>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Stanowisko produkcyjne */}
+      <div className={`p-4 rounded-lg border ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
+        <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
+          🏭 Stanowisko produkcyjne
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Stanowisko
+            </label>
+            <select
+              value={item.workstation?.id || ''}
+              onChange={(e) => onUpdate({
+                workstation: {
+                  ...item.workstation,
+                  id: e.target.value ? parseInt(e.target.value) : null
+                }
+              })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+            >
+              <option value="">-- Wybierz stanowisko --</option>
+              {workstationState.workstations.map(ws => (
+                <option key={ws.id} value={ws.id}>
+                  {ws.name} ({ws.type})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Wydajność (szt/8h)
+            </label>
+            <input
+              type="number"
+              value={item.workstation?.efficiency || ''}
+              onChange={(e) => onUpdate({
+                workstation: {
+                  ...item.workstation,
+                  efficiency: e.target.value
+                }
+              })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="0"
+              step="1"
+              placeholder="np. 100"
+            />
           </div>
         </div>
       </div>

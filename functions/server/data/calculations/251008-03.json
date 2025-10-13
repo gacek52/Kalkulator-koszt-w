@@ -1,0 +1,266 @@
+{
+  "id": "251008-03",
+  "client": "Purem Tondela",
+  "status": "draft",
+  "notes": "",
+  "createdDate": "2025-10-08T10:10:33.426Z",
+  "modifiedDate": "2025-10-08T10:11:01.021Z",
+  "catalogId": 1759909525220,
+  "clientId": 5,
+  "clientCity": "Tondela",
+  "tabs": [
+    {
+      "id": 1,
+      "name": "Materiał 1",
+      "calculationType": "weight",
+      "materialCost": "2.0",
+      "materialPriceUnit": "kg",
+      "bakingCost": "110",
+      "cleaningCost": "90",
+      "handlingCost": "0.08",
+      "prepCost": "90",
+      "customProcesses": [],
+      "nextProcessId": 1,
+      "showAdvanced": false,
+      "editingCurves": {
+        "baking": [
+          {
+            "x": 50,
+            "y": 45
+          },
+          {
+            "x": 100,
+            "y": 55
+          },
+          {
+            "x": 500,
+            "y": 70
+          },
+          {
+            "x": 1000,
+            "y": 80
+          },
+          {
+            "x": 2000,
+            "y": 90
+          },
+          {
+            "x": 3000,
+            "y": 95
+          }
+        ],
+        "cleaning": [
+          {
+            "x": 50,
+            "y": 45
+          },
+          {
+            "x": 100,
+            "y": 55
+          },
+          {
+            "x": 500,
+            "y": 70
+          },
+          {
+            "x": 1000,
+            "y": 80
+          },
+          {
+            "x": 2000,
+            "y": 90
+          },
+          {
+            "x": 3000,
+            "y": 95
+          }
+        ],
+        "bruttoWeight": [
+          {
+            "x": 50,
+            "y": 60
+          },
+          {
+            "x": 100,
+            "y": 120
+          },
+          {
+            "x": 500,
+            "y": 600
+          },
+          {
+            "x": 1000,
+            "y": 1200
+          },
+          {
+            "x": 2000,
+            "y": 2300
+          },
+          {
+            "x": 3000,
+            "y": 3300
+          }
+        ],
+        "heatshieldPrep": [
+          {
+            "x": 0.01,
+            "y": 30
+          },
+          {
+            "x": 0.05,
+            "y": 45
+          },
+          {
+            "x": 0.1,
+            "y": 60
+          },
+          {
+            "x": 0.5,
+            "y": 120
+          },
+          {
+            "x": 1,
+            "y": 180
+          },
+          {
+            "x": 2,
+            "y": 300
+          }
+        ],
+        "heatshieldLaser": [
+          {
+            "x": 0,
+            "y": 5
+          },
+          {
+            "x": 0.01,
+            "y": 5
+          },
+          {
+            "x": 0.05,
+            "y": 8
+          },
+          {
+            "x": 0.1,
+            "y": 12
+          },
+          {
+            "x": 0.5,
+            "y": 25
+          },
+          {
+            "x": 1,
+            "y": 40
+          },
+          {
+            "x": 2,
+            "y": 70
+          }
+        ]
+      },
+      "customCurves": [],
+      "nextCurveId": 1,
+      "items": [
+        {
+          "id": 1,
+          "partId": "",
+          "weight": "",
+          "weightOption": "netto",
+          "bruttoWeight": "",
+          "cleaningOption": "scaled",
+          "manualCleaningTime": "45",
+          "margin": "",
+          "customValues": {},
+          "results": null,
+          "annualVolume": "",
+          "weightUnit": "g",
+          "surfaceArea": "",
+          "surfaceUnit": "mm2",
+          "thickness": "",
+          "density": "",
+          "surfaceWeight": "",
+          "surfaceCalcLocked": {
+            "thickness": true,
+            "density": true,
+            "surfaceWeight": false
+          },
+          "sheetLength": "1000",
+          "sheetWidth": "1000",
+          "partsPerSheet": "",
+          "surfaceBrutto": "",
+          "volume": "",
+          "volumeUnit": "mm3",
+          "dimensions": {
+            "length": "",
+            "width": "",
+            "height": ""
+          },
+          "volumeWeightOption": "brutto-auto",
+          "unit": "kg",
+          "packaging": {
+            "partsPerLayer": "",
+            "layers": "",
+            "partsInBox": "",
+            "manualPartsInBox": false,
+            "compositionId": null,
+            "customPrice": ""
+          }
+        }
+      ],
+      "nextItemId": 2
+    }
+  ],
+  "globalSGA": "12",
+  "items": [
+    {
+      "id": 1,
+      "partId": "",
+      "weight": "",
+      "weightOption": "netto",
+      "bruttoWeight": "",
+      "cleaningOption": "scaled",
+      "manualCleaningTime": "45",
+      "margin": "",
+      "customValues": {},
+      "results": null,
+      "annualVolume": "",
+      "weightUnit": "g",
+      "surfaceArea": "",
+      "surfaceUnit": "mm2",
+      "thickness": "",
+      "density": "",
+      "surfaceWeight": "",
+      "surfaceCalcLocked": {
+        "thickness": true,
+        "density": true,
+        "surfaceWeight": false
+      },
+      "sheetLength": "1000",
+      "sheetWidth": "1000",
+      "partsPerSheet": "",
+      "surfaceBrutto": "",
+      "volume": "",
+      "volumeUnit": "mm3",
+      "dimensions": {
+        "length": "",
+        "width": "",
+        "height": ""
+      },
+      "volumeWeightOption": "brutto-auto",
+      "unit": "kg",
+      "packaging": {
+        "partsPerLayer": "",
+        "layers": "",
+        "partsInBox": "",
+        "manualPartsInBox": false,
+        "compositionId": null,
+        "customPrice": ""
+      },
+      "tabName": "Materiał 1"
+    }
+  ],
+  "totalRevenue": 0,
+  "totalProfit": 0,
+  "createdAt": "2025-10-08T10:11:13.273Z",
+  "updatedAt": "2025-10-08T10:11:13.273Z"
+}

@@ -3,6 +3,7 @@ import { Plus, Trash2, Settings, Copy } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { usePackaging } from '../../context/PackagingContext';
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
+import { useWorkstation } from '../../context/WorkstationContext';
 import { NumberInput } from '../Common/NumberInput';
 import { SelectInput } from '../Common/SelectInput';
 import { CalculationTypeSelector } from './CalculationTypeSelector';
@@ -19,6 +20,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
   const { actions } = useCalculator();
   const { state: packagingState } = usePackaging();
   const { state: materialState } = useMaterial();
+  const { state: workstationState } = useWorkstation();
   const [selectedMaterialTypeId, setSelectedMaterialTypeId] = useState('');
 
   // Filtruj kompozycje dla wybranego typu
@@ -199,7 +201,132 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
     const handlingCost_total = handlingCost;
 
-    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total;
+    // Krzywe niestandardowe - dla trybu multilayer
+    let customCurvesCost = 0;
+    const customCurveCosts = {};
+    const layerCurveCosts = {};
+
+    if (tabData.customCurves && tabData.customCurves.length > 0) {
+      // Podziel warstwy na grupy: per-layer i global
+      const layersWithLayerScope = m.layers.filter(l => l.curveScope === 'layer');
+      const layersWithGlobalScope = m.layers.filter(l => l.curveScope !== 'layer'); // domyślnie global
+
+      // 1. Oblicz krzywe per-warstwa dla warstw z curveScope='layer'
+      layersWithLayerScope.forEach(layer => {
+        layerCurveCosts[layer.id] = {};
+
+        tabData.customCurves.forEach(curve => {
+          const inputMode = curve.inputMode || 'x';
+          const curveValues = layer.customCurveValues?.[curve.id] || {};
+          const dataSource = curveValues.source || 'manual';
+
+          let inputValue;
+          if (dataSource === 'manual') {
+            inputValue = parseFloat(curveValues.input);
+          } else if (dataSource === 'weightNetto') {
+            inputValue = parseFloat(layer.weightNetto) || 0;
+            if (curve.xUnit === 'kg') inputValue = inputValue / 1000;
+          } else if (dataSource === 'weightBrutto') {
+            inputValue = parseFloat(layer.weightBrutto) || 0;
+            if (curve.xUnit === 'kg') inputValue = inputValue / 1000;
+          } else if (dataSource === 'surfaceNetto') {
+            let surfaceInM2 = parseFloat(layer.surfaceNetto) || 0;
+            if (curve.xUnit === 'mm2') inputValue = surfaceInM2 * 1000000;
+            else if (curve.xUnit === 'cm2') inputValue = surfaceInM2 * 10000;
+            else inputValue = surfaceInM2;
+          } else if (dataSource === 'surfaceBrutto') {
+            let surfaceInM2 = parseFloat(layer.surfaceBrutto) || 0;
+            if (curve.xUnit === 'mm2') inputValue = surfaceInM2 * 1000000;
+            else if (curve.xUnit === 'cm2') inputValue = surfaceInM2 * 10000;
+            else inputValue = surfaceInM2;
+          }
+
+          if (!isNaN(inputValue) && inputValue > 0) {
+            let interpolatedX, interpolatedY;
+            if (inputMode === 'x') {
+              interpolatedX = inputValue;
+              interpolatedY = interpolateFromCurve(inputValue, curve.points);
+            } else {
+              interpolatedY = inputValue;
+              interpolatedX = reverseInterpolateFromCurve(inputValue, curve.points);
+            }
+
+            const yCost = parseFloat(curve.yCost) || 0;
+            let cost = 0;
+            if (curve.yUnit === 'sek') cost = (interpolatedY / 3600) * yCost;
+            else if (curve.yUnit === 'min') cost = (interpolatedY / 60) * yCost;
+            else if (curve.yUnit === 'h') cost = interpolatedY * yCost;
+            else if (curve.yUnit === 'g') cost = (interpolatedY / 1000) * yCost;
+            else if (curve.yUnit === 'kg') cost = interpolatedY * yCost;
+            else cost = interpolatedY * yCost;
+
+            customCurvesCost += cost;
+            layerCurveCosts[layer.id][curve.id] = { interpolatedX, interpolatedY, cost, inputMode };
+          }
+        });
+      });
+
+      // 2. Oblicz krzywe globalnie dla warstw z curveScope='global'
+      if (layersWithGlobalScope.length > 0) {
+        // Oblicz sumy dla warstw globalnych
+        const globalWeightNetto = layersWithGlobalScope.reduce((sum, l) => sum + (parseFloat(l.weightNetto) || 0), 0);
+        const globalWeightBrutto = layersWithGlobalScope.reduce((sum, l) => sum + (parseFloat(l.weightBrutto) || 0), 0);
+        const globalSurfaceNetto = layersWithGlobalScope.reduce((sum, l) => sum + (parseFloat(l.surfaceNetto) || 0), 0);
+        const globalSurfaceBrutto = layersWithGlobalScope.reduce((sum, l) => sum + (parseFloat(l.surfaceBrutto) || 0), 0);
+
+        tabData.customCurves.forEach(curve => {
+          const inputMode = curve.inputMode || 'x';
+          const curveValues = item.customCurveValues?.[curve.id] || {};
+          const dataSource = curveValues.source || 'manual';
+
+          let inputValue;
+          if (dataSource === 'manual') {
+            inputValue = parseFloat(curveValues.input);
+          } else if (dataSource === 'weightNetto') {
+            inputValue = globalWeightNetto;
+            if (curve.xUnit === 'kg') inputValue = globalWeightNetto / 1000;
+          } else if (dataSource === 'weightBrutto') {
+            inputValue = globalWeightBrutto;
+            if (curve.xUnit === 'kg') inputValue = globalWeightBrutto / 1000;
+          } else if (dataSource === 'surfaceNetto') {
+            let surfaceInM2 = globalSurfaceNetto;
+            if (curve.xUnit === 'mm2') inputValue = surfaceInM2 * 1000000;
+            else if (curve.xUnit === 'cm2') inputValue = surfaceInM2 * 10000;
+            else inputValue = surfaceInM2;
+          } else if (dataSource === 'surfaceBrutto') {
+            let surfaceInM2 = globalSurfaceBrutto;
+            if (curve.xUnit === 'mm2') inputValue = surfaceInM2 * 1000000;
+            else if (curve.xUnit === 'cm2') inputValue = surfaceInM2 * 10000;
+            else inputValue = surfaceInM2;
+          }
+
+          if (!isNaN(inputValue) && inputValue > 0) {
+            let interpolatedX, interpolatedY;
+            if (inputMode === 'x') {
+              interpolatedX = inputValue;
+              interpolatedY = interpolateFromCurve(inputValue, curve.points);
+            } else {
+              interpolatedY = inputValue;
+              interpolatedX = reverseInterpolateFromCurve(inputValue, curve.points);
+            }
+
+            const yCost = parseFloat(curve.yCost) || 0;
+            let cost = 0;
+            if (curve.yUnit === 'sek') cost = (interpolatedY / 3600) * yCost;
+            else if (curve.yUnit === 'min') cost = (interpolatedY / 60) * yCost;
+            else if (curve.yUnit === 'h') cost = interpolatedY * yCost;
+            else if (curve.yUnit === 'g') cost = (interpolatedY / 1000) * yCost;
+            else if (curve.yUnit === 'kg') cost = interpolatedY * yCost;
+            else cost = interpolatedY * yCost;
+
+            customCurvesCost += cost;
+            customCurveCosts[curve.id] = { interpolatedX, interpolatedY, cost, inputMode };
+          }
+        });
+      }
+    }
+
+    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total + customCurvesCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -214,6 +341,9 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       bakingCost: bakingCost_total,
       cleaningCost: cleaningCost_total,
       handlingCost: handlingCost_total,
+      customCurvesCost,
+      customCurveCosts,
+      layerCurveCosts, // Wyniki krzywych per-warstwa
       ...layerCosts, // Dodaj koszty poszczególnych warstw
       totalCost,
       totalWithMargin,
@@ -277,7 +407,62 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     // Laser - interpolacja z krzywej (powierzchnia -> cena w €)
     const laserCost_total = interpolateFromCurve(surfaceForProcesses, tabData.editingCurves.heatshieldLaser || []);
 
-    const totalCost = materialCost_total + prepCost_total + laserCost_total + bendingCost + joiningCost + gluingCost;
+    // Krzywe niestandardowe - dla trybu heatshield
+    let customCurvesCost = 0;
+    const customCurveCosts = {};
+    if (tabData.customCurves) {
+      tabData.customCurves.forEach(curve => {
+        const inputMode = curve.inputMode || 'x';
+        const curveValues = item.customCurveValues?.[curve.id] || {};
+        const dataSource = curveValues.source || 'manual';
+
+        let inputValue;
+        if (dataSource === 'manual') {
+          inputValue = parseFloat(curveValues.input);
+        } else if (dataSource === 'weightNetto') {
+          inputValue = sheetWeight;
+          if (curve.xUnit === 'kg') inputValue = sheetWeight / 1000;
+        } else if (dataSource === 'weightBrutto') {
+          inputValue = sheetWeight + matWeight;
+          if (curve.xUnit === 'kg') inputValue = (sheetWeight + matWeight) / 1000;
+        } else if (dataSource === 'surfaceNetto') {
+          let surfaceInM2 = surfaceNetto;
+          if (curve.xUnit === 'mm2') inputValue = surfaceInM2 * 1000000;
+          else if (curve.xUnit === 'cm2') inputValue = surfaceInM2 * 10000;
+          else inputValue = surfaceInM2;
+        } else if (dataSource === 'surfaceBrutto') {
+          let surfaceInM2 = surfaceBruttoSheet;
+          if (curve.xUnit === 'mm2') inputValue = surfaceInM2 * 1000000;
+          else if (curve.xUnit === 'cm2') inputValue = surfaceInM2 * 10000;
+          else inputValue = surfaceInM2;
+        }
+
+        if (!isNaN(inputValue) && inputValue > 0) {
+          let interpolatedX, interpolatedY;
+          if (inputMode === 'x') {
+            interpolatedX = inputValue;
+            interpolatedY = interpolateFromCurve(inputValue, curve.points);
+          } else {
+            interpolatedY = inputValue;
+            interpolatedX = reverseInterpolateFromCurve(inputValue, curve.points);
+          }
+
+          const yCost = parseFloat(curve.yCost) || 0;
+          let cost = 0;
+          if (curve.yUnit === 'sek') cost = (interpolatedY / 3600) * yCost;
+          else if (curve.yUnit === 'min') cost = (interpolatedY / 60) * yCost;
+          else if (curve.yUnit === 'h') cost = interpolatedY * yCost;
+          else if (curve.yUnit === 'g') cost = (interpolatedY / 1000) * yCost;
+          else if (curve.yUnit === 'kg') cost = interpolatedY * yCost;
+          else cost = interpolatedY * yCost;
+
+          customCurvesCost += cost;
+          customCurveCosts[curve.id] = { interpolatedX, interpolatedY, cost, inputMode };
+        }
+      });
+    }
+
+    const totalCost = materialCost_total + prepCost_total + laserCost_total + bendingCost + joiningCost + gluingCost + customCurvesCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -294,6 +479,8 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       bendingCost,
       joiningCost,
       gluingCost,
+      customCurvesCost,
+      customCurveCosts,
       totalCost,
       totalWithMargin,
       totalWithSGA,
@@ -327,7 +514,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     if (!item.packaging.compositionId) return 0;
 
     const composition = packagingState.compositions.find(
-      c => c.id === parseInt(item.packaging.compositionId)
+      c => c.id == item.packaging.compositionId
     );
 
     if (!composition) return 0;
@@ -443,17 +630,78 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     if (tabData.customCurves) {
       tabData.customCurves.forEach(curve => {
         const inputMode = curve.inputMode || 'x';
-        const autoBindSource = curve.autoBindSource || 'manual';
+        const curveValues = item.customCurveValues?.[curve.id] || {};
+        const dataSource = curveValues.source || 'manual';
 
-        // Pobierz wartość wejściową - automatycznie lub ręcznie
+        // Pobierz wartość wejściową na podstawie wybranego źródła
         let inputValue;
-        if (autoBindSource === 'weight') {
-          inputValue = nettoWeight; // waga netto w gramach
-        } else if (autoBindSource === 'bruttoWeight') {
-          inputValue = bruttoWeight; // waga brutto w gramach
-        } else {
+
+        if (dataSource === 'manual') {
           // Ręczne wprowadzanie
-          inputValue = parseFloat(item.customCurveValues?.[curve.id]?.input);
+          inputValue = parseFloat(curveValues.input);
+        } else if (dataSource === 'weightNetto') {
+          // Waga netto w gramach
+          inputValue = nettoWeight;
+          // Konwertuj do jednostki X krzywej jeśli potrzeba
+          if (curve.xUnit === 'kg') {
+            inputValue = nettoWeight / 1000; // g → kg
+          }
+        } else if (dataSource === 'weightBrutto') {
+          // Waga brutto w gramach
+          inputValue = bruttoWeight;
+          // Konwertuj do jednostki X krzywej jeśli potrzeba
+          if (curve.xUnit === 'kg') {
+            inputValue = bruttoWeight / 1000; // g → kg
+          }
+        } else if (dataSource === 'surfaceNetto') {
+          // Powierzchnia netto - pobierz z odpowiedniego miejsca w zależności od trybu
+          let surfaceInM2 = 0;
+          if (tabData.calculationType === 'heatshield') {
+            surfaceInM2 = parseFloat(item.heatshield?.surfaceNetto) || 0;
+          } else if (tabData.calculationType === 'surface') {
+            const surfaceArea = parseFloat(item.surfaceArea) || 0;
+            if (item.surfaceUnit === 'mm2') {
+              surfaceInM2 = surfaceArea / 1000000; // mm² → m²
+            } else {
+              surfaceInM2 = surfaceArea; // już w m²
+            }
+          } else if (tabData.calculationType === 'multilayer') {
+            // Suma powierzchni netto wszystkich warstw
+            item.multilayer?.layers?.forEach(layer => {
+              const layerSurface = parseFloat(layer.surfaceNetto) || 0;
+              surfaceInM2 += layerSurface;
+            });
+          }
+          // Konwertuj m² do jednostki X krzywej jeśli potrzeba
+          if (curve.xUnit === 'mm2') {
+            inputValue = surfaceInM2 * 1000000; // m² → mm²
+          } else if (curve.xUnit === 'cm2') {
+            inputValue = surfaceInM2 * 10000; // m² → cm²
+          } else {
+            inputValue = surfaceInM2; // m²
+          }
+        } else if (dataSource === 'surfaceBrutto') {
+          // Powierzchnia brutto - pobierz z odpowiedniego miejsca w zależności od trybu
+          let surfaceInM2 = 0;
+          if (tabData.calculationType === 'heatshield') {
+            surfaceInM2 = parseFloat(item.heatshield?.surfaceBruttoSheet) || 0;
+          } else if (tabData.calculationType === 'surface') {
+            surfaceInM2 = parseFloat(item.surfaceBrutto) || 0;
+          } else if (tabData.calculationType === 'multilayer') {
+            // Suma powierzchni brutto wszystkich warstw
+            item.multilayer?.layers?.forEach(layer => {
+              const layerSurface = parseFloat(layer.surfaceBrutto) || 0;
+              surfaceInM2 += layerSurface;
+            });
+          }
+          // Konwertuj m² do jednostki X krzywej jeśli potrzeba
+          if (curve.xUnit === 'mm2') {
+            inputValue = surfaceInM2 * 1000000; // m² → mm²
+          } else if (curve.xUnit === 'cm2') {
+            inputValue = surfaceInM2 * 10000; // m² → cm²
+          } else {
+            inputValue = surfaceInM2; // m²
+          }
         }
 
         if (!isNaN(inputValue) && inputValue > 0) {
@@ -763,6 +1011,11 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       customValues: {},
       customCurveValues: {},
       results: null,
+      // Pola dla stanowisk produkcyjnych
+      workstation: {
+        id: null,
+        efficiency: ''
+      },
       // Pola dla trybu WAGA
       weightUnit: 'g',
       // Pola dla trybu POWIERZCHNIA
@@ -1200,6 +1453,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
             {tab.calculationType === 'multilayer' && (
               <MultilayerModeFields
                 item={item}
+                tab={tab}
                 onUpdate={(updates) => handleItemUpdate(item.id, updates)}
                 themeClasses={themeClasses}
                 darkMode={darkMode}
@@ -1238,6 +1492,59 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                 />
               </div>
             </div>
+
+            {/* Stanowisko - tylko dla prostych tryb\u00f3w */}
+            {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
+              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
+                <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
+                  \ud83c\udfed Stanowisko produkcyjne
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                      Stanowisko
+                    </label>
+                    <select
+                      value={item.workstation?.id || ''}
+                      onChange={(e) => handleItemUpdate(item.id, {
+                        workstation: {
+                          ...item.workstation,
+                          id: e.target.value ? parseInt(e.target.value) : null
+                        }
+                      })}
+                      className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                    >
+                      <option value="">-- Wybierz stanowisko --</option>
+                      {workstationState.workstations.map(ws => (
+                        <option key={ws.id} value={ws.id}>
+                          {ws.name} ({ws.type})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                      Wydajno\u015b\u0107 (szt/8h)
+                    </label>
+                    <input
+                      type="number"
+                      value={item.workstation?.efficiency || ''}
+                      onChange={(e) => handleItemUpdate(item.id, {
+                        workstation: {
+                          ...item.workstation,
+                          efficiency: e.target.value
+                        }
+                      })}
+                      className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                      min="0"
+                      step="1"
+                      placeholder="np. 100"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Pakowanie */}
             <PackagingCalculation
@@ -1279,67 +1586,100 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
             {/* Krzywe niestandardowe */}
             {tab.customCurves && tab.customCurves.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 <h4 className={`text-sm font-medium ${themeClasses.text.secondary}`}>
                   Krzywe niestandardowe
                 </h4>
                 {tab.customCurves.map((curve) => {
                   const inputMode = curve.inputMode || 'x';
-                  const autoBindSource = curve.autoBindSource || 'manual';
-                  const isAutoBound = autoBindSource !== 'manual';
+                  const curveValues = item.customCurveValues?.[curve.id] || {};
+                  const dataSource = curveValues.source || 'manual';
 
                   const inputLabel = inputMode === 'x'
-                    ? `${curve.name} - wartość X (${curve.xUnit})`
-                    : `${curve.name} - wartość Y (${curve.yUnit})`;
+                    ? `Wartość X (${curve.xUnit})`
+                    : `Wartość Y (${curve.yUnit})`;
                   const outputUnit = inputMode === 'x' ? curve.yUnit : curve.xUnit;
                   const outputValue = inputMode === 'x'
                     ? item.results?.customCurveCosts?.[curve.id]?.interpolatedY
                     : item.results?.customCurveCosts?.[curve.id]?.interpolatedX;
 
-                  const autoBindLabel = autoBindSource === 'weight' ? 'Waga netto' :
-                                       autoBindSource === 'bruttoWeight' ? 'Waga brutto' : '';
-
                   return (
-                    <div key={curve.id} className="grid grid-cols-2 gap-2">
-                      <div>
-                        <label className={`block text-xs ${themeClasses.text.secondary}`}>
-                          {curve.name}
-                          {isAutoBound && <span className="ml-1 text-green-600">✓ {autoBindLabel}</span>}
-                        </label>
-                        {isAutoBound ? (
-                          <div className={`w-full px-2 py-1 text-sm border rounded bg-gray-100 dark:bg-gray-700 ${themeClasses.text.secondary}`}>
-                            Automatyczne
-                          </div>
-                        ) : (
-                          <input
-                            type="number"
-                            value={item.customCurveValues?.[curve.id]?.input || ''}
+                    <div key={curve.id} className={`p-3 rounded border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                      <div className="text-sm font-medium mb-2">{curve.name}</div>
+                      <div className="grid grid-cols-3 gap-2">
+                        {/* Dropdown źródła danych */}
+                        <div>
+                          <label className={`block text-xs ${themeClasses.text.secondary} mb-1`}>
+                            Źródło danych
+                          </label>
+                          <select
+                            value={dataSource}
                             onChange={(e) => {
                               const newCustomCurveValues = {
                                 ...(item.customCurveValues || {}),
                                 [curve.id]: {
-                                  input: e.target.value
+                                  ...curveValues,
+                                  source: e.target.value
                                 }
                               };
                               handleItemUpdate(item.id, { customCurveValues: newCustomCurveValues });
                             }}
-                            className={`w-full px-2 py-1 text-sm border rounded ${themeClasses.input}`}
-                            step="0.1"
-                            placeholder={inputLabel}
-                          />
-                        )}
-                      </div>
-                      <div className="flex items-end">
-                        <div className={`px-2 py-1 text-sm ${themeClasses.text.secondary}`}>
-                          → {outputValue
-                            ? `${outputValue.toFixed(2)} ${outputUnit}`
-                            : '-'}
-                          <br />
-                          <span className="font-semibold">
-                            {item.results?.customCurveCosts?.[curve.id]?.cost
-                              ? `${item.results.customCurveCosts[curve.id].cost.toFixed(3)} €`
+                            className={`w-full px-2 py-1 text-xs border rounded ${themeClasses.input}`}
+                          >
+                            <option value="manual">Ręczne</option>
+                            <option value="weightNetto">Waga netto</option>
+                            <option value="weightBrutto">Waga brutto</option>
+                            <option value="surfaceNetto">Powierzchnia netto</option>
+                            <option value="surfaceBrutto">Powierzchnia brutto</option>
+                          </select>
+                        </div>
+
+                        {/* Pole input - disabled jeśli automatyczne */}
+                        <div>
+                          <label className={`block text-xs ${themeClasses.text.secondary} mb-1`}>
+                            {inputLabel}
+                          </label>
+                          {dataSource === 'manual' ? (
+                            <input
+                              type="number"
+                              value={curveValues.input || ''}
+                              onChange={(e) => {
+                                const newCustomCurveValues = {
+                                  ...(item.customCurveValues || {}),
+                                  [curve.id]: {
+                                    ...curveValues,
+                                    input: e.target.value
+                                  }
+                                };
+                                handleItemUpdate(item.id, { customCurveValues: newCustomCurveValues });
+                              }}
+                              className={`w-full px-2 py-1 text-xs border rounded ${themeClasses.input}`}
+                              step="0.1"
+                              placeholder="0"
+                            />
+                          ) : (
+                            <div className={`w-full px-2 py-1 text-xs border rounded bg-gray-100 dark:bg-gray-700 ${themeClasses.text.secondary} flex items-center`}>
+                              <span className="text-green-600 mr-1">✓</span> Auto
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Wynik */}
+                        <div>
+                          <label className={`block text-xs ${themeClasses.text.secondary} mb-1`}>
+                            Wynik
+                          </label>
+                          <div className={`px-2 py-1 text-xs ${themeClasses.text.secondary}`}>
+                            {outputValue
+                              ? `${outputValue.toFixed(2)} ${outputUnit}`
                               : '-'}
-                          </span>
+                            <br />
+                            <span className="font-semibold text-blue-600 dark:text-blue-400">
+                              {item.results?.customCurveCosts?.[curve.id]?.cost
+                                ? `${item.results.customCurveCosts[curve.id].cost.toFixed(3)} €`
+                                : '-'}
+                            </span>
+                          </div>
                         </div>
                       </div>
                     </div>
