@@ -30,6 +30,29 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
   // Stan rozwinięć
   const [expandedWorkstations, setExpandedWorkstations] = useState({});
 
+  // Lokalna historia zaznaczonych kalkulacji (pozostaje dopóki użytkownik nie wyjdzie z dashboardu)
+  const [localSelectedHistory, setLocalSelectedHistory] = useState([]);
+
+  // Aktualizuj lokalną historię gdy zmienia się customSelectedIds
+  React.useEffect(() => {
+    const currentIds = catalogState.capacityFilters.customSelectedIds || [];
+
+    // Dodaj nowe ID do historii (zachowując kolejność dodawania)
+    setLocalSelectedHistory(prev => {
+      const newIds = currentIds.filter(id => !prev.includes(id));
+      return [...prev, ...newIds];
+    });
+  }, [catalogState.capacityFilters.customSelectedIds]);
+
+  // Funkcja do usunięcia kalkulacji z lokalnej historii
+  const removeFromHistory = (calcId) => {
+    setLocalSelectedHistory(prev => prev.filter(id => id !== calcId));
+    // Jeśli kalkulacja jest jeszcze zaznaczona w globalnym stanie, odznacz ją
+    if (catalogState.capacityFilters.customSelectedIds.includes(calcId)) {
+      catalogActions.toggleCalculationForCapacity(calcId);
+    }
+  };
+
   // Oblicz wykorzystanie stanowisk (z filtrowaniem kalkulacji)
   const utilizationData = useMemo(() => {
     try {
@@ -261,30 +284,39 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
               </label>
             </div>
 
-            {catalogState.capacityFilters.customSelectedIds.length > 0 && (
+            {localSelectedHistory.length > 0 && (
               <div className={`mt-3 p-3 rounded border ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
                 <div className="flex items-center justify-between mb-2">
                   <p className={`text-sm font-medium ${themeClasses.text.primary}`}>
-                    Ręcznie zaznaczone kalkulacje ({catalogState.capacityFilters.customSelectedIds.length})
+                    Kalkulacje do porównania ({localSelectedHistory.length})
+                  </p>
+                  <p className={`text-xs ${themeClasses.text.secondary}`}>
+                    Zaznaczone wliczane do capacity: {catalogState.capacityFilters.customSelectedIds.length}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  {catalogState.capacityFilters.customSelectedIds.map(calcId => {
+                  {localSelectedHistory.map(calcId => {
                     const calculation = catalogState.calculations.find(c => c.id === calcId);
                     if (!calculation) return null;
+
+                    const isActive = catalogState.capacityFilters.customSelectedIds.includes(calcId);
 
                     return (
                       <div
                         key={calcId}
-                        className={`flex items-center justify-between p-2 rounded ${darkMode ? 'bg-gray-800/50' : 'bg-white'}`}
+                        className={`flex items-center justify-between p-2 rounded ${
+                          isActive
+                            ? (darkMode ? 'bg-gray-800/50' : 'bg-white')
+                            : (darkMode ? 'bg-gray-900/30 opacity-60' : 'bg-gray-100 opacity-60')
+                        }`}
                       >
                         <div className="flex items-center gap-2 flex-1">
                           <input
                             type="checkbox"
-                            checked={true}
+                            checked={isActive}
                             onChange={() => catalogActions.toggleCalculationForCapacity(calcId)}
                             className="rounded cursor-pointer"
-                            title="Odznacz kalkulację"
+                            title={isActive ? "Odznacz - przestanie być wliczana do capacity" : "Zaznacz - będzie wliczana do capacity"}
                           />
                           <div className="flex-1">
                             <div className="flex items-center gap-2">
@@ -309,6 +341,11 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                                   {STATUS_LABELS[calculation.status]}
                                 </span>
                               )}
+                              {!isActive && (
+                                <span className={`text-xs italic ${themeClasses.text.secondary}`}>
+                                  (nie wliczana)
+                                </span>
+                              )}
                             </div>
                             {calculation.items && calculation.items.length > 0 && (
                               <div className={`text-xs ${themeClasses.text.secondary} mt-1`}>
@@ -318,9 +355,9 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                           </div>
                         </div>
                         <button
-                          onClick={() => catalogActions.toggleCalculationForCapacity(calcId)}
+                          onClick={() => removeFromHistory(calcId)}
                           className={`p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400`}
-                          title="Usuń z listy"
+                          title="Usuń całkowicie z listy porównania"
                         >
                           <X size={16} />
                         </button>
