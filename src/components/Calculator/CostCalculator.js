@@ -4,6 +4,7 @@ import { useCalculator } from '../../context/CalculatorContext';
 import { useSession } from '../../context/SessionContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
 import { useClient } from '../../context/ClientContext';
+import { useWorkstation } from '../../context/WorkstationContext';
 import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResults } from './CalculatorResults';
 import { SettingsPanel } from './SettingsPanel';
@@ -20,6 +21,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   const { tabs, activeTab, globalSGA, darkMode, calculationMeta, hasUnsavedChanges } = state;
   const { state: catalogState, actions: catalogActions } = useCatalog();
   const { state: clientState } = useClient();
+  const { state: workstationState } = useWorkstation();
   const { updateSession, activeSession, startNewSession, clearSession } = useSession();
   const [editingTabId, setEditingTabId] = React.useState(null);
   const [editingTabName, setEditingTabName] = React.useState('');
@@ -56,7 +58,8 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
   // Funkcja deep copy dla bezpiecznego klonowania danych
   const deepCopy = (obj) => {
-    return JSON.parse(JSON.stringify(obj));
+    // structuredClone() zachowuje poprawnie znaki Unicode (emoji, polskie znaki)
+    return structuredClone(obj);
   };
 
   // Znajdź istniejącą kalkulację powiązaną z obecną sesją (jeśli istnieje)
@@ -135,7 +138,9 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
       globalSGA: globalSGA,
       items: deepCopy(allItems),
       totalRevenue: 0,
-      totalProfit: 0
+      totalProfit: 0,
+      // Snapshot stanowisk produkcyjnych (pełne dane dla późniejszego podglądu)
+      workstationsSnapshot: deepCopy(workstationState.workstations)
     };
 
     if (!asNewVariant && existingCalculation) {

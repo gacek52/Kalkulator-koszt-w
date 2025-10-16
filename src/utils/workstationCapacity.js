@@ -18,7 +18,7 @@ export function calculateRequiredHours(annualVolume, efficiency) {
 /**
  * Zbierz wszystkie kalkulacje z katalogu i pogrupuj według stanowisk
  * @param {Array} catalogItems - Tablica kalkulacji z katalogu
- * @param {Array} workstations - Tablica stanowisk
+ * @param {Array} workstations - Tablica stanowisk z WorkstationContext
  * @returns {Object} Obiekt z obliczoną zajętością dla każdego stanowiska
  */
 export function calculateWorkstationUtilization(catalogItems, workstations) {
@@ -31,7 +31,12 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
     return utilizationData;
   }
 
+  // Utwórz mapę wszystkich stanowisk (z aktualnych + ze snapshots)
+  const allWorkstations = new Map();
+
+  // Dodaj aktualne stanowiska
   workstations.forEach(ws => {
+    allWorkstations.set(ws.id, ws);
     utilizationData[ws.id] = {
       workstation: ws,
       products: [],
@@ -39,6 +44,25 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
       availableHours: calculateAvailableHours(ws),
       utilizationPercent: 0
     };
+  });
+
+  // Dodaj stanowiska ze snapshots kalkulacji (jeśli nie istnieją już)
+  catalogItems.forEach(calculation => {
+    if (calculation.workstationsSnapshot && Array.isArray(calculation.workstationsSnapshot)) {
+      calculation.workstationsSnapshot.forEach(ws => {
+        if (!allWorkstations.has(ws.id)) {
+          allWorkstations.set(ws.id, ws);
+          utilizationData[ws.id] = {
+            workstation: ws,
+            products: [],
+            totalRequiredHours: 0,
+            availableHours: calculateAvailableHours(ws),
+            utilizationPercent: 0,
+            isFromSnapshot: true // Oznacz że pochodzi ze snapshota
+          };
+        }
+      });
+    }
   });
 
   // Zabezpieczenie przed undefined/null catalogItems
@@ -57,27 +81,58 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
 
         // Przejdź przez wszystkie items w zakładce
         tab.items.forEach(item => {
-          const workstationId = item.workstation?.id;
-          const efficiency = parseFloat(item.workstation?.efficiency);
           const annualVolume = parseFloat(item.annualVolume);
 
-          // Sprawdź czy item ma przypisane stanowisko i wszystkie wymagane dane
-          if (workstationId && efficiency > 0 && annualVolume > 0) {
-            const requiredHours = calculateRequiredHours(annualVolume, efficiency);
+          // Nowa struktura: item.workstations[] (wiele stanowisk)
+          if (item.workstations && Array.isArray(item.workstations) && item.workstations.length > 0) {
+            item.workstations.forEach(ws => {
+              const workstationId = ws.workstationId;
+              const efficiency = parseFloat(ws.efficiency);
 
-            // Dodaj do danych stanowiska
-            if (utilizationData[workstationId]) {
-              utilizationData[workstationId].products.push({
-                catalogId: calculation.id,
-                catalogName: calculation.client || 'Bez nazwy',
-                tabName: tab.name,
-                partId: item.partId || 'Brak ID',
-                annualVolume,
-                efficiency,
-                requiredHours
-              });
+              // Sprawdź czy ma wszystkie wymagane dane
+              if (workstationId && efficiency > 0 && annualVolume > 0) {
+                const requiredHours = calculateRequiredHours(annualVolume, efficiency);
 
-              utilizationData[workstationId].totalRequiredHours += requiredHours;
+                // Dodaj do danych stanowiska
+                if (utilizationData[workstationId]) {
+                  utilizationData[workstationId].products.push({
+                    catalogId: calculation.id,
+                    catalogName: calculation.client || 'Bez nazwy',
+                    tabName: tab.name,
+                    partId: item.partId || 'Brak ID',
+                    workstationName: ws.name || 'Stanowisko',
+                    annualVolume,
+                    efficiency,
+                    requiredHours
+                  });
+
+                  utilizationData[workstationId].totalRequiredHours += requiredHours;
+                }
+              }
+            });
+          }
+          // Backward compatibility: stara struktura item.workstation
+          else if (item.workstation?.id) {
+            const workstationId = item.workstation.id;
+            const efficiency = parseFloat(item.workstation.efficiency);
+
+            if (workstationId && efficiency > 0 && annualVolume > 0) {
+              const requiredHours = calculateRequiredHours(annualVolume, efficiency);
+
+              if (utilizationData[workstationId]) {
+                utilizationData[workstationId].products.push({
+                  catalogId: calculation.id,
+                  catalogName: calculation.client || 'Bez nazwy',
+                  tabName: tab.name,
+                  partId: item.partId || 'Brak ID',
+                  workstationName: 'Stanowisko',
+                  annualVolume,
+                  efficiency,
+                  requiredHours
+                });
+
+                utilizationData[workstationId].totalRequiredHours += requiredHours;
+              }
             }
           }
         });
