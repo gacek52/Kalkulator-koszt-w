@@ -233,55 +233,60 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
             </p>
 
             <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={catalogState.capacityFilters.includeDraft}
-                  onChange={(e) => catalogActions.setCapacityFilters({ includeDraft: e.target.checked })}
-                  className="rounded"
-                />
-                <span className={`text-sm ${themeClasses.text.primary}`}>Szkice</span>
-              </label>
+              <button
+                onClick={() => catalogActions.setCapacityFilters({ includeDraft: !catalogState.capacityFilters.includeDraft })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  catalogState.capacityFilters.includeDraft
+                    ? 'bg-gray-600 hover:bg-gray-700 text-white shadow-md'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 opacity-60'
+                }`}
+              >
+                Szkice
+              </button>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={catalogState.capacityFilters.includeInProgress}
-                  onChange={(e) => catalogActions.setCapacityFilters({ includeInProgress: e.target.checked })}
-                  className="rounded"
-                />
-                <span className={`text-sm ${themeClasses.text.primary}`}>W trakcie</span>
-              </label>
+              <button
+                onClick={() => catalogActions.setCapacityFilters({ includeInProgress: !catalogState.capacityFilters.includeInProgress })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  catalogState.capacityFilters.includeInProgress
+                    ? 'bg-yellow-600 hover:bg-yellow-700 text-white shadow-md'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 opacity-60'
+                }`}
+              >
+                W trakcie
+              </button>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={catalogState.capacityFilters.includeSent}
-                  onChange={(e) => catalogActions.setCapacityFilters({ includeSent: e.target.checked })}
-                  className="rounded"
-                />
-                <span className={`text-sm ${themeClasses.text.primary}`}>Wysłane</span>
-              </label>
+              <button
+                onClick={() => catalogActions.setCapacityFilters({ includeSent: !catalogState.capacityFilters.includeSent })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  catalogState.capacityFilters.includeSent
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white shadow-md'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 opacity-60'
+                }`}
+              >
+                Wysłane
+              </button>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={catalogState.capacityFilters.includeNominated}
-                  onChange={(e) => catalogActions.setCapacityFilters({ includeNominated: e.target.checked })}
-                  className="rounded"
-                />
-                <span className={`text-sm ${themeClasses.text.primary} font-semibold`}>Nominacja ✓</span>
-              </label>
+              <button
+                onClick={() => catalogActions.setCapacityFilters({ includeNominated: !catalogState.capacityFilters.includeNominated })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  catalogState.capacityFilters.includeNominated
+                    ? 'bg-green-600 hover:bg-green-700 text-white shadow-md'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 opacity-60'
+                }`}
+              >
+                Nominacja ✓
+              </button>
 
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={catalogState.capacityFilters.includeNotNominated}
-                  onChange={(e) => catalogActions.setCapacityFilters({ includeNotNominated: e.target.checked })}
-                  className="rounded"
-                />
-                <span className={`text-sm ${themeClasses.text.primary}`}>Brak nominacji</span>
-              </label>
+              <button
+                onClick={() => catalogActions.setCapacityFilters({ includeNotNominated: !catalogState.capacityFilters.includeNotNominated })}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                  catalogState.capacityFilters.includeNotNominated
+                    ? 'bg-red-600 hover:bg-red-700 text-white shadow-md'
+                    : 'bg-gray-200 hover:bg-gray-300 text-gray-500 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600 opacity-60'
+                }`}
+              >
+                Brak nominacji
+              </button>
             </div>
 
             {localSelectedHistory.length > 0 && (
