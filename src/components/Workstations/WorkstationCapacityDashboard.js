@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Activity, ArrowLeft, Sun, Moon, Filter, TrendingUp, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Activity, ArrowLeft, Sun, Moon, Filter, TrendingUp, AlertTriangle, CheckCircle, X } from 'lucide-react';
 import { useWorkstation } from '../../context/WorkstationContext';
-import { useCatalog } from '../../context/CatalogContext';
+import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
 import {
   calculateWorkstationUtilization,
   filterUtilizationData,
@@ -262,10 +262,72 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
             </div>
 
             {catalogState.capacityFilters.customSelectedIds.length > 0 && (
-              <div className={`p-2 rounded ${darkMode ? 'bg-blue-900/20' : 'bg-blue-50'}`}>
-                <p className={`text-xs ${themeClasses.text.secondary}`}>
-                  + {catalogState.capacityFilters.customSelectedIds.length} ręcznie zaznaczonych kalkulacji
-                </p>
+              <div className={`mt-3 p-3 rounded border ${darkMode ? 'bg-blue-900/20 border-blue-800' : 'bg-blue-50 border-blue-200'}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <p className={`text-sm font-medium ${themeClasses.text.primary}`}>
+                    Ręcznie zaznaczone kalkulacje ({catalogState.capacityFilters.customSelectedIds.length})
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  {catalogState.capacityFilters.customSelectedIds.map(calcId => {
+                    const calculation = catalogState.calculations.find(c => c.id === calcId);
+                    if (!calculation) return null;
+
+                    return (
+                      <div
+                        key={calcId}
+                        className={`flex items-center justify-between p-2 rounded ${darkMode ? 'bg-gray-800/50' : 'bg-white'}`}
+                      >
+                        <div className="flex items-center gap-2 flex-1">
+                          <input
+                            type="checkbox"
+                            checked={true}
+                            onChange={() => catalogActions.toggleCalculationForCapacity(calcId)}
+                            className="rounded cursor-pointer"
+                            title="Odznacz kalkulację"
+                          />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-medium ${themeClasses.text.primary}`}>
+                                #{calcId}
+                              </span>
+                              {calculation.client && (
+                                <span className={`text-sm ${themeClasses.text.secondary}`}>
+                                  - {calculation.client}
+                                </span>
+                              )}
+                              {calculation.status && (
+                                <span className={`px-2 py-0.5 text-xs rounded ${
+                                  calculation.status === 'nominated'
+                                    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                                    : calculation.status === 'sent'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300'
+                                    : calculation.status === 'in_progress'
+                                    ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+                                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'
+                                }`}>
+                                  {STATUS_LABELS[calculation.status]}
+                                </span>
+                              )}
+                            </div>
+                            {calculation.items && calculation.items.length > 0 && (
+                              <div className={`text-xs ${themeClasses.text.secondary} mt-1`}>
+                                {calculation.items.length} {calculation.items.length === 1 ? 'zakładka' : 'zakładek'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => catalogActions.toggleCalculationForCapacity(calcId)}
+                          className={`p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400`}
+                          title="Usuń z listy"
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             )}
           </div>
