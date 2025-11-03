@@ -1345,8 +1345,7 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
           )}
         </div>
           </>
-        ) : (
-          /* Timeline View */
+        ) : activeTab === 'timeline' ? (
           <>
             {/* Year Range Selector */}
             <div className={`${themeClasses.card} rounded-lg border p-4 mb-6`}>
@@ -1762,7 +1761,6 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
             )}
           </>
         ) : activeTab === 'materials' ? (
-          /* Materials View */
           <>
             {/* Year Range Selector - used same state as Timeline */}
             <div className={`${themeClasses.card} rounded-lg border p-4 mb-6`}>
