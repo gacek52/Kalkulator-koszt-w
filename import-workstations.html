@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Import Workstations to Firestore</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 800px; margin: 50px auto; padding: 20px; }
+    button { padding: 10px 20px; font-size: 16px; cursor: pointer; background: #4CAF50; color: white; border: none; border-radius: 4px; }
+    button:hover { background: #45a049; }
+    .log { margin-top: 20px; padding: 15px; background: #f5f5f5; border-radius: 4px; max-height: 400px; overflow-y: auto; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>🚀 Import Stanowisk Produkcyjnych</h1>
+  <p>Ten skrypt zaimportuje 10 domyślnych stanowisk do Firestore.</p>
+  <p><strong>UWAGA:</strong> Musisz być zalogowany jako ADMIN w aplikacji!</p>
+
+  <button onclick="importWorkstations()">Importuj Stanowiska</button>
+
+  <div id="log" class="log"></div>
+
+  <script type="module">
+    // Import Firebase
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getAuth, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+    import { getFirestore, doc, setDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Firebase config - ZMIEŃ NA SWOJE DANE!
+    const firebaseConfig = {
+      apiKey: "AIzaSyC5Yf8qXvPE_rI8vJ9mQZn3tH3KjLxN4wE",
+      authDomain: "kalkulator-produkcyjny---alpha.firebaseapp.com",
+      projectId: "kalkulator-produkcyjny---alpha",
+      storageBucket: "kalkulator-produkcyjny---alpha.firebasestorage.app",
+      messagingSenderId: "507934447774",
+      appId: "1:507934447774:web:4b1ea87f2c57d4a7a8f0c1",
+      measurementId: "G-YBCNKV8YD6"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const workstations = [
+      { name: "Prasa", type: "Prasa", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.8, costPer8h: 0, id: 1 },
+      { name: "Prasa (rolsztanca) 1", type: "Prasa", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.8, costPer8h: 0, id: 2 },
+      { name: "Prasa (rolsztanca) 2", type: "Prasa", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.8, costPer8h: 0, id: 3 },
+      { name: "Klejenie Scania 1", type: "Ręczne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.85, costPer8h: 0, id: 4 },
+      { name: "Klejenie Scania 2", type: "Ręczne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.85, costPer8h: 0, id: 5 },
+      { name: "Gilotyna", type: "Inne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.85, costPer8h: 0, id: 6 },
+      { name: "Piec do kształtek", type: "Inne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.8, costPer8h: 0, id: 7 },
+      { name: "Karuzela do kształtek", type: "Inne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.85, costPer8h: 0, id: 8 },
+      { name: "Płyta grzewcza1", type: "Inne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.85, costPer8h: 0, id: 9 },
+      { name: "Stanowisko przygotówki 1", type: "Inne", shiftsPerDay: 3, hoursPerShift: 8, workDaysPerWeek: 5, holidaysPerYear: 10, efficiency: 0.85, costPer8h: 0, id: 12 }
+    ];
+
+    function log(message, type = 'info') {
+      const logDiv = document.getElementById('log');
+      const p = document.createElement('p');
+      p.className = type;
+      p.textContent = message;
+      logDiv.appendChild(p);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(message);
+    }
+
+    window.importWorkstations = async function() {
+      const logDiv = document.getElementById('log');
+      logDiv.innerHTML = '';
+
+      log('🔍 Sprawdzam uwierzytelnienie...');
+
+      const user = auth.currentUser;
+      if (!user) {
+        log('❌ Nie jesteś zalogowany! Zaloguj się w aplikacji najpierw.', 'error');
+        log('Otwórz https://kalkulator-produkcyjny---alpha.web.app i zaloguj się jako admin', 'error');
+        return;
+      }
+
+      log(`✅ Zalogowany jako: ${user.email || user.displayName}`, 'success');
+      log('🚀 Rozpoczynam import stanowisk...', 'info');
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const ws of workstations) {
+        try {
+          const docRef = doc(db, 'workstations', `ws_${ws.id}`);
+          await setDoc(docRef, ws);
+          log(`✅ ${ws.name} (ID: ${ws.id})`, 'success');
+          successCount++;
+        } catch (error) {
+          log(`❌ ${ws.name}: ${error.message}`, 'error');
+          errorCount++;
+        }
+      }
+
+      log(`\n📊 Podsumowanie:`, 'info');
+      log(`   ✅ Sukces: ${successCount}`, 'success');
+      log(`   ❌ Błędy: ${errorCount}`, errorCount > 0 ? 'error' : 'success');
+      log(`   📦 Łącznie: ${workstations.length}`, 'info');
+
+      if (successCount === workstations.length) {
+        log('\n🎉 Import zakończony pomyślnie!', 'success');
+        log('Odśwież aplikację aby zobaczyć nowe stanowiska', 'success');
+      } else if (errorCount > 0) {
+        log('\n⚠️ Sprawdź czy jesteś zalogowany jako ADMIN', 'error');
+      }
+    };
+
+    // Sprawdź stan logowania
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        log(`👤 Zalogowany jako: ${user.email || user.displayName}`, 'success');
+      } else {
+        log('⚠️ Nie jesteś zalogowany. Zaloguj się w głównej aplikacji najpierw.', 'error');
+      }
+    });
+  </script>
+</body>
+</html>

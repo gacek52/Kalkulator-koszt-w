@@ -130,6 +130,7 @@ export function SessionProvider({ children }) {
       calculation,
       isDraft: true,
       linkedCalculationId: activeSession?.linkedCalculationId || null,
+      createdAt: activeSession?.createdAt || new Date().toISOString(), // WAŻNE: Zachowaj createdAt!
       lastModified: new Date().toISOString()
     };
 
@@ -173,7 +174,7 @@ export function SessionProvider({ children }) {
   // Funkcja do załadowania kalkulacji do edycji
   const loadCalculationToSession = (calculation, calculationId) => {
     const newSession = {
-      calculation: JSON.parse(JSON.stringify(calculation)), // deep copy
+      calculation: structuredClone(calculation), // deep copy (zachowuje Unicode)
       isDraft: true,
       linkedCalculationId: calculationId,
       createdAt: new Date().toISOString(),

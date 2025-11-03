@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useClient, clientUtils } from '../../context/ClientContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../context/RoleContext';
 import { Plus, Edit2, Trash2, Search, Upload, Download, X, Check, Cloud } from 'lucide-react';
 
 /**
@@ -8,7 +9,7 @@ import { Plus, Edit2, Trash2, Search, Upload, Download, X, Check, Cloud } from '
  */
 export function ClientManager({ themeClasses, darkMode, onClose }) {
   const { state, actions } = useClient();
-  const { isAdmin } = useAuth();
+  const { hasPermission } = useRole();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingClient, setEditingClient] = useState(null);
   const [isPushing, setIsPushing] = useState(false);
@@ -19,6 +20,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
     address: '',
     postalCode: '',
     city: '',
+    distance: '',
     country: 'Polska',
     notes: ''
   });
@@ -35,6 +37,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
       address: '',
       postalCode: '',
       city: '',
+      distance: '',
       country: 'Polska',
       notes: ''
     });
@@ -65,6 +68,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
       address: client.address || '',
       postalCode: client.postalCode || '',
       city: client.city || '',
+      distance: client.distance || '',
       country: client.country || 'Polska',
       notes: client.notes || ''
     });
@@ -105,10 +109,10 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
     reader.readAsText(file);
   };
 
-  // Push do Firestore (tylko admin)
+  // Push do Firestore
   const handlePushToFirestore = async () => {
-    if (!isAdmin) {
-      alert('Tylko administrator może synchronizować dane z bazą.');
+    if (!hasPermission('clients_edit_all')) {
+      alert('Nie masz uprawnień do synchronizacji klientów z bazą.');
       return;
     }
 
@@ -152,7 +156,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
 
           {/* Akcje */}
           <div className="flex flex-wrap gap-2">
-            {isAdmin && (
+            {hasPermission('clients_edit_all') && (
               <button
                 onClick={handlePushToFirestore}
                 disabled={isPushing}
@@ -164,7 +168,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
                 title="Synchronizuj klientów z bazą Firestore"
               >
                 <Cloud size={16} />
-                {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+                {isPushing ? 'Synchronizuję...' : 'Push to Database'}
               </button>
             )}
             <button
@@ -198,6 +202,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Formularz */}
+          {(hasPermission('clients_edit_all') || hasPermission('clients_edit_own')) && (
           <div className={`${themeClasses.card} rounded-lg border p-6`}>
             <h2 className={`text-xl font-semibold mb-4 ${themeClasses.text.primary}`}>
               {editingClient ? 'Edytuj Klienta' : 'Dodaj Klienta'}
@@ -260,8 +265,8 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
                 />
               </div>
 
-              {/* Kod pocztowy i miasto */}
-              <div className="grid grid-cols-2 gap-3">
+              {/* Kod pocztowy, miasto i odległość */}
+              <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
                     Kod pocztowy
@@ -284,6 +289,20 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     className={`w-full px-3 py-2 rounded-lg border ${themeClasses.input}`}
                     placeholder="Warszawa"
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                    Odległość (km)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.distance}
+                    onChange={(e) => setFormData({ ...formData, distance: e.target.value })}
+                    className={`w-full px-3 py-2 rounded-lg border ${themeClasses.input}`}
+                    placeholder="500"
+                    min="0"
+                    step="1"
                   />
                 </div>
               </div>
@@ -336,6 +355,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
               </div>
             </div>
           </div>
+          )}
 
           {/* Lista klientów */}
           <div className={`${themeClasses.card} rounded-lg border p-6`}>
@@ -384,6 +404,7 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
                           <div className={`text-sm ${themeClasses.text.secondary}`}>
                             📍 {client.city}
                             {client.postalCode && ` (${client.postalCode})`}
+                            {client.distance && ` • ${client.distance} km`}
                           </div>
                         )}
                         {client.nip && (
@@ -397,22 +418,26 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
                           </div>
                         )}
                       </div>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleEdit(client)}
-                          className="text-blue-500 hover:text-blue-700 p-1"
-                          title="Edytuj"
-                        >
-                          <Edit2 size={16} />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(client.id)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                          title="Usuń"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
+                      {(hasPermission('clients_edit_all') || hasPermission('clients_edit_own')) && (
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleEdit(client)}
+                            className="text-blue-500 hover:text-blue-700 p-1"
+                            title="Edytuj"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          {hasPermission('clients_delete') && (
+                            <button
+                              onClick={() => handleDelete(client.id)}
+                              className="text-red-500 hover:text-red-700 p-1"
+                              title="Usuń"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))

@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Trash2, Settings, Copy } from 'lucide-react';
+import { Plus, Trash2, Settings, Copy, Truck, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCalculator } from '../../context/CalculatorContext';
 import { usePackaging } from '../../context/PackagingContext';
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
 import { useWorkstation } from '../../context/WorkstationContext';
+import { useTransport } from '../../context/TransportContext';
+import { useClient } from '../../context/ClientContext';
 import { NumberInput } from '../Common/NumberInput';
 import { SelectInput } from '../Common/SelectInput';
 import { CalculationTypeSelector } from './CalculationTypeSelector';
@@ -12,16 +14,22 @@ import { VolumeModeFields } from './VolumeModeFields';
 import { HeatshieldModeFields } from './HeatshieldModeFields';
 import { MultilayerModeFields } from './MultilayerModeFields';
 import { PackagingCalculation } from './PackagingCalculation';
+import { ToolingSection } from './ToolingSection';
+import { VolumeForecastSection } from './VolumeForecastSection';
+import { WorkstationFields } from './WorkstationFields';
 
 /**
  * Formularz kalkulacji materiałów i procesów
  */
-export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMode, onOpenSettings }) {
+export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta, themeClasses, darkMode, onOpenSettings }) {
   const { actions } = useCalculator();
   const { state: packagingState } = usePackaging();
   const { state: materialState } = useMaterial();
   const { state: workstationState } = useWorkstation();
+  const { state: transportState } = useTransport();
+  const { state: clientState } = useClient();
   const [selectedMaterialTypeId, setSelectedMaterialTypeId] = useState('');
+  const [collapsedItems, setCollapsedItems] = useState({});
 
   // Filtruj kompozycje dla wybranego typu
   const filteredCompositions = selectedMaterialTypeId
@@ -326,7 +334,43 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       }
     }
 
-    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total + customCurvesCost;
+    // Koszty stanowisk produkcyjnych (tak jak w heatshield)
+    const workstationsResult = calculateWorkstationsCost(item);
+    const workstationsCost_total = workstationsResult.total;
+    const workstationCosts = workstationsResult.costs;
+
+    // Procesy niestandardowe - dla trybu multilayer
+    // Te koszty są niezależne od ilości i zawartości warstw - dodawane "on top"
+    let customProcessesCost = 0;
+    if (tabData.customProcesses) {
+      tabData.customProcesses.forEach(process => {
+        const processCost = parseFloat(process.cost) || 0;
+        const efficiency = parseFloat(process.efficiency) || 1;
+
+        switch (process.unit) {
+          case 'euro/szt':
+            // Koszt per sztuka - dodawany bezpośrednio
+            customProcessesCost += processCost;
+            break;
+          case 'euro/kg':
+            // Koszt per kg - używamy całkowitej wagi brutto wszystkich warstw
+            customProcessesCost += processCost * (totalWeightBrutto / 1000);
+            break;
+          case 'euro/8h':
+            // Dla euro/8h: efficiency = ile części na zmianę, więc koszt = processCost / efficiency
+            if (efficiency > 0) {
+              customProcessesCost += processCost / efficiency;
+            }
+            break;
+          default:
+            // Domyślnie euro/szt
+            customProcessesCost += processCost;
+            break;
+        }
+      });
+    }
+
+    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total + customCurvesCost + workstationsCost_total + customProcessesCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -336,18 +380,29 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const sgaPercent = parseFloat(sga) || 0;
     const totalWithSGA = totalWithMargin * (1 + sgaPercent / 100);
 
+    // Oblicz koszt transportu (dodawany ON TOP po SG&A)
+    const transportCost = calculateTransportCost(item, tabData);
+
+    // Finalny koszt łączny = totalWithSGA + transport (NIE mnożone przez marżę ani SG&A)
+    const finalTotalCost = totalWithSGA + transportCost;
+
     return {
       materialCost: totalMaterialCost,
       bakingCost: bakingCost_total,
       cleaningCost: cleaningCost_total,
       handlingCost: handlingCost_total,
+      workstationsCost: workstationsCost_total, // Dodany koszt stanowisk
+      workstationCosts, // Szczegóły per stanowisko
+      customProcessesCost, // Dodany koszt procesów niestandardowych
       customCurvesCost,
       customCurveCosts,
       layerCurveCosts, // Wyniki krzywych per-warstwa
       ...layerCosts, // Dodaj koszty poszczególnych warstw
+      transportCost, // Koszt transportu
       totalCost,
       totalWithMargin,
       totalWithSGA,
+      finalTotalCost, // Koszt końcowy z transportem
       nettoWeight: totalWeight,
       bruttoWeight: totalWeight,
       bakingTime,
@@ -399,13 +454,43 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     // Za cały materiał trzeba zapłacić
     const surfaceForProcesses = Math.max(surfaceNetto, surfaceBruttoSheet);
 
-    // Przygotówka - interpolacja z krzywej (powierzchnia -> czas w sekundach)
-    const prepTime = interpolateFromCurve(surfaceForProcesses, tabData.editingCurves.heatshieldPrep || []);
-    const prepCost = parseFloat(tabData.prepCost) || 0; // €/8h
-    const prepCost_total = (prepTime / 3600) * (prepCost / 8); // sekundy -> godziny -> koszt
-
     // Laser - interpolacja z krzywej (powierzchnia -> cena w €)
     const laserCost_total = interpolateFromCurve(surfaceForProcesses, tabData.editingCurves.heatshieldLaser || []);
+
+    // Koszty stanowisk produkcyjnych (zastępuje prepCost)
+    const workstationsResult = calculateWorkstationsCost(item);
+    const workstationsCost_total = workstationsResult.total;
+    const workstationCosts = workstationsResult.costs;
+
+    // Procesy niestandardowe - dla trybu heatshield
+    let customProcessesCost = 0;
+    if (tabData.customProcesses) {
+      tabData.customProcesses.forEach(process => {
+        const processCost = parseFloat(process.cost) || 0;
+        const efficiency = parseFloat(process.efficiency) || 1;
+
+        switch (process.unit) {
+          case 'euro/szt':
+            customProcessesCost += processCost * efficiency;
+            break;
+          case 'euro/kg':
+            // Używamy całkowitej wagi (blacha + mata)
+            const totalWeight = sheetWeight + matWeight;
+            customProcessesCost += processCost * (totalWeight / 1000) * efficiency;
+            break;
+          case 'euro/8h':
+            // Dla euro/8h: efficiency = ile części na zmianę, więc koszt = processCost / efficiency
+            if (efficiency > 0) {
+              customProcessesCost += processCost / efficiency;
+            }
+            break;
+          default:
+            // Domyślnie euro/szt
+            customProcessesCost += processCost * efficiency;
+            break;
+        }
+      });
+    }
 
     // Krzywe niestandardowe - dla trybu heatshield
     let customCurvesCost = 0;
@@ -462,7 +547,7 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       });
     }
 
-    const totalCost = materialCost_total + prepCost_total + laserCost_total + bendingCost + joiningCost + gluingCost + customCurvesCost;
+    const totalCost = materialCost_total + workstationsCost_total + laserCost_total + bendingCost + joiningCost + gluingCost + customProcessesCost + customCurvesCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -472,21 +557,30 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const sgaPercent = parseFloat(sga) || 0;
     const totalWithSGA = totalWithMargin * (1 + sgaPercent / 100);
 
+    // Oblicz koszt transportu (dodawany ON TOP po SG&A)
+    const transportCost = calculateTransportCost(item, tabData);
+
+    // Finalny koszt łączny = totalWithSGA + transport (NIE mnożone przez marżę ani SG&A)
+    const finalTotalCost = totalWithSGA + transportCost;
+
     return {
       materialCost: materialCost_total,
-      prepCost: prepCost_total,
+      workstationsCost: workstationsCost_total, // Nowy koszt stanowisk (zastępuje prepCost)
+      workstationCosts, // Szczegóły per stanowisko
       laserCost: laserCost_total,
       bendingCost,
       joiningCost,
       gluingCost,
+      customProcessesCost, // Dodany koszt procesów niestandardowych
       customCurvesCost,
       customCurveCosts,
+      transportCost, // Koszt transportu
       totalCost,
       totalWithMargin,
       totalWithSGA,
+      finalTotalCost, // Koszt końcowy z transportem
       nettoWeight: sheetWeight, // waga blachy brutto
-      bruttoWeight: matWeight,  // waga maty brutto
-      prepTime
+      bruttoWeight: matWeight  // waga maty brutto
     };
   };
 
@@ -523,6 +617,116 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const partsPerSpace = partsPerPallet * composition.palletsPerSpace;
 
     return composition.compositionCost / partsPerSpace;
+  };
+
+  // Oblicz koszt stanowisk produkcyjnych
+  const calculateWorkstationsCost = (item) => {
+    if (!item.workstations || item.workstations.length === 0) return { total: 0, costs: {} };
+
+    let totalWorkstationCost = 0;
+    const workstationCosts = {};
+
+    item.workstations.forEach(ws => {
+      let cost = 0;
+
+      if (ws.costMode === 'manual' && ws.manualCost) {
+        // Użyj ręcznego kosztu
+        cost = parseFloat(ws.manualCost) || 0;
+      } else if (ws.workstationId && ws.efficiency) {
+        // Oblicz automatycznie
+        const workstation = workstationState.workstations.find(w => w.id === ws.workstationId);
+        if (workstation) {
+          const efficiency = parseFloat(ws.efficiency) || 0;
+          const costPer8h = parseFloat(workstation.costPer8h) || 0;
+          cost = efficiency > 0 ? (costPer8h / efficiency) : 0;
+        }
+      }
+
+      totalWorkstationCost += cost;
+      workstationCosts[ws.id] = {
+        cost,
+        mode: ws.costMode || 'auto',
+        name: ws.name || `Stanowisko ${ws.id}`
+      };
+    });
+
+    return { total: totalWorkstationCost, costs: workstationCosts };
+  };
+
+  // Funkcja obliczania kosztu transportu dla pojedynczego detalu (odczyt z calculationMeta, nie z zakładki)
+  const calculateTransportCost = (item, tabData) => {
+    // Jeśli transport nie jest włączony
+    if (!calculationMeta.transport || !calculationMeta.transport.enabled) {
+      return 0;
+    }
+
+    // Jeśli brak wybranego typu transportu
+    if (!calculationMeta.transport.transportTypeId) {
+      return 0;
+    }
+
+    // Pobierz typ transportu
+    const transportType = transportState.types && transportState.types.find(t => t.id == calculationMeta.transport.transportTypeId);
+    if (!transportType) {
+      return 0;
+    }
+
+    // Pobierz odległość
+    let distance = 0;
+    if (calculationMeta.transport.distanceSource === 'client') {
+      distance = parseFloat(calculationMeta.transport.clientDistance) || 0;
+    } else {
+      distance = parseFloat(calculationMeta.transport.manualDistance) || 0;
+    }
+
+    if (distance === 0) {
+      return 0;
+    }
+
+    // Pobierz dane pakowania
+    if (!item.packaging || !item.packaging.compositionId) {
+      // Brak pakowania - nie można obliczyć kosztu transportu
+      return 0;
+    }
+
+    // Dla niestandardowej kompozycji nie obliczamy transportu
+    if (item.packaging.compositionId === 'custom') {
+      return 0;
+    }
+
+    // Pobierz kompozycję pakowania
+    const composition = packagingState.compositions.find(
+      c => c.id == item.packaging.compositionId
+    );
+
+    if (!composition) {
+      return 0;
+    }
+
+    // KROK 1: Oblicz koszt transportu na miejsce paletowe
+    const totalTransportCost = transportType.pricePerKm * distance;
+    const costPerSpace = totalTransportCost / transportType.palletSpaces;
+
+    // KROK 2: Oblicz ile detali mieści się w jednym miejscu paletowym
+    const partsInBox = item.packaging.manualPartsInBox
+      ? parseFloat(item.packaging.partsInBox) || 0
+      : (parseFloat(item.packaging.partsPerLayer) || 0) * (parseFloat(item.packaging.layers) || 0);
+
+    if (partsInBox === 0) {
+      return 0;
+    }
+
+    const partsPerPallet = partsInBox * composition.packagesPerPallet;
+    const partsPerSpace = partsPerPallet * composition.palletsPerSpace;
+
+    if (partsPerSpace === 0) {
+      return 0;
+    }
+
+    // KROK 3: Oblicz koszt transportu na jeden detal
+    const transportCostPerDetail = costPerSpace / partsPerSpace;
+
+    return transportCostPerDetail;
   };
 
   const calculateItemCost = (item, tabData, sga) => {
@@ -593,8 +797,13 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
       cleaningCost_total = (manualTime / 3600) * (cleaningCost / 8);
     }
 
-    // Koszt obsługi
+    // Koszt obsługi (fallback gdy brak stanowisk)
     const handlingCost_total = handlingCost;
+
+    // Koszty stanowisk produkcyjnych (zastępuje handlingCost jeśli są stanowiska)
+    const workstationsResult = calculateWorkstationsCost(item);
+    const workstationsCost_total = workstationsResult.total;
+    const workstationCosts = workstationsResult.costs;
 
     // Procesy niestandardowe
     let customProcessesCost = 0;
@@ -751,7 +960,10 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     // Koszt pakowania
     const packagingCost = calculatePackagingCost(item);
 
-    const totalCost = materialCost_total + bakingCost_total + cleaningCost_total + handlingCost_total + customProcessesCost + customCurvesCost + packagingCost;
+    // Użyj kosztów stanowisk jeśli są, w przeciwnym razie użyj handlingCost
+    const finalHandlingOrWorkstationsCost = workstationsCost_total > 0 ? workstationsCost_total : handlingCost_total;
+
+    const totalCost = materialCost_total + bakingCost_total + cleaningCost_total + finalHandlingOrWorkstationsCost + customProcessesCost + customCurvesCost + packagingCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -761,18 +973,28 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
     const sgaPercent = parseFloat(sga) || 0;
     const totalWithSGA = totalWithMargin * (1 + sgaPercent / 100);
 
+    // Oblicz koszt transportu (dodawany ON TOP po SG&A)
+    const transportCost = calculateTransportCost(item, tabData);
+
+    // Finalny koszt łączny = totalWithSGA + transport (NIE mnożone przez marżę ani SG&A)
+    const finalTotalCost = totalWithSGA + transportCost;
+
     return {
       materialCost: materialCost_total,
       bakingCost: bakingCost_total,
       cleaningCost: cleaningCost_total,
       handlingCost: handlingCost_total,
+      workstationsCost: workstationsCost_total, // Nowy koszt stanowisk
+      workstationCosts, // Szczegóły per stanowisko
       customProcessesCost,
       customCurvesCost,
       customCurveCosts,
       packagingCost,
+      transportCost, // Koszt transportu
       totalCost,
       totalWithMargin,
       totalWithSGA,
+      finalTotalCost, // Koszt końcowy z transportem
       nettoWeight,
       bruttoWeight,
       bakingTime,
@@ -854,6 +1076,28 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
   // Resetuje zakładkę do stanu początkowego
   const handleResetTab = () => {
+    // Dla trybu Heatshield: szukaj stanowiska "Gilotyna" i dodaj je automatycznie
+    let initialWorkstations = [];
+    let nextWsId = 1;
+
+    if (tab.calculationType === 'heatshield') {
+      const gilotynaWorkstation = workstationState.workstations.find(ws =>
+        ws.name.toLowerCase().includes('gilotyna') || ws.name.toLowerCase().includes('guillotine')
+      );
+
+      if (gilotynaWorkstation) {
+        initialWorkstations = [{
+          id: 1,
+          workstationId: gilotynaWorkstation.id,
+          efficiency: '',
+          name: 'Gilotyna',
+          costMode: 'auto',
+          manualCost: ''
+        }];
+        nextWsId = 2;
+      }
+    }
+
     // Resetuj tylko items do domyślnego stanu
     // Zachowaj wszystkie parametry zakładki (koszty, krzywe, procesy)
     actions.updateTab(tab.id, {
@@ -870,6 +1114,14 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
         customValues: {},
         customCurveValues: {},
         results: null,
+        // Pola dla stanowisk produkcyjnych
+        workstation: {
+          id: null,
+          efficiency: ''
+        },
+        // Nowa struktura dla wielu stanowisk (zastępuje stare workstation)
+        workstations: initialWorkstations,
+        nextWorkstationId: nextWsId,
         // Pola dla trybu WAGA
         weightUnit: 'g',
         // Pola dla trybu POWIERZCHNIA
@@ -980,6 +1232,31 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
     // Przelicz wszystkie elementy po zmianie parametru
     const updatedItems = tab.items.map(item => {
+      // Jeśli zmieniamy NA tryb heatshield, dodaj stanowisko Gilotyna do wszystkich elementów
+      if (parameter === 'calculationType' && value === 'heatshield') {
+        // Szukaj stanowiska Gilotyna tylko jeśli element nie ma jeszcze stanowisk
+        if (!item.workstations || item.workstations.length === 0) {
+          const gilotynaWorkstation = workstationState.workstations.find(ws =>
+            ws.name.toLowerCase().includes('gilotyna') || ws.name.toLowerCase().includes('guillotine')
+          );
+
+          if (gilotynaWorkstation) {
+            item = {
+              ...item,
+              workstations: [{
+                id: 1,
+                workstationId: gilotynaWorkstation.id,
+                efficiency: '',
+                name: 'Gilotyna',
+                costMode: 'auto',
+                manualCost: ''
+              }],
+              nextWorkstationId: 2
+            };
+          }
+        }
+      }
+
       // Sprawdź czy item ma dane wejściowe w zależności od trybu
       const hasInputData = newTabData.calculationType === 'heatshield'
         ? (item.heatshield?.surfaceNetto)
@@ -997,6 +1274,28 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
 
   // Dodawanie nowego elementu
   const handleAddItem = () => {
+    // Dla trybu Heatshield: szukaj stanowiska "Gilotyna" i dodaj je automatycznie
+    let initialWorkstations = [];
+    let nextWsId = 1;
+
+    if (tab.calculationType === 'heatshield') {
+      const gilotynaWorkstation = workstationState.workstations.find(ws =>
+        ws.name.toLowerCase().includes('gilotyna') || ws.name.toLowerCase().includes('guillotine')
+      );
+
+      if (gilotynaWorkstation) {
+        initialWorkstations = [{
+          id: 1,
+          workstationId: gilotynaWorkstation.id,
+          efficiency: '',
+          name: 'Gilotyna',
+          costMode: 'auto',
+          manualCost: ''
+        }];
+        nextWsId = 2;
+      }
+    }
+
     const newItem = {
       id: tab.nextItemId,
       partId: '',
@@ -1016,6 +1315,9 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
         id: null,
         efficiency: ''
       },
+      // Nowa struktura dla wielu stanowisk (zastępuje stare workstation)
+      workstations: initialWorkstations,
+      nextWorkstationId: nextWsId,
       // Pola dla trybu WAGA
       weightUnit: 'g',
       // Pola dla trybu POWIERZCHNIA
@@ -1221,20 +1523,6 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
         </div>
       )}
 
-      {/* Parametry dla trybu heatshield */}
-      {tab.calculationType === 'heatshield' && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <NumberInput
-            label="Koszt przygotówki (€/8h)"
-            value={tab.prepCost}
-            onChange={(value) => handleTabParameterUpdate('prepCost', value)}
-            min={0}
-            step={1}
-            themeClasses={themeClasses}
-          />
-        </div>
-      )}
-
       {/* Procesy niestandardowe */}
       <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
         <div className="flex items-center justify-between mb-3">
@@ -1344,21 +1632,37 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
           </button>
         </div>
 
-        {tab.items.map((item) => (
-          <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-            {/* ID części - zawsze widoczne */}
-            <div>
-              <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                ID części
-              </label>
-              <input
-                type="text"
-                value={item.partId}
-                onChange={(e) => handleItemUpdate(item.id, { partId: e.target.value })}
-                className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-                placeholder="np. ABC123"
-              />
+        {tab.items.map((item, index) => {
+          const isCollapsed = collapsedItems[item.id];
+
+          return (
+          <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${darkMode ? 'border-gray-600' : 'border-gray-200'} ${index % 2 === 0 ? (darkMode ? 'bg-gray-800/50' : 'bg-gray-100') : (darkMode ? 'bg-gray-900/30' : 'bg-gray-50')}`}>
+            {/* ID części - zawsze widoczne z przyciskiem zwijania */}
+            <div className="flex items-start gap-2">
+              <button
+                onClick={() => setCollapsedItems(prev => ({ ...prev, [item.id]: !prev[item.id] }))}
+                className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-700 ${themeClasses.text.secondary}`}
+                title={isCollapsed ? "Rozwiń element" : "Zwiń element"}
+              >
+                {isCollapsed ? <ChevronDown size={18} /> : <ChevronUp size={18} />}
+              </button>
+              <div className="flex-1">
+                <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                  ID części
+                </label>
+                <input
+                  type="text"
+                  value={item.partId}
+                  onChange={(e) => handleItemUpdate(item.id, { partId: e.target.value })}
+                  className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                  placeholder="np. ABC123"
+                />
+              </div>
             </div>
+
+            {/* Zawartość - ukryta gdy zwinięte */}
+            {!isCollapsed && (
+            <>
 
             {/* Pola w zależności od trybu kalkulacji */}
             {(tab.calculationType === 'weight' || !tab.calculationType) && (
@@ -1493,57 +1797,14 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
               </div>
             </div>
 
-            {/* Stanowisko - tylko dla prostych tryb\u00f3w */}
+            {/* Stanowiska - tylko dla prostych trybów */}
             {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
-              <div className={`p-4 rounded-lg border ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
-                <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
-                  \ud83c\udfed Stanowisko produkcyjne
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                      Stanowisko
-                    </label>
-                    <select
-                      value={item.workstation?.id || ''}
-                      onChange={(e) => handleItemUpdate(item.id, {
-                        workstation: {
-                          ...item.workstation,
-                          id: e.target.value ? parseInt(e.target.value) : null
-                        }
-                      })}
-                      className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-                    >
-                      <option value="">-- Wybierz stanowisko --</option>
-                      {workstationState.workstations.map(ws => (
-                        <option key={ws.id} value={ws.id}>
-                          {ws.name} ({ws.type})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-                      Wydajno\u015b\u0107 (szt/8h)
-                    </label>
-                    <input
-                      type="number"
-                      value={item.workstation?.efficiency || ''}
-                      onChange={(e) => handleItemUpdate(item.id, {
-                        workstation: {
-                          ...item.workstation,
-                          efficiency: e.target.value
-                        }
-                      })}
-                      className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-                      min="0"
-                      step="1"
-                      placeholder="np. 100"
-                    />
-                  </div>
-                </div>
-              </div>
+              <WorkstationFields
+                item={item}
+                onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+                themeClasses={themeClasses}
+                darkMode={darkMode}
+              />
             )}
 
             {/* Pakowanie */}
@@ -1553,6 +1814,97 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
               themeClasses={themeClasses}
               darkMode={darkMode}
             />
+
+            {/* Sekcja toolingu/narzędzi */}
+            <ToolingSection
+              item={item}
+              onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+            />
+
+            {/* Kalendarz prognoz wolumenu */}
+            <VolumeForecastSection
+              item={item}
+              onUpdate={(updates) => handleItemUpdate(item.id, updates)}
+              themeClasses={themeClasses}
+              darkMode={darkMode}
+            />
+
+            {/* Szczegóły transportu dla elementu */}
+            {calculationMeta.transport && calculationMeta.transport.enabled && item.results && item.results.transportCost > 0 && (
+              <div className={`p-3 rounded-lg border ${themeClasses.card} mt-3`}>
+                <div className="flex items-center gap-2 mb-2">
+                  <Truck size={16} className={themeClasses.text.secondary} />
+                  <h4 className={`text-sm font-semibold ${themeClasses.text.primary}`}>
+                    Szczegóły transportu dla elementu
+                  </h4>
+                </div>
+                <div className={`p-2 rounded ${darkMode ? 'bg-gray-700' : 'bg-gray-50'}`}>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    {(() => {
+                      // Oblicz szczegóły transportu dla tego elementu
+                      const transportType = transportState.types?.find(t => t.id == calculationMeta.transport.transportTypeId);
+                      if (!transportType) return null;
+
+                      const distance = calculationMeta.transport.distanceSource === 'client'
+                        ? parseFloat(calculationMeta.transport.clientDistance) || 0
+                        : parseFloat(calculationMeta.transport.manualDistance) || 0;
+
+                      if (distance === 0) return null;
+
+                      const composition = packagingState.compositions.find(
+                        c => c.id == item.packaging?.compositionId
+                      );
+                      if (!composition) return null;
+
+                      const partsInBox = item.packaging.manualPartsInBox
+                        ? parseFloat(item.packaging.partsInBox) || 0
+                        : (parseFloat(item.packaging.partsPerLayer) || 0) * (parseFloat(item.packaging.layers) || 0);
+
+                      const partsPerPallet = partsInBox * composition.packagesPerPallet;
+                      const partsPerSpace = partsPerPallet * composition.palletsPerSpace;
+
+                      const totalTransportCost = transportType.pricePerKm * distance;
+                      const costPerSpace = totalTransportCost / transportType.palletSpaces;
+
+                      return (
+                        <>
+                          <div className="col-span-2">
+                            <span className={themeClasses.text.secondary}>Detali w miejscu paletowym:</span>
+                            <div className={`font-mono font-semibold ${themeClasses.text.primary}`}>
+                              {partsPerSpace.toFixed(0)} szt
+                            </div>
+                          </div>
+                          <div>
+                            <span className={themeClasses.text.secondary}>Koszt na miejsce:</span>
+                            <div className={`font-mono ${themeClasses.text.primary}`}>
+                              €{costPerSpace.toFixed(2)}
+                            </div>
+                          </div>
+                          <div>
+                            <span className={themeClasses.text.secondary}>Koszt na detal:</span>
+                            <div className={`font-mono font-semibold ${themeClasses.text.primary}`}>
+                              €{item.results.transportCost.toFixed(4)}
+                            </div>
+                          </div>
+                          {item.annualVolume && parseFloat(item.annualVolume) > 0 && (
+                            <>
+                              <div className="col-span-2 mt-2 pt-2 border-t border-gray-300 dark:border-gray-600">
+                                <span className={themeClasses.text.secondary}>Miejsc paletowych rocznie:</span>
+                                <div className={`font-mono font-semibold ${themeClasses.text.primary}`}>
+                                  {Math.ceil(parseFloat(item.annualVolume) / partsPerSpace)}
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {parseFloat(tab.cleaningCost || 0) > 0 && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1700,10 +2052,26 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                   {/* Wyświetl procesy w zależności od trybu */}
                   {tab.calculationType === 'heatshield' ? (
                     <>
-                      {item.results.prepCost !== undefined && (
+                      {/* Koszty stanowisk produkcyjnych */}
+                      {item.results.workstationsCost > 0 && (
                         <div>
-                          <span className={themeClasses.text.secondary}>Przygotówka:</span>
-                          <div className="font-mono">{item.results.prepCost.toFixed(2)} €</div>
+                          <span className={themeClasses.text.secondary}>Stanowiska:</span>
+                          <div className="font-mono">{item.results.workstationsCost.toFixed(3)} €</div>
+                          {/* Szczegóły per stanowisko */}
+                          {item.results.workstationCosts && Object.keys(item.results.workstationCosts).length > 1 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-blue-500 hover:text-blue-700 text-xs">
+                                Szczegóły
+                              </summary>
+                              <div className="mt-1 pl-2 space-y-0.5">
+                                {Object.entries(item.results.workstationCosts).map(([wsId, wsData]) => (
+                                  <div key={wsId} className={`text-xs ${themeClasses.text.secondary}`}>
+                                    • {wsData.name}: {wsData.cost.toFixed(3)} € ({wsData.mode === 'manual' ? 'ręczny' : 'auto'})
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
                         </div>
                       )}
                       {item.results.laserCost !== undefined && (
@@ -1745,9 +2113,44 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                           <div className="font-mono">{item.results.cleaningCost.toFixed(2)} €</div>
                         </div>
                       )}
+                      {/* Koszty stanowisk produkcyjnych */}
+                      {item.results.workstationsCost > 0 && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Stanowiska:</span>
+                          <div className="font-mono">{item.results.workstationsCost.toFixed(3)} €</div>
+                          {/* Szczegóły per stanowisko */}
+                          {item.results.workstationCosts && Object.keys(item.results.workstationCosts).length > 1 && (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-blue-500 hover:text-blue-700 text-xs">
+                                Szczegóły
+                              </summary>
+                              <div className="mt-1 pl-2 space-y-0.5">
+                                {Object.entries(item.results.workstationCosts).map(([wsId, wsData]) => (
+                                  <div key={wsId} className={`text-xs ${themeClasses.text.secondary}`}>
+                                    • {wsData.name}: {wsData.cost.toFixed(3)} € ({wsData.mode === 'manual' ? 'ręczny' : 'auto'})
+                                  </div>
+                                ))}
+                              </div>
+                            </details>
+                          )}
+                        </div>
+                      )}
+                      {/* Koszt obsługi - fallback gdy brak stanowisk */}
+                      {item.results.handlingCost > 0 && item.results.workstationsCost === 0 && (
+                        <div>
+                          <span className={themeClasses.text.secondary}>Obsługa:</span>
+                          <div className="font-mono">{item.results.handlingCost.toFixed(3)} €</div>
+                        </div>
+                      )}
                     </>
                   )}
 
+                  {item.results.customProcessesCost > 0 && (
+                    <div>
+                      <span className={themeClasses.text.secondary}>Procesy niestand.:</span>
+                      <div className="font-mono">{item.results.customProcessesCost.toFixed(3)} €</div>
+                    </div>
+                  )}
                   {item.results.customCurvesCost > 0 && (
                     <div>
                       <span className={themeClasses.text.secondary}>Krzywe:</span>
@@ -1760,15 +2163,56 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
                       <div className="font-mono">{item.results.packagingCost.toFixed(4)} €</div>
                     </div>
                   )}
+                  {item.results.transportCost > 0 && (
+                    <div>
+                      <span className={themeClasses.text.secondary}>Transport:</span>
+                      <div className="font-mono">{item.results.transportCost.toFixed(4)} €</div>
+                    </div>
+                  )}
                   <div>
                     <span className={themeClasses.text.secondary}>Całkowity:</span>
-                    <div className="font-mono font-bold">{item.results.totalCost?.toFixed(2) || '0.00'} €</div>
+                    <div className="font-mono font-bold">{item.results.finalTotalCost?.toFixed(2) || item.results.totalCost?.toFixed(2) || '0.00'} €</div>
                   </div>
+                  {/* DAP Price (z transportem) */}
+                  {item.results.transportCost > 0 && (() => {
+                    const exwPrice = item.results.totalWithSGA || 0; // Cena EXW = cena bez transportu
+                    const dapPrice = item.results.finalTotalCost || (exwPrice + item.results.transportCost); // DAP = EXW + transport
+                    const client = calculationMeta.client
+                      ? clientState.clients.find(c => c.id === calculationMeta.client)
+                      : null;
+                    const cityName = client?.city ? ` ${client.city}` : '';
+
+                    return (
+                      <div className="pt-2 border-t border-gray-300 dark:border-gray-600">
+                        <div className="flex items-center gap-1">
+                          <span className={themeClasses.text.secondary}>Cena DAP{cityName}:</span>
+                          <div className="relative group">
+                            <Info size={14} className={`${themeClasses.text.secondary} cursor-help`} />
+                            <div className={`absolute left-0 bottom-full mb-2 hidden group-hover:block z-10 w-64 p-2 rounded shadow-lg text-xs ${darkMode ? 'bg-gray-700 text-white' : 'bg-white text-gray-900 border border-gray-200'}`}>
+                              <div className="font-semibold mb-1">Delivered At Place</div>
+                              <div className="space-y-0.5">
+                                <div>EXW: €{exwPrice.toFixed(4)}</div>
+                                <div>Transport: €{item.results.transportCost.toFixed(4)}</div>
+                                <div className="pt-1 border-t border-gray-400">
+                                  <strong>DAP: €{dapPrice.toFixed(4)}</strong>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="font-mono font-bold text-green-600 dark:text-green-400">
+                          {dapPrice.toFixed(2)} €
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}
+            </>
+            )}
 
-            {/* Przyciski akcji */}
+            {/* Przyciski akcji - zawsze widoczne */}
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => actions.duplicateItem(tab.id, item.id)}
@@ -1788,7 +2232,8 @@ export function CalculatorForm({ tab, tabIndex, globalSGA, themeClasses, darkMod
               )}
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

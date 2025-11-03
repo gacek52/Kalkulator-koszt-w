@@ -176,9 +176,11 @@ function clientManualReducer(state, action) {
 
 // Utility functions
 export const clientManualUtils = {
-  // Znajdź manual po ID klienta
-  getManualByClientId: (state, clientId) => {
-    return state.manuals.find(m => m.clientId === clientId);
+  // Znajdź manual po nazwie klienta
+  getManualByClientName: (state, clientName) => {
+    return state.manuals.find(m =>
+      m.clientName.toLowerCase().trim() === clientName.toLowerCase().trim()
+    );
   },
 
   // Eksport danych do JSON

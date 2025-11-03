@@ -1,23 +1,27 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote, LogOut, Upload, FileBarChart, ClipboardList, Wrench, Truck, Activity, CheckSquare, Square } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote, LogOut, Upload, FileBarChart, ClipboardList, Wrench, Truck, Activity, CheckSquare, Square, UserCog, Shield, ArrowLeft } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 import { useSession } from '../../context/SessionContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../context/RoleContext';
 import { useClient } from '../../context/ClientContext';
 import { useMaterial } from '../../context/MaterialContext';
 import { usePackaging } from '../../context/PackagingContext';
 import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
 import { LocalStorageViewer } from '../DevTools/LocalStorageViewer';
+import { DeleteCalculationDialog } from './DeleteCalculationDialog';
+import { downloadQuotationPDF, downloadQuotationExcel } from '../../services/quotationGenerator';
 import { catalogApi } from '../../services/api';
 
 /**
  * Komponent widoku katalogu kalkulacji
  */
-export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenWorkstations, onOpenWorkstationCapacity, onOpenClientManualSettings, onOpenClientManualPreview, hasActiveCalculation }) {
+export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCalculation, onLoadCalculation, onBackToCalculator, onOpenPackaging, onOpenMaterials, onOpenClients, onOpenWorkstations, onOpenWorkstationCapacity, onOpenClientManualSettings, onOpenClientManualPreview, onOpenTransport, onOpenUserManagement, onOpenRoleManagement, hasActiveCalculation }) {
   const { state: catalogState, actions: catalogActions, filteredCalculations, summary } = useCatalog();
   const { filters, sortBy, sortOrder } = catalogState;
   const { activeSession, clearSession, loadCalculationToSession } = useSession();
-  const { currentUser, logout, userRole, isAdmin } = useAuth();
+  const { currentUser, logout, userRole } = useAuth();
+  const { isAdminOrSuper, isSuperAdmin } = useRole();
   const { actions: clientActions } = useClient();
   const { actions: materialActions } = useMaterial();
   const { actions: packagingActions } = usePackaging();
@@ -31,6 +35,8 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
   const [showReport, setShowReport] = useState(false);
   const [reportContent, setReportContent] = useState('');
   const [showFormsDropdown, setShowFormsDropdown] = useState(false);
+  const [showGenerateDropdown, setShowGenerateDropdown] = useState(false);
+  const [calculationToDelete, setCalculationToDelete] = useState(null);
 
   // Sprawdź czy jest aktywna sesja przy pierwszym wejściu
   useEffect(() => {
@@ -87,7 +93,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
 
   // Obsługa pushowania danych do Firestore (tylko admin)
   const handlePushToFirestore = async () => {
-    if (!isAdmin) {
+    if (!isAdminOrSuper()) {
       alert('Tylko administrator może synchronizować dane z bazą.');
       return;
     }
@@ -199,13 +205,85 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     }
   };
 
-  // Generowanie raportu z widocznych kalkulacji
-  const handleGenerateReport = () => {
-    // Filtruj tylko rozwinięte kalkulacje
-    const expandedCalcs = filteredCalculations.filter(calc => expandedCalculations[calc.id]);
+  // Obsługa usuwania kalkulacji z potwierdzeniem
+  const handleDeleteClick = (calc) => {
+    setCalculationToDelete(calc);
+  };
 
-    if (expandedCalcs.length === 0) {
-      alert('Brak rozwiniętych kalkulacji do raportu. Rozwiń przynajmniej jedną kalkulację aby wygenerować raport.');
+  const handleConfirmDelete = () => {
+    if (calculationToDelete) {
+      catalogActions.removeCalculation(calculationToDelete.id);
+      setCalculationToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setCalculationToDelete(null);
+  };
+
+  // Generowanie oferty PDF z zaznaczonych kalkulacji
+  const handleGenerateQuotationPDF = () => {
+    // Filtruj tylko zaznaczone kalkulacje (checkbox)
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować ofertę tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calculation = selectedCalcs[0];
+    const calculationMeta = {
+      client: calculation.client || 'N/A',
+      status: calculation.status,
+      notes: calculation.notes
+    };
+
+    downloadQuotationPDF(calculation, calculationMeta);
+  };
+
+  // Generowanie oferty Excel z zaznaczonych kalkulacji
+  const handleGenerateQuotationExcel = () => {
+    // Filtruj tylko zaznaczone kalkulacje (checkbox)
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować ofertę tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calculation = selectedCalcs[0];
+    const calculationMeta = {
+      client: calculation.client || 'N/A',
+      status: calculation.status,
+      notes: calculation.notes
+    };
+
+    downloadQuotationExcel(calculation, calculationMeta);
+  };
+
+  // Generowanie raportu z zaznaczonych kalkulacji
+  const handleGenerateReport = () => {
+    // Filtruj tylko zaznaczone kalkulacje (checkbox)
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji do raportu. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować raport.');
       return;
     }
 
@@ -213,7 +291,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     report += '             RAPORT KALKULACJI KOSZTÓW\n';
     report += '═══════════════════════════════════════════════════════\n\n';
     report += `Data wygenerowania: ${new Date().toLocaleString('pl-PL')}\n`;
-    report += `Liczba kalkulacji: ${expandedCalcs.length}\n`;
+    report += `Liczba kalkulacji: ${selectedCalcs.length}\n`;
     report += `Liczba widocznych (z filtrów): ${filteredCalculations.length}\n\n`;
 
     // Podsumowanie ogólne
@@ -221,11 +299,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     let totalProfit = 0;
     let totalParts = 0;
 
-    expandedCalcs.forEach(calc => {
+    selectedCalcs.forEach(calc => {
       const calcRevenue = (calc.items || []).reduce((sum, item) => {
         const annualVolume = parseFloat(item.annualVolume || 0);
-        const unitCost = item.results?.totalWithSGA || 0;
-        return sum + (annualVolume * unitCost);
+        // Use DAP price (finalTotalCost = EXW + transport), fallback to EXW only
+        const dapPrice = item.results?.finalTotalCost || item.results?.totalWithSGA || 0;
+        return sum + (annualVolume * dapPrice);
       }, 0);
 
       const calcProfit = (calc.items || []).reduce((sum, item) => {
@@ -252,7 +331,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     report += '  SZCZEGÓŁY KALKULACJI\n';
     report += '═══════════════════════════════════════════════════════\n\n';
 
-    expandedCalcs.forEach((calc, idx) => {
+    selectedCalcs.forEach((calc, idx) => {
       report += `\n[${ idx + 1 }] KALKULACJA #${calc.id}\n`;
       report += '─────────────────────────────────────────────────────\n';
       report += `  Klient:           ${calc.client || '-'}\n`;
@@ -267,8 +346,9 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
       // Oblicz sumy dla kalkulacji
       const calcRevenue = (calc.items || []).reduce((sum, item) => {
         const annualVolume = parseFloat(item.annualVolume || 0);
-        const unitCost = item.results?.totalWithSGA || 0;
-        return sum + (annualVolume * unitCost);
+        // Use DAP price (finalTotalCost = EXW + transport), fallback to EXW only
+        const dapPrice = item.results?.finalTotalCost || item.results?.totalWithSGA || 0;
+        return sum + (annualVolume * dapPrice);
       }, 0);
 
       const calcProfit = (calc.items || []).reduce((sum, item) => {
@@ -289,7 +369,10 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
 
         calc.items.forEach((item, itemIdx) => {
           const annualVolume = parseFloat(item.annualVolume || 0);
-          const unitCost = item.results?.totalWithSGA || 0;
+          // Use DAP price (EXW + transport) if available, otherwise EXW
+          const exwPrice = item.results?.totalWithSGA || 0;
+          const transportCost = item.results?.transportCost || 0;
+          const unitCost = exwPrice + transportCost; // DAP = EXW + transport
           const itemRevenue = annualVolume * unitCost;
           const marginPercent = parseFloat(item.margin || 0);
           const unitMargin = item.results?.totalCost ? (item.results.totalCost * (marginPercent / 100)) : 0;
@@ -336,7 +419,8 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
           }
 
           report += `\n     KOSZTY:\n`;
-          report += `       Koszt jednostkowy:     ${formatCurrency(unitCost)}\n`;
+          report += `       Cena EXW:              ${formatCurrency(exwPrice)}\n`;
+          report += `       Cena DAP:              ${formatCurrency(unitCost)}\n`;
           report += `       Marża:                 ${marginPercent}%\n`;
           report += `       Wpływ na obrót:        ${formatCurrency(itemRevenue)}\n`;
           report += `       Wpływ na przychód:     ${formatCurrency(itemProfit)}\n`;
@@ -358,8 +442,44 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     <div className={`${themeClasses.background} min-h-screen`}>
       <div className="container mx-auto px-4 py-6">
         {/* Header */}
-        <div className={`${themeClasses.card} rounded-lg border p-6 mb-6`}>
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+        <div className={`${themeClasses.card} rounded-lg border p-6 mb-6 relative`}>
+          {/* Przyciski w prawym górnym rogu */}
+          <div className="absolute top-4 right-4 flex items-center gap-2">
+            {hasActiveCalculation && (
+              <button
+                onClick={onBackToCalculator}
+                className={`p-2 rounded-lg font-medium ${themeClasses.button.success}`}
+                title="Powrót do edytowanej kalkulacji"
+              >
+                <ArrowLeft size={18} />
+              </button>
+            )}
+
+            {isAdminOrSuper() && (
+              <button
+                onClick={handlePushToFirestore}
+                disabled={isPushing}
+                className={`p-2 rounded-lg ${
+                  isPushing
+                    ? 'bg-gray-400 cursor-not-allowed text-white'
+                    : 'bg-purple-600 hover:bg-purple-700 text-white'
+                }`}
+                title="Synchronizuj wszystkie dane (klienci, materiały, pakowanie) z bazą Firestore"
+              >
+                <Upload size={18} />
+              </button>
+            )}
+
+            <button
+              onClick={logout}
+              className={`p-2 rounded-lg bg-red-600 hover:bg-red-700 text-white`}
+              title={`Wyloguj (${currentUser?.displayName || currentUser?.email || 'użytkownik'}${isAdminOrSuper() ? ' - Admin' : ''})`}
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
+
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 pr-32">
             <div className="flex items-center gap-3">
               <FileText className="w-8 h-8 text-blue-600" />
               <div>
@@ -372,18 +492,8 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              {hasActiveCalculation && (
-                <button
-                  onClick={onBackToCalculator}
-                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.success} flex items-center gap-2`}
-                  title="Powrót do edytowanej kalkulacji"
-                >
-                  ← Powrót do kalkulatora
-                </button>
-              )}
-
-              {isAdmin && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {isAdminOrSuper() && (
                 <button
                   onClick={() => setShowDevTools(true)}
                   className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
@@ -402,15 +512,6 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               </button>
 
               <button
-                onClick={logout}
-                className={`px-4 py-2 rounded-lg font-medium bg-red-600 hover:bg-red-700 text-white flex items-center gap-2`}
-                title={`Wyloguj (${currentUser?.displayName || currentUser?.email || 'użytkownik'}${isAdmin ? ' - Admin' : ''})`}
-              >
-                <LogOut size={16} />
-                Wyloguj
-              </button>
-
-              <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 relative`}
               >
@@ -423,14 +524,53 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                 )}
               </button>
 
-              <button
-                onClick={handleGenerateReport}
-                className={`px-4 py-2 rounded-lg font-medium bg-indigo-600 hover:bg-indigo-700 text-white flex items-center gap-2`}
-                title="Generuj raport z rozwiniętych kalkulacji"
-              >
-                <FileBarChart size={16} />
-                Raport
-              </button>
+              {/* Dropdown Generuj (Oferty + Raport) */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowGenerateDropdown(!showGenerateDropdown)}
+                  className={`px-4 py-2 rounded-lg font-medium bg-green-600 hover:bg-green-700 text-white flex items-center gap-2`}
+                  title="Generuj oferty i raporty"
+                >
+                  <FileText size={16} />
+                  Generuj
+                  <ChevronDown size={14} />
+                </button>
+
+                {showGenerateDropdown && (
+                  <div className={`absolute top-full right-0 mt-1 ${themeClasses.card} rounded-lg border shadow-lg z-10 min-w-[200px]`}>
+                    <button
+                      onClick={() => {
+                        handleGenerateQuotationPDF();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-t-lg flex items-center gap-2`}
+                    >
+                      <FileText size={16} className="text-red-600" />
+                      Oferta (PDF)
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleGenerateQuotationExcel();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <FileText size={16} className="text-green-600" />
+                      Oferta (Excel)
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleGenerateReport();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-b-lg flex items-center gap-2`}
+                    >
+                      <FileBarChart size={16} className="text-indigo-600" />
+                      Raport
+                    </button>
+                  </div>
+                )}
+              </div>
 
               {/* Dropdown Formularze */}
               <div className="relative">
@@ -478,55 +618,73 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     </button>
                     <button
                       onClick={() => {
+                        if (onOpenTransport) {
+                          onOpenTransport();
+                          setShowFormsDropdown(false);
+                        }
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <Truck size={16} />
+                      Transport
+                    </button>
+                    <button
+                      onClick={() => {
                         if (onOpenWorkstations) {
                           onOpenWorkstations();
                           setShowFormsDropdown(false);
                         }
                       }}
-                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} ${!isAdminOrSuper() ? 'rounded-b-lg' : ''} flex items-center gap-2`}
                     >
                       <Wrench size={16} />
                       Stanowiska produkcyjne
                     </button>
-                    <button
-                      onClick={() => {
-                        if (onOpenWorkstationCapacity) {
-                          onOpenWorkstationCapacity();
-                          setShowFormsDropdown(false);
-                        }
-                      }}
-                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
-                    >
-                      <Activity size={16} />
-                      Dashboard zajętości
-                    </button>
-                    <button
-                      disabled
-                      className={`w-full text-left px-4 py-2 ${themeClasses.text.muted} rounded-b-lg flex items-center gap-2 cursor-not-allowed opacity-50`}
-                      title="Wkrótce dostępne"
-                    >
-                      <Truck size={16} />
-                      Transport (wkrótce)
-                    </button>
+                    {isAdminOrSuper() && (
+                      <button
+                        onClick={() => {
+                          if (onOpenUserManagement) {
+                            onOpenUserManagement();
+                            setShowFormsDropdown(false);
+                          }
+                        }}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} ${!isSuperAdmin() ? 'rounded-b-lg' : ''} flex items-center gap-2`}
+                      >
+                        <UserCog size={16} />
+                        Zarządzanie użytkownikami
+                      </button>
+                    )}
+                    {isSuperAdmin() && (
+                      <button
+                        onClick={() => {
+                          if (onOpenRoleManagement) {
+                            onOpenRoleManagement();
+                            setShowFormsDropdown(false);
+                          }
+                        }}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} rounded-b-lg flex items-center gap-2`}
+                      >
+                        <Shield size={16} />
+                        Zarządzanie rolami
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
 
-              {isAdmin && (
-                <button
-                  onClick={handlePushToFirestore}
-                  disabled={isPushing}
-                  className={`px-4 py-2 rounded-lg font-medium ${
-                    isPushing
-                      ? 'bg-gray-400 cursor-not-allowed text-white'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
-                  } flex items-center gap-2`}
-                  title="Synchronizuj wszystkie dane (klienci, materiały, pakowanie) z bazą Firestore"
-                >
-                  <Upload size={16} />
-                  {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
-                </button>
-              )}
+              {/* Przycisk Prognozy */}
+              <button
+                onClick={() => {
+                  if (onOpenWorkstationCapacity) {
+                    onOpenWorkstationCapacity();
+                  }
+                }}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                title="Dashboard prognoz produkcji i zajętości"
+              >
+                <Activity size={16} />
+                Prognozy
+              </button>
 
               <div className="flex">
                 <button
@@ -764,6 +922,9 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     </button>
                   </th>
                   <th className="px-4 py-3 text-right">
+                    <span className={`text-sm font-medium ${themeClasses.text.secondary}`}>Obrót z DAP</span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
                     <button
                       onClick={() => handleSort('profit')}
                       className={`text-sm font-medium ${themeClasses.text.secondary} hover:text-blue-600 flex items-center gap-1 ml-auto`}
@@ -780,16 +941,24 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               <tbody>
                 {filteredCalculations.length === 0 ? (
                   <tr>
-                    <td colSpan="9" className="px-4 py-8 text-center">
+                    <td colSpan="10" className="px-4 py-8 text-center">
                       <p className={themeClasses.text.secondary}>Brak kalkulacji do wyświetlenia</p>
                     </td>
                   </tr>
                 ) : (
                   filteredCalculations.map((calc) => {
-                    // Oblicz sumy obrotu i przychodu z wszystkich detali
-                    const calculatedRevenue = (calc.items || []).reduce((sum, item) => {
+                    // Oblicz obrót EXW (bez transportu) i DAP (z transportem)
+                    const calculatedRevenueEXW = (calc.items || []).reduce((sum, item) => {
                       const annualVolume = parseFloat(item.annualVolume || 0);
-                      const unitCost = item.results?.totalWithSGA || 0;
+                      const exwPrice = item.results?.totalWithSGA || 0;
+                      return sum + (annualVolume * exwPrice);
+                    }, 0);
+
+                    const calculatedRevenueDAP = (calc.items || []).reduce((sum, item) => {
+                      const annualVolume = parseFloat(item.annualVolume || 0);
+                      const exwPrice = item.results?.totalWithSGA || 0;
+                      const transportCost = item.results?.transportCost || 0;
+                      const unitCost = exwPrice + transportCost; // DAP = EXW + transport
                       return sum + (annualVolume * unitCost);
                     }, 0);
 
@@ -854,7 +1023,10 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                           )}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${themeClasses.text.primary}`}>
-                          {formatCurrency(calculatedRevenue)}
+                          {formatCurrency(calculatedRevenueEXW)}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium text-blue-600`}>
+                          {formatCurrency(calculatedRevenueDAP)}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium text-green-600`}>
                           {formatCurrency(calculatedProfit)}
@@ -876,7 +1048,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                               <Edit2 size={16} />
                             </button>
                             <button
-                              onClick={() => catalogActions.removeCalculation(calc.id)}
+                              onClick={() => handleDeleteClick(calc)}
                               className={`p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
                               title="Usuń kalkulację"
                             >
@@ -889,7 +1061,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                       {/* Rozwinięte szczegóły */}
                       {expandedCalculations[calc.id] && (
                         <tr className={darkMode ? 'bg-gray-800' : 'bg-gray-50'}>
-                          <td colSpan="9" className="px-4 py-4">
+                          <td colSpan="10" className="px-4 py-4">
                             <div className="space-y-4">
                               {/* Notatki */}
                               {calc.notes && (
@@ -912,7 +1084,8 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                                           <th className="text-left py-2">Part ID</th>
                                           <th className="text-left py-2">Materiał</th>
                                           <th className="text-right py-2">Roczna ilość</th>
-                                          <th className="text-right py-2">Koszt jednostkowy</th>
+                                          <th className="text-right py-2">Cena EXW</th>
+                                          <th className="text-right py-2">Cena DAP</th>
                                           <th className="text-right py-2">Wpływ na obrót</th>
                                           <th className="text-right py-2">Wpływ na przychód</th>
                                         </tr>
@@ -920,8 +1093,11 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                                       <tbody>
                                         {calc.items.map((item, idx) => {
                                           const annualVolume = parseFloat(item.annualVolume || 0);
-                                          const unitCost = item.results?.totalWithSGA || 0;
-                                          const itemRevenue = annualVolume * unitCost;
+                                          // Oblicz ceny EXW i DAP
+                                          const exwPrice = item.results?.totalWithSGA || 0;
+                                          const transportCost = item.results?.transportCost || 0;
+                                          const dapPrice = exwPrice + transportCost; // DAP = EXW + transport
+                                          const itemRevenue = annualVolume * dapPrice;
 
                                           // Oblicz przychód używając marży z detalu (tak jak w tooltipie)
                                           const marginPercent = parseFloat(item.margin || 0);
@@ -933,7 +1109,8 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                                               <td className="py-2">{item.partId || '-'}</td>
                                               <td className="py-2">{item.tabName || '-'}</td>
                                               <td className="text-right">{annualVolume.toLocaleString()}</td>
-                                              <td className="text-right">{formatCurrency(unitCost)}</td>
+                                              <td className="text-right">{formatCurrency(exwPrice)}</td>
+                                              <td className="text-right text-blue-600">{formatCurrency(dapPrice)}</td>
                                               <td className="text-right font-medium">{formatCurrency(itemRevenue)}</td>
                                               <td className={`text-right font-medium ${darkMode ? 'text-green-400' : 'text-green-600'}`}>{formatCurrency(itemProfit)}</td>
                                             </tr>
@@ -942,6 +1119,86 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                                       </tbody>
                                     </table>
                                   </div>
+
+                                  {/* Podsumowanie Tooling */}
+                                  {(() => {
+                                    const totalToolingCost = (calc.items || []).reduce((sum, item) => {
+                                      if (item.tooling?.enabled && item.tooling?.items?.length > 0) {
+                                        const itemToolingCost = item.tooling.items.reduce((toolSum, tool) => {
+                                          return toolSum + (parseFloat(tool.cost) || 0);
+                                        }, 0);
+                                        return sum + itemToolingCost;
+                                      }
+                                      return sum;
+                                    }, 0);
+
+                                    if (totalToolingCost > 0) {
+                                      return (
+                                        <div className={`mt-3 pt-3 pb-3 border-t border-b ${darkMode ? 'border-gray-600' : 'border-gray-300'} flex justify-between items-center`}>
+                                          <span className={`text-sm font-medium ${themeClasses.text.secondary}`}>
+                                            Tooling (jednorazowo):
+                                          </span>
+                                          <span className={`text-sm font-bold ${darkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+                                            {formatCurrency(totalToolingCost)}
+                                          </span>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
+
+                                  {/* Podsumowanie prognoz wolumenu */}
+                                  {(() => {
+                                    const itemsWithForecast = (calc.items || []).filter(item =>
+                                      item.volumeForecast?.enabled && Object.keys(item.volumeForecast?.years || {}).length > 0
+                                    );
+
+                                    if (itemsWithForecast.length > 0) {
+                                      // Agreguj wolumeny per rok
+                                      const yearTotals = {};
+                                      itemsWithForecast.forEach(item => {
+                                        Object.entries(item.volumeForecast.years).forEach(([year, volume]) => {
+                                          yearTotals[year] = (yearTotals[year] || 0) + (parseFloat(volume) || 0);
+                                        });
+                                      });
+
+                                      const sortedYears = Object.keys(yearTotals).sort((a, b) => parseInt(a) - parseInt(b));
+                                      const totalVolume = Object.values(yearTotals).reduce((sum, vol) => sum + vol, 0);
+
+                                      return (
+                                        <div className={`mt-3 pt-3 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}>
+                                          <div className="flex items-center justify-between mb-2">
+                                            <span className={`text-sm font-medium ${themeClasses.text.secondary}`}>
+                                              Prognozy wolumenu ({itemsWithForecast.length} {itemsWithForecast.length === 1 ? 'element' : 'elementy'}):
+                                            </span>
+                                            <span className={`text-sm font-bold ${darkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                                              Suma: {totalVolume.toLocaleString()} szt
+                                            </span>
+                                          </div>
+
+                                          <div className="overflow-x-auto">
+                                            <table className="w-full text-xs">
+                                              <thead>
+                                                <tr className={`border-b ${darkMode ? 'border-gray-700' : 'border-gray-300'} ${themeClasses.text.secondary}`}>
+                                                  <th className="text-left py-1 px-2">Rok</th>
+                                                  <th className="text-right py-1 px-2">Wolumen [szt]</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {sortedYears.map(year => (
+                                                  <tr key={year} className={`border-b ${darkMode ? 'border-gray-800' : 'border-gray-200'} ${themeClasses.text.primary}`}>
+                                                    <td className="py-1 px-2">{year}</td>
+                                                    <td className="text-right py-1 px-2 font-medium">{yearTotals[year].toLocaleString()}</td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+                                    return null;
+                                  })()}
                                 </div>
                               )}
                             </div>
@@ -974,6 +1231,16 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
         <LocalStorageViewer
           darkMode={darkMode}
           onClose={() => setShowDevTools(false)}
+        />
+      )}
+
+      {/* Delete Calculation Dialog */}
+      {calculationToDelete && (
+        <DeleteCalculationDialog
+          calculation={calculationToDelete}
+          onConfirm={handleConfirmDelete}
+          onCancel={handleCancelDelete}
+          darkMode={darkMode}
         />
       )}
 

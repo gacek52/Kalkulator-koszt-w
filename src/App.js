@@ -7,7 +7,10 @@ import { ClientProvider } from './context/ClientContext';
 import { ClientManualProvider } from './context/ClientManualContext';
 import { WorkstationProvider } from './context/WorkstationContext';
 import { CatalogProvider } from './context/CatalogContext';
+import { TransportProvider } from './context/TransportContext';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RoleProvider } from './context/RoleContext';
+import { CurvePresetProvider } from './context/CurvePresetContext';
 import { CostCalculator } from './components/Calculator/CostCalculator';
 import { CatalogView } from './components/Catalog/CatalogView';
 import { PackagingManager } from './components/Packaging/PackagingManager';
@@ -16,10 +19,13 @@ import { ClientManager } from './components/Clients/ClientManager';
 import { ClientManualManager } from './components/ClientManual/ClientManualManager';
 import { WorkstationManager } from './components/Workstations/WorkstationManager';
 import { WorkstationCapacityDashboard } from './components/Workstations/WorkstationCapacityDashboard';
+import { TransportManager } from './components/Transport/TransportManager';
+import { UserManagementPanel } from './components/Admin/UserManagementPanel';
+import { RoleManagementPanel } from './components/Admin/RoleManagementPanel';
 import LoginScreen from './components/Auth/LoginScreen';
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', 'clients', 'client-manual-settings', 'client-manual-preview', 'workstation-capacity'
+  const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', 'clients', 'transport', 'client-manual-settings', 'client-manual-preview', 'workstation-capacity', 'users', 'roles'
   const [calculationToLoad, setCalculationToLoad] = useState(null);
   const [showUnsavedChangesDialog, setShowUnsavedChangesDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
@@ -140,11 +146,13 @@ function AppContent() {
 
   return (
     <PackagingProvider>
-      <ClientProvider>
-        <ClientManualProvider>
-          <MaterialProvider>
-            <WorkstationProvider>
-              <CatalogProvider>
+      <TransportProvider>
+        <ClientProvider>
+          <ClientManualProvider>
+            <MaterialProvider>
+              <WorkstationProvider>
+                <CurvePresetProvider>
+                  <CatalogProvider>
               <div className="min-h-screen flex flex-col">
                 {/* Main content */}
                 <div className="flex-1">
@@ -163,6 +171,9 @@ function AppContent() {
                       onOpenWorkstationCapacity={() => setCurrentView('workstation-capacity')}
                       onOpenClientManualSettings={() => setCurrentView('client-manual-settings')}
                       onOpenClientManualPreview={() => setCurrentView('client-manual-preview')}
+                      onOpenTransport={() => setCurrentView('transport')}
+                      onOpenUserManagement={() => setCurrentView('users')}
+                      onOpenRoleManagement={() => setCurrentView('roles')}
                       hasActiveCalculation={hasUnsavedChanges || state.calculationMeta?.catalogId}
                     />
                   ) : currentView === 'calculator' ? (
@@ -191,6 +202,13 @@ function AppContent() {
                       themeClasses={themeClasses}
                       onClose={() => setCurrentView('catalog')}
                     />
+                  ) : currentView === 'transport' ? (
+                    <TransportManager
+                      darkMode={darkMode}
+                      onToggleDarkMode={() => actions.setDarkMode(!darkMode)}
+                      onBack={() => setCurrentView('catalog')}
+                      themeClasses={themeClasses}
+                    />
                   ) : currentView === 'workstations' ? (
                     <WorkstationManager
                       darkMode={darkMode}
@@ -218,6 +236,16 @@ function AppContent() {
                       themeClasses={themeClasses}
                       onClose={() => setCurrentView('catalog')}
                       readOnly={true}
+                    />
+                  ) : currentView === 'users' ? (
+                    <UserManagementPanel
+                      darkMode={darkMode}
+                      onBack={() => setCurrentView('catalog')}
+                    />
+                  ) : currentView === 'roles' ? (
+                    <RoleManagementPanel
+                      darkMode={darkMode}
+                      onBack={() => setCurrentView('catalog')}
                     />
                   ) : null}
                 </div>
@@ -283,11 +311,13 @@ function AppContent() {
               </div>
             </div>
           )}
-              </CatalogProvider>
-            </WorkstationProvider>
-          </MaterialProvider>
-        </ClientManualProvider>
-      </ClientProvider>
+                  </CatalogProvider>
+                </CurvePresetProvider>
+              </WorkstationProvider>
+            </MaterialProvider>
+          </ClientManualProvider>
+        </ClientProvider>
+      </TransportProvider>
     </PackagingProvider>
   );
 }
@@ -296,11 +326,13 @@ function App() {
   return (
     <div className="App">
       <AuthProvider>
-        <CalculatorProvider>
-          <SessionProvider>
-            <AppContent />
-          </SessionProvider>
-        </CalculatorProvider>
+        <RoleProvider>
+          <CalculatorProvider>
+            <SessionProvider>
+              <AppContent />
+            </SessionProvider>
+          </CalculatorProvider>
+        </RoleProvider>
       </AuthProvider>
     </div>
   );

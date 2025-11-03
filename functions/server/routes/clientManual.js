@@ -53,6 +53,16 @@ router.get('/:id', async (req, res, next) => {
 router.post('/', async (req, res, next) => {
   try {
     const storage = getInstance();
+
+    // Walidacja - clientManual jest całym stanem, nie pojedynczym manuałem
+    // Nie wymagamy pola 'name' bo to nie jest pojedynczy dokument z nazwą
+    if (!req.body) {
+      return res.status(400).json({
+        success: false,
+        error: { message: 'Request body is required' }
+      });
+    }
+
     const newManual = await storage.create('clientManual', req.body);
 
     res.status(201).json({

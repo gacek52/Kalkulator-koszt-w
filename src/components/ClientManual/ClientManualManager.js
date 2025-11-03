@@ -13,7 +13,6 @@ export function ClientManualManager({ darkMode, themeClasses, onClose, readOnly 
   const [editingManual, setEditingManual] = useState(null);
   const [showAddManual, setShowAddManual] = useState(false);
   const [newManual, setNewManual] = useState({
-    clientId: '',
     clientName: '',
     laborCost: '',
     laborCostNotes: '',
@@ -25,27 +24,27 @@ export function ClientManualManager({ darkMode, themeClasses, onClose, readOnly 
 
   // Obsługa dodawania nowego manuala
   const handleAddManual = () => {
-    if (!newManual.clientId) {
-      alert('Wybierz klienta');
+    // Walidacja nazwy klienta
+    if (!newManual.clientName || newManual.clientName.trim() === '') {
+      alert('Podaj nazwę klienta');
       return;
     }
 
-    // Sprawdź czy manual dla tego klienta już istnieje
-    const exists = manualState.manuals.find(m => m.clientId === parseInt(newManual.clientId));
+    // Sprawdź czy manual z taką nazwą już istnieje
+    const exists = manualState.manuals.find(
+      m => m.clientName.toLowerCase().trim() === newManual.clientName.toLowerCase().trim()
+    );
     if (exists) {
       alert('Manual dla tego klienta już istnieje!');
       return;
     }
 
-    const client = clientState.clients.find(c => c.id === parseInt(newManual.clientId));
     manualActions.addManual({
       ...newManual,
-      clientId: parseInt(newManual.clientId),
-      clientName: client.name
+      clientName: newManual.clientName.trim()
     });
 
     setNewManual({
-      clientId: '',
       clientName: '',
       laborCost: '',
       laborCostNotes: '',
@@ -435,20 +434,26 @@ export function ClientManualManager({ darkMode, themeClasses, onClose, readOnly 
               <div className="p-6 space-y-4">
                 <div>
                   <label className={`block text-sm font-medium ${themeClasses.text.secondary} mb-1`}>
-                    Klient
+                    Nazwa klienta
                   </label>
-                  <select
-                    value={newManual.clientId}
-                    onChange={(e) => setNewManual({ ...newManual, clientId: e.target.value })}
+                  <input
+                    type="text"
+                    value={newManual.clientName}
+                    onChange={(e) => setNewManual({ ...newManual, clientName: e.target.value })}
                     className={`w-full px-3 py-2 border rounded ${themeClasses.input}`}
-                  >
-                    <option value="">-- Wybierz klienta --</option>
+                    placeholder="Wpisz nazwę klienta"
+                    list="clients-datalist"
+                  />
+                  <datalist id="clients-datalist">
                     {clientState.clients.map(client => (
-                      <option key={client.id} value={client.id}>
-                        {client.name} {client.city && `(${client.city})`}
+                      <option key={client.id} value={client.name}>
+                        {client.city && `${client.city}`}
                       </option>
                     ))}
-                  </select>
+                  </datalist>
+                  <p className={`text-xs mt-1 ${themeClasses.text.secondary}`}>
+                    Możesz wybrać z listy lub wpisać nową nazwę
+                  </p>
                 </div>
 
                 <div>

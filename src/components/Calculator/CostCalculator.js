@@ -8,10 +8,11 @@ import { useWorkstation } from '../../context/WorkstationContext';
 import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResults } from './CalculatorResults';
 import { SettingsPanel } from './SettingsPanel';
+import { TransportCalculation } from './TransportCalculation';
 import { SaveStatusIndicator } from '../Session/SaveStatusIndicator';
 import { JsonExportButton } from '../Common/JsonExportButton';
 import { JsonImportButton, validationSchemas } from '../Common/JsonImportButton';
-import { CalculatorCsvExportButton } from '../Common/CsvExportButton';
+import { updateSessionCalculationId, saveWorkstationAssignment, deleteCalculationAssignments } from '../../services/workstationAssignments';
 
 /**
  * Główny komponent kalkulatora kosztów
@@ -123,7 +124,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   };
 
   // Funkcja zapisywania kalkulacji
-  const saveCalculation = (asNewVariant = false) => {
+  const saveCalculation = async (asNewVariant = false) => {
     const allItems = tabs.flatMap(tab =>
       tab.items.map(item => ({
         ...item,
@@ -132,30 +133,91 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
     );
 
     // Deep copy danych aby uniknąć referencji
+    // WAŻNE: Zachowaj strukturę z calculationMeta jako osobnym obiektem
     const calculationData = {
-      ...deepCopy(calculationMeta),
+      calculationMeta: deepCopy(calculationMeta), // Zachowaj jako osobny obiekt!
       tabs: deepCopy(tabs),
       globalSGA: globalSGA,
       items: deepCopy(allItems),
       totalRevenue: 0,
       totalProfit: 0,
       // Snapshot stanowisk produkcyjnych (pełne dane dla późniejszego podglądu)
-      workstationsSnapshot: deepCopy(workstationState.workstations)
+      workstationsSnapshot: deepCopy(workstationState.workstations),
+      // Dla kompatybilności wstecznej, dodaj też pola bezpośrednio (spread)
+      ...deepCopy(calculationMeta)
     };
+
+    let calculationId;
 
     if (!asNewVariant && existingCalculation) {
       // Nadpisz istniejącą kalkulację
       catalogActions.updateCalculation(linkedCalculationId, calculationData);
-      alert('Kalkulacja zaktualizowana w katalogu!');
+      calculationId = linkedCalculationId;
     } else {
       // Zapisz jako nowy wpis
       const newId = catalogState.nextCalculationId;
       catalogActions.addCalculation(calculationData);
+      calculationId = newId;
 
       // Zapisz ID w metadanych aby pamiętać powiązanie
       actions.updateCalculationMeta({ catalogId: newId });
+    }
 
-      alert(asNewVariant ? 'Zapisano jako nowy wariant!' : 'Kalkulacja zapisana w katalogu!');
+    // WAŻNE: Zapisz/zaktualizuj workstation assignments dla WSZYSTKICH itemów
+    console.log('🔍 DEBUG activeSession:', activeSession);
+    console.log('🔍 DEBUG calculationId:', calculationId);
+
+    if (activeSession && activeSession.createdAt) {
+      // NAJPIERW usuń wszystkie stare assignments dla tej kalkulacji (aby uniknąć duplikatów)
+      console.log(`🗑️ Usuwam stare assignments dla kalkulacji ${calculationId}...`);
+      try {
+        const deleteResult = await deleteCalculationAssignments(calculationId.toString());
+        if (deleteResult.success) {
+          console.log(`✅ Usunięto ${deleteResult.deletedCount} starych przypisań`);
+        }
+      } catch (error) {
+        console.error('❌ Błąd usuwania starych assignments:', error);
+      }
+
+      // TERAZ zapisz nowe assignments
+      console.log(`📝 Zapisuję workstation assignments dla kalkulacji ${calculationId}...`);
+
+      const savePromises = [];
+
+      tabs.forEach((tab, tabIndex) => {
+        tab.items.forEach((item, itemIndex) => {
+          // Zapisz tylko jeśli item ma workstations i annualVolume
+          if (item.workstations && item.workstations.length > 0 && item.annualVolume && parseFloat(item.annualVolume) > 0) {
+            const assignmentData = {
+              sessionId: activeSession.createdAt,
+              calculationId: calculationId.toString(),
+              tabId: tab.id,
+              tabName: tab.name,
+              itemId: item.id,
+              partId: item.partId || '',
+              annualVolume: item.annualVolume,
+              workstations: item.workstations
+            };
+
+            savePromises.push(
+              saveWorkstationAssignment(assignmentData)
+                .then(() => console.log(`  ✅ Zapisano stanowiska dla ${tab.name} / ${item.partId || item.id}`))
+                .catch(err => console.error(`  ❌ Błąd zapisu dla ${tab.name} / ${item.partId || item.id}:`, err))
+            );
+          }
+        });
+      });
+
+      // Poczekaj na wszystkie zapisy
+      try {
+        await Promise.all(savePromises);
+        console.log(`✅ Zapisano ${savePromises.length} przypisań stanowisk dla kalkulacji ${calculationId}`);
+      } catch (error) {
+        console.error('❌ Błąd podczas zapisywania przypisań stanowisk:', error);
+      }
+    } else {
+      console.warn('⚠️ Nie można zapisać workstation assignments - brak activeSession lub createdAt');
+      console.log('activeSession:', activeSession);
     }
 
     // Oznacz jako zapisane
@@ -163,6 +225,13 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
     // Wyczyść sesję roboczą po pomyślnym zapisie
     clearSession();
+
+    // Pokaż alert DOPIERO po zapisaniu wszystkiego (na końcu!)
+    if (!asNewVariant && existingCalculation) {
+      alert('Kalkulacja zaktualizowana w katalogu!');
+    } else {
+      alert(asNewVariant ? 'Zapisano jako nowy wariant!' : 'Kalkulacja zapisana w katalogu!');
+    }
 
     setShowSaveMenu(false);
   };
@@ -369,16 +438,52 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
       activeTab: data.activeTab ?? 0,
       nextTabId: data.nextTabId ?? (data.tabs?.length + 1 || 2),
       darkMode: data.darkMode ?? true,
-      calculationMeta: data.calculationMeta ?? {
-        client: '',
-        status: 'draft',
-        notes: '',
-        createdDate: new Date().toISOString(),
-        modifiedDate: new Date().toISOString(),
-        catalogId: null
+      calculationMeta: {
+        client: data.calculationMeta?.client || '',
+        clientId: data.calculationMeta?.clientId || null,
+        clientCity: data.calculationMeta?.clientCity || '',
+        status: data.calculationMeta?.status || 'draft',
+        notes: data.calculationMeta?.notes || '',
+        createdDate: data.calculationMeta?.createdDate || new Date().toISOString(),
+        modifiedDate: data.calculationMeta?.modifiedDate || new Date().toISOString(),
+        catalogId: data.calculationMeta?.catalogId || null,
+        sharedAccess: data.calculationMeta?.sharedAccess || false,
+        // Migracja transportu - dodaj jeśli nie istnieje
+        transport: data.calculationMeta?.transport || {
+          enabled: false,
+          transportTypeId: null,
+          distanceSource: 'client',
+          clientDistance: '',
+          manualDistance: ''
+        }
       },
       hasUnsavedChanges: false
     };
+
+    // Migracja tabs - dodaj pole transport do zakładek, które go nie mają (stary format)
+    migratedData.tabs = migratedData.tabs.map(tab => ({
+      ...tab,
+      transport: tab.transport || {
+        enabled: false,
+        transportTypeId: null,
+        distanceSource: 'client',
+        manualDistance: '',
+        clientDistance: ''
+      }
+    }));
+
+    // Migracja pól annualVolume - zamień yearlyDemand na annualVolume
+    migratedData.tabs = migratedData.tabs.map(tab => ({
+      ...tab,
+      items: tab.items.map(item => {
+        // Jeśli item ma yearlyDemand ale nie ma annualVolume, przekopiuj wartość
+        if (item.yearlyDemand !== undefined && item.annualVolume === undefined) {
+          const { yearlyDemand, ...rest } = item;
+          return { ...rest, annualVolume: yearlyDemand };
+        }
+        return item;
+      })
+    }));
 
     actions.loadData(migratedData);
     alert('Dane zostały pomyślnie zaimportowane!');
@@ -405,7 +510,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
   // Przygotuj dane do eksportu - wszystkie dane potrzebne do pełnego odtworzenia stanu
   const exportData = {
-    version: '2.1',
+    version: '2.2', // Updated: transport in calculationMeta, annualVolume field
     exportDate: new Date().toISOString(),
     globalSGA,
     tabs,
@@ -467,12 +572,6 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
               <JsonImportButton
                 onImport={handleImport}
                 validateData={validationSchemas.calculator}
-                themeClasses={themeClasses}
-              />
-
-              <CalculatorCsvExportButton
-                tabs={tabs}
-                globalSGA={globalSGA}
                 themeClasses={themeClasses}
               />
             </div>
@@ -562,8 +661,17 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
           </div>
         </div>
 
+        {/* Transport - dla całej kalkulacji */}
+        <TransportCalculation
+          tabs={tabs}
+          calculationMeta={calculationMeta}
+          onUpdate={(updates) => actions.updateCalculationMeta(updates)}
+          themeClasses={themeClasses}
+          darkMode={darkMode}
+        />
+
         {/* Metadane kalkulacji */}
-        <div className={`${themeClasses.card} rounded-lg border p-4 mb-6`}>
+        <div className={`${themeClasses.card} rounded-lg border p-4 mb-6 mt-6`}>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
             <div>
               <label className={`block text-sm font-medium ${themeClasses.text.secondary} mb-1`}>
@@ -680,8 +788,10 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
             <div className="xl:col-span-2">
               <CalculatorForm
                 tab={currentTab}
+                tabs={tabs}
                 tabIndex={activeTab}
                 globalSGA={globalSGA}
+                calculationMeta={calculationMeta}
                 themeClasses={themeClasses}
                 darkMode={darkMode}
                 onOpenSettings={() => setShowSettings(true)}
@@ -691,8 +801,10 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
             {/* Wyniki */}
             <div>
               <CalculatorResults
-                tab={currentTab}
+                tabs={tabs}
+                currentTabId={currentTab.id}
                 globalSGA={globalSGA}
+                calculationMeta={calculationMeta}
                 themeClasses={themeClasses}
                 darkMode={darkMode}
               />

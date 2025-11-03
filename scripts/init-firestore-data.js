@@ -19,86 +19,8 @@ admin.initializeApp({
 
 const db = admin.firestore();
 
-// Domyślni klienci
-const defaultClients = [
-  {
-    name: 'Tenneco Polska',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Rybnik',
-    country: 'Polska',
-    notes: '',
-    isDefault: true
-  },
-  {
-    name: 'Tenneco Edenkoben',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Edenkoben',
-    country: 'Niemcy',
-    notes: '',
-    isDefault: true
-  },
-  {
-    name: 'Tenneco Edenkoben Prototypy',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Edenkoben',
-    country: 'Niemcy',
-    notes: '',
-    isDefault: true
-  },
-  {
-    name: 'Tenneco Zwickau',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Zwickau',
-    country: 'Niemcy',
-    notes: '',
-    isDefault: true
-  },
-  {
-    name: 'Purem Tondela',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Tondela',
-    country: 'Portugalia',
-    notes: '',
-    isDefault: true
-  },
-  {
-    name: 'Purem Rakovnik',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Rakovnik',
-    country: 'Czechy',
-    notes: '',
-    isDefault: true
-  },
-  {
-    name: 'Purem Neunkirchen',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Neunkirchen',
-    country: 'Niemcy',
-    notes: '',
-    isDefault: true
-  }
-];
+// Domyślni klienci - pusta tablica, klienci dodawani przez użytkowników
+const defaultClients = [];
 
 // Domyślne kompozycje opakowań
 const defaultPackaging = [

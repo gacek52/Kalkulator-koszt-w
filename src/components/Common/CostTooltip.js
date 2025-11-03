@@ -8,6 +8,7 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [currentPosition, setCurrentPosition] = useState(position);
+  const tooltipRef = React.useRef(null);
 
   const handleMouseDown = (e) => {
     if (!isPinned) return;
@@ -41,11 +42,46 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
     }
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
+  // Funkcja dostosowująca pozycję aby tooltip był widoczny w viewporcie
+  const adjustPosition = React.useCallback((basePosition) => {
+    if (!tooltipRef.current) return basePosition;
+
+    const tooltipRect = tooltipRef.current.getBoundingClientRect();
+    const tooltipWidth = tooltipRect.width || 320;
+    const tooltipHeight = tooltipRect.height || 400;
+    const margin = 10;
+
+    let x = basePosition.x;
+    let y = basePosition.y;
+
+    // Sprawdź kolizję z prawą krawędzią
+    if (x + tooltipWidth > window.innerWidth) {
+      x = window.innerWidth - tooltipWidth - margin;
+    }
+
+    // Sprawdź kolizję z dolną krawędzią
+    if (y + tooltipHeight > window.innerHeight) {
+      y = window.innerHeight - tooltipHeight - margin;
+    }
+
+    // Sprawdź kolizję z górną krawędzią
+    if (y < 0) {
+      y = margin;
+    }
+
+    // Sprawdź kolizję z lewą krawędzią
+    if (x < 0) {
+      x = margin;
+    }
+
+    return { x, y };
+  }, []);
+
   React.useEffect(() => {
     if (!isPinned) {
-      setCurrentPosition(position);
+      setCurrentPosition(adjustPosition(position));
     }
-  }, [position, isPinned]);
+  }, [position, isPinned, adjustPosition]);
 
   if (!item?.results) return null;
 
@@ -59,6 +95,7 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
       customProcessesCost: { label: 'Procesy dodatkowe', icon: '⚙️' },
       customCurvesCost: { label: 'Krzywe niestandardowe', icon: '📈' },
       packagingCost: { label: 'Pakowanie', icon: '📦' },
+      transportCost: { label: 'Transport', icon: '🚚' },
       prepCost: { label: 'Przygotówka', icon: '🔧' },
       laserCost: { label: 'Cięcie laserowe', icon: '⚡' },
       bendingCost: { label: 'Gięcie', icon: '↪️' },
@@ -72,6 +109,7 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
   const costItems = Object.entries(item.results).filter(([key, value]) => {
     // Pomijamy pola które nie są kosztami jednostkowymi
     if (key === 'totalCost' || key === 'totalWithMargin' || key === 'totalWithSGA' ||
+        key === 'finalTotalCost' ||
         key === 'nettoWeight' || key === 'bruttoWeight' ||
         key === 'bakingTime' || key === 'cleaningTime' || key === 'prepTime') {
       return false;
@@ -106,6 +144,7 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
 
   return (
     <div
+      ref={tooltipRef}
       style={tooltipStyle}
       className={`w-80 rounded-lg shadow-xl border-2 p-4 ${themeClass}`}
       onMouseDown={handleMouseDown}
@@ -188,22 +227,33 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
           </div>
         )}
 
-        {/* Cena finalna */}
+        {/* Separator przed podsumowaniem */}
+        <div className="border-t pt-2 mt-2"></div>
+
+        {/* Cena EXW (bez transportu) */}
         {item.results.totalWithSGA && (
-          <div className="border-t pt-1 mt-2">
-            <div className="flex justify-between items-center font-bold text-base">
-              <span className={themeClasses.text.primary}>🏷️ Cena EXW:</span>
-              <span className={darkMode ? 'text-green-400' : 'text-green-600'}>
-                {item.results.totalWithSGA.toFixed(3)} €
-              </span>
-            </div>
+          <div className="flex justify-between items-center font-bold text-base">
+            <span className={themeClasses.text.primary}>🏷️ Cena EXW:</span>
+            <span className={darkMode ? 'text-green-400' : 'text-green-600'}>
+              {item.results.totalWithSGA.toFixed(3)} €
+            </span>
+          </div>
+        )}
+
+        {/* Cena DAP (z transportem) - tylko gdy transport > 0 */}
+        {item.results.transportCost > 0 && item.results.totalWithSGA && (
+          <div className="flex justify-between items-center font-bold text-base">
+            <span className={themeClasses.text.primary}>🚚 Cena DAP:</span>
+            <span className={darkMode ? 'text-blue-400' : 'text-blue-600'}>
+              {(item.results.totalWithSGA + item.results.transportCost).toFixed(3)} €
+            </span>
           </div>
         )}
 
         {/* Informacje o wadze / powierzchni */}
         <div className={`text-xs mt-2 pt-2 border-t space-y-1 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
           {/* Dla heatshield - informacje o blachy i macie */}
-          {item.heatshield && item.results && (
+          {item.heatshield && item.heatshield.surfaceNetto && item.results && (
             <>
               {item.results.nettoWeight && (
                 <div className="flex justify-between">
@@ -240,25 +290,29 @@ export function CostTooltip({ item, position, isPinned = false, onClose, themeCl
             </>
           )}
 
-          {/* Dla standardowych trybów - informacje o wadze */}
-          {!item.heatshield && (
+          {/* Dla multilayer - informacje per warstwa */}
+          {item.multilayer && item.multilayer.layers && item.multilayer.layers.length > 0 && (
             <>
-              <div className="flex justify-between">
-                <span>⚖️ Waga netto:</span>
-                <span className="font-medium">{parseFloat(item.weight || 0).toFixed(0)} g</span>
-              </div>
-              {item.bruttoWeight && (
+              {item.multilayer.layers.map((layer, index) => (
+                layer.weightBrutto && parseFloat(layer.weightBrutto) > 0 && (
+                  <div key={index} className="flex justify-between">
+                    <span>📦 Warstwa {index + 1} - materiał brutto:</span>
+                    <span className="font-medium">{parseFloat(layer.weightBrutto).toFixed(0)} g</span>
+                  </div>
+                )
+              ))}
+            </>
+          )}
+
+          {/* Dla standardowych trybów (weight/surface/volume) - jedna linijka */}
+          {!(item.heatshield && item.heatshield.surfaceNetto) &&
+           !(item.multilayer && item.multilayer.layers && item.multilayer.layers.length > 0) &&
+           item.results && (
+            <>
+              {item.results.bruttoWeight && (
                 <div className="flex justify-between">
-                  <span>📦 Waga brutto:</span>
-                  <span className="font-medium">{parseFloat(item.bruttoWeight).toFixed(0)} g</span>
-                </div>
-              )}
-              {item.annualVolume && parseFloat(item.annualVolume) > 0 && (
-                <div className="flex justify-between pt-1 border-t border-dashed">
-                  <span>📅 Roczne zapotrzebowanie:</span>
-                  <span className="font-medium">
-                    {((parseFloat(item.bruttoWeight || item.weight || 0) * parseFloat(item.annualVolume)) / 1000).toFixed(1)} kg/rok
-                  </span>
+                  <span>📦 Waga materiału brutto:</span>
+                  <span className="font-medium">{parseFloat(item.results.bruttoWeight).toFixed(0)} g</span>
                 </div>
               )}
             </>
@@ -321,12 +375,12 @@ export function useTooltips() {
     setMousePosition({ x, y });
   };
 
-  const handleItemClick = (item, event) => {
+  const handleItemClick = (item, tabId, event) => {
     if (item.results) {
       event.preventDefault();
       event.stopPropagation();
 
-      const isAlreadyPinned = pinnedTooltips.some(pinned => pinned.item.id === item.id);
+      const isAlreadyPinned = pinnedTooltips.some(pinned => pinned.itemId === item.id && pinned.tabId === tabId);
       if (isAlreadyPinned) return;
 
       const tooltipWidth = 320;
@@ -340,7 +394,8 @@ export function useTooltips() {
       }
 
       const newPinnedTooltip = {
-        item: { ...item },
+        itemId: item.id,
+        tabId: tabId,
         position: { x, y },
         id: Date.now()
       };

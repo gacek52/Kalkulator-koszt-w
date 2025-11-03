@@ -41,6 +41,9 @@ app.use('/material-compositions', require('./server/routes/material-compositions
 app.use('/packaging-types', require('./server/routes/packaging-types'));
 app.use('/packaging-compositions', require('./server/routes/packaging-compositions'));
 
+// Curve presets route
+app.use('/curve-presets', require('./server/routes/curve-presets'));
+
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
@@ -60,6 +63,95 @@ app.use((err, req, res, next) => {
 
 // Export Express app as Firebase Function
 exports.api = functions.https.onRequest(app);
+
+// Delete default clients (IDs 1-7)
+// Call once: https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/deleteDefaultClients
+exports.deleteDefaultClients = functions.https.onRequest(async (req, res) => {
+  try {
+    const db = admin.firestore();
+    const clientsToDelete = ['1', '2', '3', '4', '5', '6', '7'];
+
+    let deleted = 0;
+    let notFound = 0;
+
+    for (const clientId of clientsToDelete) {
+      const docRef = db.collection('clients').doc(clientId);
+      const doc = await docRef.get();
+
+      if (doc.exists) {
+        await docRef.delete();
+        deleted++;
+      } else {
+        notFound++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Default clients deletion completed',
+      results: {
+        deleted: deleted,
+        notFound: notFound,
+        total: clientsToDelete.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Delete error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
+// Migration function to add distance field to existing clients
+// Call once: https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/migrateClientsAddDistance
+exports.migrateClientsAddDistance = functions.https.onRequest(async (req, res) => {
+  try {
+    const db = admin.firestore();
+    const clientsRef = db.collection('clients');
+    const snapshot = await clientsRef.get();
+
+    let updated = 0;
+    let skipped = 0;
+
+    const batch = db.batch();
+
+    snapshot.forEach(doc => {
+      const data = doc.data();
+      // Sprawdź czy klient nie ma pola distance lub jest undefined
+      if (!data.hasOwnProperty('distance')) {
+        batch.update(doc.ref, {
+          distance: '',
+          updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        updated++;
+      } else {
+        skipped++;
+      }
+    });
+
+    await batch.commit();
+
+    res.json({
+      success: true,
+      message: 'Migration completed successfully',
+      results: {
+        updated: updated,
+        skipped: skipped,
+        total: snapshot.size
+      }
+    });
+
+  } catch (error) {
+    console.error('Migration error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
 
 // One-time initialization function
 // Call once: https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/initializeDatabase

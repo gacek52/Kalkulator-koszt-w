@@ -57,6 +57,9 @@ app.use('/api/material-compositions', require('./routes/material-compositions'))
 app.use('/api/packaging-types', require('./routes/packaging-types'));
 app.use('/api/packaging-compositions', require('./routes/packaging-compositions'));
 
+// Curve presets route
+app.use('/api/curve-presets', require('./routes/curve-presets'));
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
   res.json({

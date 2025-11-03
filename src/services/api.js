@@ -334,6 +334,32 @@ export const sessionApi = {
 };
 
 /**
+ * API endpoints dla presetów krzywych uczenia
+ */
+export const curvePresetsApi = {
+  getAll: () => request('/curve-presets'),
+
+  getById: (id) => request(`/curve-presets/${id}`),
+
+  create: (preset) =>
+    request('/curve-presets', {
+      method: 'POST',
+      body: JSON.stringify(preset),
+    }),
+
+  update: (id, preset) =>
+    request(`/curve-presets/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(preset),
+    }),
+
+  delete: (id) =>
+    request(`/curve-presets/${id}`, {
+      method: 'DELETE',
+    }),
+};
+
+/**
  * Health check endpoint
  */
 export const healthCheck = () => request('/health');

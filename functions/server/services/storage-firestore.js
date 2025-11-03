@@ -37,17 +37,18 @@ class FirestoreStorageService {
   /**
    * Znajdź dokument po ID
    * @param {string} collection - Nazwa kolekcji
-   * @param {string} id - ID dokumentu
+   * @param {string|number} id - ID dokumentu
    * @returns {Object|null} - Znaleziony dokument lub null
    */
   async getById(collection, id) {
     try {
-      const doc = await this.db.collection(collection).doc(id).get();
+      const docId = String(id);
+      const doc = await this.db.collection(collection).doc(docId).get();
       if (!doc.exists) {
         return null;
       }
       return {
-        id: doc.id,
+        id: id, // Zwróć oryginalne ID (może być number)
         ...doc.data()
       };
     } catch (error) {
@@ -59,7 +60,7 @@ class FirestoreStorageService {
   /**
    * Stwórz nowy dokument w kolekcji
    * @param {string} collection - Nazwa kolekcji
-   * @param {Object} data - Dane dokumentu (bez ID)
+   * @param {Object} data - Dane dokumentu (z opcjonalnym ID)
    * @returns {Object} - Stworzony dokument z ID
    */
   async create(collection, data) {
@@ -70,11 +71,21 @@ class FirestoreStorageService {
         updatedAt: admin.firestore.FieldValue.serverTimestamp()
       };
 
-      const docRef = await this.db.collection(collection).add(newItem);
+      let docRef;
+      // Jeśli data zawiera ID, użyj go jako ID dokumentu
+      if (data.id !== undefined && data.id !== null) {
+        const docId = String(data.id);
+        docRef = this.db.collection(collection).doc(docId);
+        await docRef.set(newItem);
+      } else {
+        // W przeciwnym razie wygeneruj automatyczne ID
+        docRef = await this.db.collection(collection).add(newItem);
+      }
+
       const doc = await docRef.get();
 
       return {
-        id: doc.id,
+        id: data.id !== undefined && data.id !== null ? data.id : doc.id,
         ...doc.data()
       };
     } catch (error) {
@@ -86,13 +97,14 @@ class FirestoreStorageService {
   /**
    * Zaktualizuj istniejący dokument
    * @param {string} collection - Nazwa kolekcji
-   * @param {string} id - ID dokumentu
+   * @param {string|number} id - ID dokumentu
    * @param {Object} data - Nowe dane
    * @returns {Object|null} - Zaktualizowany dokument lub null
    */
   async update(collection, id, data) {
     try {
-      const docRef = this.db.collection(collection).doc(id);
+      const docId = String(id);
+      const docRef = this.db.collection(collection).doc(docId);
       const doc = await docRef.get();
 
       if (!doc.exists) {
@@ -108,7 +120,7 @@ class FirestoreStorageService {
 
       const updated = await docRef.get();
       return {
-        id: updated.id,
+        id: id, // Zwróć oryginalne ID (może być number)
         ...updated.data()
       };
     } catch (error) {
@@ -120,12 +132,13 @@ class FirestoreStorageService {
   /**
    * Usuń dokument
    * @param {string} collection - Nazwa kolekcji
-   * @param {string} id - ID dokumentu
+   * @param {string|number} id - ID dokumentu
    * @returns {boolean} - true jeśli usunięto
    */
   async delete(collection, id) {
     try {
-      const docRef = this.db.collection(collection).doc(id);
+      const docId = String(id);
+      const docRef = this.db.collection(collection).doc(docId);
       const doc = await docRef.get();
 
       if (!doc.exists) {
@@ -306,6 +319,46 @@ class FirestoreStorageService {
     const uniqueSuffix = String(Date.now()).slice(-4);
 
     return `${datePrefix}-${uniqueSuffix}`;
+  }
+
+  /**
+   * CURVE PRESETS METHODS
+   * Presety krzywych uczenia przechowywane w kolekcji curvePresets
+   */
+
+  /**
+   * Pobierz wszystkie presety krzywych
+   */
+  async getCurvePresets() {
+    return this.getAll('curvePresets');
+  }
+
+  /**
+   * Pobierz pojedynczy preset krzywej
+   */
+  async getCurvePresetById(id) {
+    return this.getById('curvePresets', id);
+  }
+
+  /**
+   * Stwórz nowy preset krzywej
+   */
+  async createCurvePreset(data) {
+    return this.create('curvePresets', data);
+  }
+
+  /**
+   * Zaktualizuj preset krzywej
+   */
+  async updateCurvePreset(id, data) {
+    return this.update('curvePresets', id, data);
+  }
+
+  /**
+   * Usuń preset krzywej
+   */
+  async deleteCurvePreset(id) {
+    return this.delete('curvePresets', id);
   }
 }
 

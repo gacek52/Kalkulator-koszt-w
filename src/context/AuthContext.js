@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, signInAsGuest, signInWithGoogle, signOut as firebaseSignOut, getUserRole } from '../firebase';
+import { auth, signInAsGuest, signInWithGoogle, signInWithEmail as firebaseSignInWithEmail, signOut as firebaseSignOut, getUserRole } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { PasswordChangeDialog } from '../components/Auth/PasswordChangeDialog';
 
 /**
  * Auth Context
@@ -14,6 +15,8 @@ export function AuthProvider({ children }) {
   const [userRole, setUserRole] = useState('user');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
   // Sprawdź czy użytkownik jest administratorem
   const isAdmin = userRole === 'admin';
@@ -83,6 +86,26 @@ export function AuthProvider({ children }) {
     }
   };
 
+  // Sign in with Email/Password
+  const loginWithEmail = async (email, password) => {
+    try {
+      setLoading(true);
+      setError(null);
+      const result = await firebaseSignInWithEmail(email, password);
+
+      // Sprawdź czy użytkownik musi zmienić hasło
+      if (result.requirePasswordChange) {
+        setShowPasswordChange(true);
+      }
+    } catch (err) {
+      console.error('Error signing in with email:', err);
+      setError(err.message || 'Nie udało się zalogować');
+      throw err;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Sign out
   const logout = async () => {
     try {
@@ -107,6 +130,7 @@ export function AuthProvider({ children }) {
     isOwner,
     loginAsGuest,
     loginWithGoogle,
+    loginWithEmail,
     logout,
     loading,
     error
@@ -115,6 +139,16 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={value}>
       {children}
+      {showPasswordChange && (
+        <PasswordChangeDialog
+          darkMode={darkMode}
+          isRequired={true}
+          onClose={() => setShowPasswordChange(false)}
+          onPasswordChanged={() => {
+            setShowPasswordChange(false);
+          }}
+        />
+      )}
     </AuthContext.Provider>
   );
 }

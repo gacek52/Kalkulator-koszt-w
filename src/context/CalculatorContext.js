@@ -47,7 +47,15 @@ const initialState = {
     createdDate: new Date().toISOString(),
     modifiedDate: new Date().toISOString(),
     catalogId: null,
-    sharedAccess: false // Czy kalkulacja jest odblokowana do edycji przez innych użytkowników
+    sharedAccess: false, // Czy kalkulacja jest odblokowana do edycji przez innych użytkowników
+    // Transport (dla całej kalkulacji)
+    transport: {
+      enabled: false, // czy transport jest włączony
+      transportTypeId: null, // ID typu transportu z TransportContext
+      distanceSource: 'client', // 'client' (z klienta) lub 'manual' (ręczne)
+      clientDistance: '', // odległość z danych klienta (km)
+      manualDistance: '' // ręcznie wprowadzona odległość (km)
+    }
   },
   tabs: [{
     id: 1,
@@ -59,6 +67,14 @@ const initialState = {
     cleaningCost: '90',
     handlingCost: '0.08',
     prepCost: '90', // Koszt przygotówki dla heatshield (€/8h)
+    // Transport
+    transport: {
+      enabled: false, // czy transport jest włączony dla zakładki
+      transportTypeId: null, // ID typu transportu z TransportContext
+      distanceSource: 'client', // 'client' (z klienta) lub 'manual' (ręczne)
+      manualDistance: '', // ręcznie wprowadzona odległość (km)
+      clientDistance: '' // odległość z klienta (dla info/cache)
+    },
     // Procesy niestandardowe
     customProcesses: [
       // { id: 1, name: 'Proces 1', cost: '10', unit: 'euro/szt', efficiency: '1', workstationId: null, workstationEfficiency: '' }
@@ -489,12 +505,42 @@ function calculatorReducer(state, action) {
       return { ...action.payload, hasUnsavedChanges: false };
 
     case CALCULATOR_ACTIONS.LOAD_CALCULATION:
-      // Deep copy kalkulacji z katalogu
-      const loadedState = JSON.parse(JSON.stringify(action.payload));
+      // Deep copy kalkulacji z katalogu (structuredClone zachowuje Unicode)
+      const loadedState = structuredClone(action.payload);
+
+      // Migracja: dodaj pole transport do zakładek, które go nie mają
+      const migratedTabs = loadedState.tabs.map(tab => ({
+        ...tab,
+        transport: tab.transport || {
+          enabled: false,
+          transportTypeId: null,
+          distanceSource: 'client',
+          manualDistance: '',
+          clientDistance: ''
+        }
+      }));
+
+      // Migracja: dodaj pole transport do calculationMeta, jeśli go nie ma lub uzupełnij brakujące pola
+      // WAŻNE: loadedState może mieć transport na top-level (stary format) LUB w calculationMeta (nowy format)
+      const transportData = loadedState.calculationMeta?.transport || loadedState.transport || {};
+
+      const migratedCalculationMeta = {
+        ...loadedState.calculationMeta,
+        transport: {
+          enabled: transportData.enabled ?? false,
+          transportTypeId: transportData.transportTypeId ?? null,
+          distanceSource: transportData.distanceSource ?? 'client',
+          clientDistance: transportData.clientDistance ?? '',
+          manualDistance: transportData.manualDistance ?? ''
+        }
+      };
+
       // Zachowaj darkMode z obecnej sesji, ale załaduj wszystko inne
       return {
         ...state, // Zachowaj obecną konfigurację (darkMode)
         ...loadedState, // Nadpisz danymi z katalogu
+        tabs: migratedTabs, // Użyj zmigrowanych zakładek
+        calculationMeta: migratedCalculationMeta, // Użyj zmigrowanych metadanych
         darkMode: state.darkMode, // Zachowaj obecny tryb ciemny
         hasUnsavedChanges: false,
         lastSavedState: JSON.stringify(loadedState)
@@ -553,14 +599,24 @@ export function CalculatorProvider({ children }) {
           ...parsedData,
           hasUnsavedChanges: parsedData.hasUnsavedChanges ?? false,
           lastSavedState: parsedData.lastSavedState ?? null,
-          calculationMeta: parsedData.calculationMeta ?? {
-            client: '',
-            status: 'draft',
-            notes: '',
-            createdDate: new Date().toISOString(),
-            modifiedDate: new Date().toISOString(),
-            catalogId: null,
-            sharedAccess: false
+          calculationMeta: {
+            ...(parsedData.calculationMeta ?? {
+              client: '',
+              status: 'draft',
+              notes: '',
+              createdDate: new Date().toISOString(),
+              modifiedDate: new Date().toISOString(),
+              catalogId: null,
+              sharedAccess: false
+            }),
+            // Migracja: dodaj pole transport do calculationMeta, jeśli go nie ma lub uzupełnij brakujące pola
+            transport: {
+              enabled: parsedData.calculationMeta?.transport?.enabled ?? false,
+              transportTypeId: parsedData.calculationMeta?.transport?.transportTypeId ?? null,
+              distanceSource: parsedData.calculationMeta?.transport?.distanceSource ?? 'client',
+              clientDistance: parsedData.calculationMeta?.transport?.clientDistance ?? '',
+              manualDistance: parsedData.calculationMeta?.transport?.manualDistance ?? ''
+            }
           }
         };
 

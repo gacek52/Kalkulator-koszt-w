@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { Package, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Cloud } from 'lucide-react';
 import { usePackaging } from '../../context/PackagingContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../context/RoleContext';
 
 /**
  * Główny komponent zarządzania pakowaniem
  */
 export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClasses }) {
   const { state, actions } = usePackaging();
-  const { isAdmin } = useAuth();
+  const { currentUser } = useAuth();
+  const { hasPermission } = useRole();
   const [activeTab, setActiveTab] = useState('types'); // 'types' or 'compositions'
   const [editingType, setEditingType] = useState(null);
   const [editingComposition, setEditingComposition] = useState(null);
@@ -20,6 +22,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     length: '',
     width: '',
     height: '',
+    weight: '',
     cost: ''
   });
 
@@ -29,12 +32,15 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     packagingTypeId: '',
     packagesPerPallet: '',
     palletsPerSpace: '',
-    palletCost: '3.6'
+    palletCost: '3.6',
+    standardPalletWeight: '25',
+    standardPalletHeight: '144',
+    layers: ''
   });
 
   // Dodaj/edytuj typ opakowania
   const handleSaveType = () => {
-    if (!typeForm.name || !typeForm.length || !typeForm.width || !typeForm.height || !typeForm.cost) {
+    if (!typeForm.name || !typeForm.length || !typeForm.width || !typeForm.height || !typeForm.weight || !typeForm.cost) {
       alert('Wypełnij wszystkie pola');
       return;
     }
@@ -46,6 +52,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
         width: parseFloat(typeForm.width),
         height: parseFloat(typeForm.height)
       },
+      weight: parseFloat(typeForm.weight),
       cost: parseFloat(typeForm.cost)
     };
 
@@ -56,7 +63,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     }
 
     // Reset formularza
-    setTypeForm({ name: '', length: '', width: '', height: '', cost: '' });
+    setTypeForm({ name: '', length: '', width: '', height: '', weight: '', cost: '' });
     setEditingType(null);
   };
 
@@ -68,6 +75,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
       length: type.dimensions.length.toString(),
       width: type.dimensions.width.toString(),
       height: type.dimensions.height.toString(),
+      weight: (type.weight || 0).toString(),
       cost: type.cost.toString()
     });
   };
@@ -82,19 +90,21 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
   // Anuluj edycję typu
   const handleCancelTypeEdit = () => {
     setEditingType(null);
-    setTypeForm({ name: '', length: '', width: '', height: '', cost: '' });
+    setTypeForm({ name: '', length: '', width: '', height: '', weight: '', cost: '' });
   };
 
   // Dodaj/edytuj kompozycję
   const handleSaveComposition = () => {
     if (!compositionForm.name || !compositionForm.packagingTypeId ||
         !compositionForm.packagesPerPallet || !compositionForm.palletsPerSpace ||
-        !compositionForm.palletCost) {
+        !compositionForm.palletCost || !compositionForm.standardPalletWeight ||
+        !compositionForm.standardPalletHeight || !compositionForm.layers) {
       alert('Wypełnij wszystkie pola');
       return;
     }
 
-    const packagingType = state.packagingTypes.find(t => t.id === parseInt(compositionForm.packagingTypeId));
+    // Use loose equality to handle both string and number IDs
+    const packagingType = state.packagingTypes.find(t => t.id == compositionForm.packagingTypeId);
     if (!packagingType) {
       alert('Nie znaleziono wybranego typu opakowania');
       return;
@@ -104,9 +114,20 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     const packagesPerPallet = parseInt(compositionForm.packagesPerPallet);
     const palletsPerSpace = parseInt(compositionForm.palletsPerSpace);
     const palletCost = parseFloat(compositionForm.palletCost);
+    const standardPalletWeight = parseFloat(compositionForm.standardPalletWeight);
+    const standardPalletHeight = parseFloat(compositionForm.standardPalletHeight);
+    const layers = parseInt(compositionForm.layers);
 
     // Cena = (cena opakowania × ilość opakowań na palecie + koszt palety) × ilość palet na miejsce paletowe
     const compositionCost = (packagingType.cost * packagesPerPallet + palletCost) * palletsPerSpace;
+
+    // Oblicz całkowitą wagę miejsca paletowego (stack palet)
+    // Waga = (waga_palety + waga_opakowań_na_palecie) × ilość_palet_w_stacku
+    const totalWeight = (standardPalletWeight + (packagingType.weight * packagesPerPallet)) * palletsPerSpace;
+
+    // Oblicz całkowitą wysokość miejsca paletowego (stack palet)
+    // Wysokość = (wysokość_palety + wysokość_warstw) × ilość_palet_w_stacku
+    const totalHeight = (standardPalletHeight + (packagingType.dimensions.height * layers)) * palletsPerSpace;
 
     const composition = {
       name: compositionForm.name,
@@ -114,6 +135,11 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
       packagesPerPallet: packagesPerPallet,
       palletsPerSpace: palletsPerSpace,
       palletCost: palletCost,
+      standardPalletWeight: standardPalletWeight,
+      standardPalletHeight: standardPalletHeight,
+      layers: layers,
+      totalWeight: totalWeight,
+      totalHeight: totalHeight,
       compositionCost: compositionCost
     };
 
@@ -129,7 +155,10 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
       packagingTypeId: '',
       packagesPerPallet: '',
       palletsPerSpace: '',
-      palletCost: '3.6'
+      palletCost: '3.6',
+      standardPalletWeight: '25',
+      standardPalletHeight: '144',
+      layers: ''
     });
     setEditingComposition(null);
   };
@@ -142,7 +171,10 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
       packagingTypeId: comp.packagingTypeId.toString(),
       packagesPerPallet: comp.packagesPerPallet.toString(),
       palletsPerSpace: comp.palletsPerSpace.toString(),
-      palletCost: comp.palletCost.toString()
+      palletCost: comp.palletCost.toString(),
+      standardPalletWeight: (comp.standardPalletWeight || 25).toString(),
+      standardPalletHeight: (comp.standardPalletHeight || 144).toString(),
+      layers: (comp.layers || '').toString()
     });
   };
 
@@ -161,7 +193,10 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
       packagingTypeId: '',
       packagesPerPallet: '',
       palletsPerSpace: '',
-      palletCost: '3.6'
+      palletCost: '3.6',
+      standardPalletWeight: '25',
+      standardPalletHeight: '144',
+      layers: ''
     });
   };
 
@@ -279,10 +314,10 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     reader.readAsText(file);
   };
 
-  // Push do Firestore (tylko admin)
+  // Push do Firestore
   const handlePushToFirestore = async () => {
-    if (!isAdmin) {
-      alert('Tylko administrator może synchronizować dane z bazą.');
+    if (!hasPermission('packaging_sync')) {
+      alert('Nie masz uprawnień do synchronizacji pakowania z bazą.');
       return;
     }
 
@@ -337,7 +372,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
-              {isAdmin && (
+              {hasPermission('packaging_sync') && (
                 <button
                   onClick={handlePushToFirestore}
                   disabled={isPushing}
@@ -349,7 +384,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
                   title="Synchronizuj pakowanie z bazą Firestore"
                 >
                   <Cloud size={16} />
-                  {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+                  {isPushing ? 'Synchronizuję...' : 'Push to Database'}
                 </button>
               )}
 
@@ -413,6 +448,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 handleCancelTypeEdit={handleCancelTypeEdit}
                 themeClasses={themeClasses}
                 darkMode={darkMode}
+                hasPermission={hasPermission}
               />
             ) : (
               <CompositionsTab
@@ -426,6 +462,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 handleCancelCompositionEdit={handleCancelCompositionEdit}
                 themeClasses={themeClasses}
                 darkMode={darkMode}
+                hasPermission={hasPermission}
               />
             )}
           </div>
@@ -448,17 +485,19 @@ function TypesTab({
   handleDeleteType,
   handleCancelTypeEdit,
   themeClasses,
-  darkMode
+  darkMode,
+  hasPermission
 }) {
   return (
     <div className="space-y-6">
       {/* Formularz dodawania/edycji */}
+      {hasPermission('packaging_edit') && (
       <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
         <h3 className={`text-lg font-medium mb-4 ${themeClasses.text.primary}`}>
           {editingType ? 'Edytuj typ opakowania' : 'Dodaj nowy typ opakowania'}
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
           <div>
             <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
               Nazwa opakowania
@@ -516,6 +555,20 @@ function TypesTab({
 
           <div>
             <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Waga (kg)
+            </label>
+            <input
+              type="number"
+              value={typeForm.weight}
+              onChange={(e) => setTypeForm({ ...typeForm, weight: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="0"
+              step="0.01"
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
               Koszt (€)
             </label>
             <input
@@ -546,6 +599,7 @@ function TypesTab({
           )}
         </div>
       </div>
+      )}
 
       {/* Lista typów */}
       <div className="space-y-3">
@@ -566,29 +620,31 @@ function TypesTab({
                   <div className="flex-1">
                     <h4 className={`font-medium ${themeClasses.text.primary}`}>{type.name}</h4>
                     <p className={`text-sm ${themeClasses.text.secondary} mt-1`}>
-                      Wymiary: {type.dimensions.length} × {type.dimensions.width} × {type.dimensions.height} mm
+                      Wymiary: {type.dimensions.length} × {type.dimensions.width} × {type.dimensions.height} mm | Waga: {(type.weight || 0).toFixed(2)} kg
                     </p>
                     <p className={`text-sm ${themeClasses.text.secondary}`}>
                       Objętość: {type.volume.toFixed(4)} m³ | Koszt: €{type.cost.toFixed(2)}
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditType(type)}
-                      className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
-                      title="Edytuj"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteType(type.id)}
-                      className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
-                      title="Usuń"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {hasPermission('packaging_edit') && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditType(type)}
+                        className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
+                        title="Edytuj"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteType(type.id)}
+                        className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
+                        title="Usuń"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -612,20 +668,22 @@ function CompositionsTab({
   handleDeleteComposition,
   handleCancelCompositionEdit,
   themeClasses,
-  darkMode
+  darkMode,
+  hasPermission
 }) {
   const compositions = state.compositions || [];
 
   return (
     <div className="space-y-6">
       {/* Formularz dodawania/edycji */}
+      {hasPermission('packaging_edit') && (
       <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
         <h3 className={`text-lg font-medium mb-4 ${themeClasses.text.primary}`}>
           {editingComposition ? 'Edytuj kompozycję pakowania' : 'Dodaj nową kompozycję pakowania'}
         </h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="lg:col-span-2">
             <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
               Nazwa kompozycji
             </label>
@@ -638,7 +696,7 @@ function CompositionsTab({
             />
           </div>
 
-          <div>
+          <div className="lg:col-span-2">
             <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
               Typ opakowania
             </label>
@@ -672,7 +730,21 @@ function CompositionsTab({
 
           <div>
             <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-              Palet na miejsce paletowe
+              Ilość warstw
+            </label>
+            <input
+              type="number"
+              value={compositionForm.layers}
+              onChange={(e) => setCompositionForm({ ...compositionForm, layers: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="1"
+              step="1"
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Palet na miejsce
             </label>
             <input
               type="number"
@@ -697,6 +769,34 @@ function CompositionsTab({
               step="0.01"
             />
           </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Waga palety (kg)
+            </label>
+            <input
+              type="number"
+              value={compositionForm.standardPalletWeight}
+              onChange={(e) => setCompositionForm({ ...compositionForm, standardPalletWeight: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="0"
+              step="0.1"
+            />
+          </div>
+
+          <div>
+            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+              Wysokość palety (mm)
+            </label>
+            <input
+              type="number"
+              value={compositionForm.standardPalletHeight}
+              onChange={(e) => setCompositionForm({ ...compositionForm, standardPalletHeight: e.target.value })}
+              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+              min="0"
+              step="1"
+            />
+          </div>
         </div>
 
         <div className="flex gap-2 mt-4">
@@ -716,6 +816,7 @@ function CompositionsTab({
           )}
         </div>
       </div>
+      )}
 
       {/* Lista kompozycji */}
       <div className="space-y-3">
@@ -728,7 +829,8 @@ function CompositionsTab({
         ) : (
           <div className="space-y-2">
             {compositions.map((comp) => {
-              const packagingType = state.packagingTypes.find(t => t.id === comp.packagingTypeId);
+              // Use loose equality to handle both string and number IDs
+              const packagingType = state.packagingTypes.find(t => t.id == comp.packagingTypeId);
 
               return (
                 <div
@@ -742,29 +844,36 @@ function CompositionsTab({
                         Opakowanie: {packagingType?.name || 'NIEZNANE'} (€{packagingType?.cost.toFixed(2)})
                       </p>
                       <p className={`text-sm ${themeClasses.text.secondary}`}>
-                        {comp.packagesPerPallet} opak/pal. | {comp.palletsPerSpace} pal/miejsce | Koszt palety: €{comp.palletCost.toFixed(2)}
+                        {comp.packagesPerPallet} opak/pal. | {comp.layers || 'N/A'} warstw | {comp.palletsPerSpace} pal/miejsce | Paleta: €{comp.palletCost.toFixed(2)}
                       </p>
+                      {comp.totalWeight && comp.totalHeight && (
+                        <p className={`text-sm ${themeClasses.text.secondary}`}>
+                          Waga miejsca: {comp.totalWeight.toFixed(2)} kg | Wysokość: {comp.totalHeight.toFixed(0)} mm
+                        </p>
+                      )}
                       <p className={`text-sm font-medium mt-1 ${darkMode ? 'text-green-400' : 'text-green-600'}`}>
                         Cena kompozycji: €{comp.compositionCost.toFixed(2)}
                       </p>
                     </div>
 
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleEditComposition(comp)}
-                        className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
-                        title="Edytuj"
-                      >
-                        <Edit2 size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDeleteComposition(comp.id)}
-                        className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
-                        title="Usuń"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    {hasPermission('packaging_edit') && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleEditComposition(comp)}
+                          className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
+                          title="Edytuj"
+                        >
+                          <Edit2 size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteComposition(comp.id)}
+                          className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
+                          title="Usuń"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               );

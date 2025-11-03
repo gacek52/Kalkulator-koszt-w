@@ -17,7 +17,8 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
     hoursPerShift: '8',
     workDaysPerWeek: '5',
     holidaysPerYear: '10',
-    efficiency: '85'
+    efficiency: '85',
+    costPer8h: '0'
   });
 
   // Dodaj/edytuj stanowisko
@@ -34,7 +35,8 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
       hoursPerShift: parseInt(workstationForm.hoursPerShift) || 8,
       workDaysPerWeek: parseInt(workstationForm.workDaysPerWeek) || 5,
       holidaysPerYear: parseInt(workstationForm.holidaysPerYear) || 10,
-      efficiency: parseFloat(workstationForm.efficiency) / 100 || 0.85
+      efficiency: parseFloat(workstationForm.efficiency) / 100 || 0.85,
+      costPer8h: parseFloat(workstationForm.costPer8h) || 0
     };
 
     if (editingWorkstation) {
@@ -51,7 +53,8 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
       hoursPerShift: '8',
       workDaysPerWeek: '5',
       holidaysPerYear: '10',
-      efficiency: '85'
+      efficiency: '85',
+      costPer8h: '0'
     });
     setEditingWorkstation(null);
   };
@@ -66,7 +69,8 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
       hoursPerShift: ws.hoursPerShift.toString(),
       workDaysPerWeek: ws.workDaysPerWeek.toString(),
       holidaysPerYear: ws.holidaysPerYear.toString(),
-      efficiency: (ws.efficiency * 100).toString()
+      efficiency: (ws.efficiency * 100).toString(),
+      costPer8h: (ws.costPer8h || 0).toString()
     });
   };
 
@@ -87,7 +91,8 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
       hoursPerShift: '8',
       workDaysPerWeek: '5',
       holidaysPerYear: '10',
-      efficiency: '85'
+      efficiency: '85',
+      costPer8h: '0'
     });
   };
 
@@ -267,6 +272,25 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
                   </div>
                 </div>
 
+                {/* Koszt stanowiska */}
+                <div>
+                  <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
+                    💰 Koszt stanowiska (€/8h)
+                  </label>
+                  <input
+                    type="number"
+                    value={workstationForm.costPer8h}
+                    onChange={(e) => setWorkstationForm({ ...workstationForm, costPer8h: e.target.value })}
+                    className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                    min="0"
+                    step="0.01"
+                    placeholder="np. 120.00"
+                  />
+                  <p className={`text-xs mt-1 ${themeClasses.text.secondary}`}>
+                    Koszt pracy stanowiska za 8-godzinną zmianę (używany w kalkulacjach)
+                  </p>
+                </div>
+
                 {/* Parametry pracy */}
                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   <div>
@@ -416,7 +440,13 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
                               </span>
                             </div>
 
-                            <div className="mt-2 grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
+                            <div className="mt-2 grid grid-cols-2 md:grid-cols-6 gap-3 text-sm">
+                              <div>
+                                <span className={themeClasses.text.secondary}>💰 Koszt:</span>
+                                <div className={`font-mono font-semibold text-green-600 dark:text-green-400`}>
+                                  {(ws.costPer8h || 0).toFixed(2)} €/8h
+                                </div>
+                              </div>
                               <div>
                                 <span className={themeClasses.text.secondary}>Zmiany:</span>
                                 <div className={`font-mono ${themeClasses.text.primary}`}>{ws.shiftsPerDay} × {ws.hoursPerShift}h</div>

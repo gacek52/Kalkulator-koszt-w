@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Plus, Trash2, ChevronDown, ChevronUp, Copy } from 'lucide-react';
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
 import { useWorkstation } from '../../context/WorkstationContext';
+import { WorkstationFields } from './WorkstationFields';
 
 /**
  * Pola wejściowe dla trybu kalkulacji MULTILAYER
@@ -636,7 +637,11 @@ export function MultilayerModeFields({ item, tab, onUpdate, themeClasses, darkMo
                         </div>
                         <div>
                           <span className={themeClasses.text.secondary}>Powierzchnia brutto:</span>
-                          <span className="ml-1 font-mono">
+                          <span className={`ml-1 font-mono ${
+                            layer.surfaceBrutto && layer.surfaceNetto && parseFloat(layer.surfaceBrutto) < parseFloat(layer.surfaceNetto)
+                              ? 'text-red-600 dark:text-red-400 font-semibold'
+                              : ''
+                          }`}>
                             {layer.surfaceBrutto ? `${parseFloat(layer.surfaceBrutto).toFixed(4)} m²` : '-'}
                           </span>
                         </div>
@@ -650,7 +655,11 @@ export function MultilayerModeFields({ item, tab, onUpdate, themeClasses, darkMo
                         </div>
                         <div>
                           <span className={themeClasses.text.secondary}>Waga brutto:</span>
-                          <span className="ml-1 font-mono">
+                          <span className={`ml-1 font-mono ${
+                            layer.weightBrutto && layer.weightNetto && parseFloat(layer.weightBrutto) < parseFloat(layer.weightNetto)
+                              ? 'text-red-600 dark:text-red-400 font-semibold'
+                              : ''
+                          }`}>
                             {layer.weightBrutto ? `${parseFloat(layer.weightBrutto).toFixed(0)} g` : '-'}
                           </span>
                         </div>
@@ -685,56 +694,13 @@ export function MultilayerModeFields({ item, tab, onUpdate, themeClasses, darkMo
         </div>
       )}
 
-      {/* Stanowisko produkcyjne */}
-      <div className={`p-4 rounded-lg border ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
-        <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
-          🏭 Stanowisko produkcyjne
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-              Stanowisko
-            </label>
-            <select
-              value={item.workstation?.id || ''}
-              onChange={(e) => onUpdate({
-                workstation: {
-                  ...item.workstation,
-                  id: e.target.value ? parseInt(e.target.value) : null
-                }
-              })}
-              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-            >
-              <option value="">-- Wybierz stanowisko --</option>
-              {workstationState.workstations.map(ws => (
-                <option key={ws.id} value={ws.id}>
-                  {ws.name} ({ws.type})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-              Wydajność (szt/8h)
-            </label>
-            <input
-              type="number"
-              value={item.workstation?.efficiency || ''}
-              onChange={(e) => onUpdate({
-                workstation: {
-                  ...item.workstation,
-                  efficiency: e.target.value
-                }
-              })}
-              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-              min="0"
-              step="1"
-              placeholder="np. 100"
-            />
-          </div>
-        </div>
-      </div>
+      {/* Stanowiska produkcyjne */}
+      <WorkstationFields
+        item={item}
+        onUpdate={onUpdate}
+        themeClasses={themeClasses}
+        darkMode={darkMode}
+      />
     </div>
   );
 }

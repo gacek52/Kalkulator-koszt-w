@@ -23,11 +23,26 @@ async function authenticate(req, res, next) {
     // Weryfikuj token
     const decodedToken = await admin.auth().verifyIdToken(token);
 
+    // Pobierz dane użytkownika z Firestore (w tym rolę)
+    const db = admin.firestore();
+    const userDoc = await db.collection('users').doc(decodedToken.uid).get();
+
+    let role = 'user';
+    let displayName = decodedToken.name || decodedToken.email || 'Unknown';
+
+    if (userDoc.exists) {
+      const userData = userDoc.data();
+      role = userData.role || 'user';
+      displayName = userData.displayName || displayName;
+    }
+
     // Dodaj użytkownika do request
     req.user = {
       uid: decodedToken.uid,
       email: decodedToken.email,
-      emailVerified: decodedToken.email_verified
+      emailVerified: decodedToken.email_verified,
+      displayName: displayName,
+      role: role
     };
 
     next();
@@ -53,10 +68,25 @@ async function optionalAuth(req, res, next) {
       const token = authHeader.split('Bearer ')[1];
       const decodedToken = await admin.auth().verifyIdToken(token);
 
+      // Pobierz dane użytkownika z Firestore (w tym rolę)
+      const db = admin.firestore();
+      const userDoc = await db.collection('users').doc(decodedToken.uid).get();
+
+      let role = 'user';
+      let displayName = decodedToken.name || decodedToken.email || 'Unknown';
+
+      if (userDoc.exists) {
+        const userData = userDoc.data();
+        role = userData.role || 'user';
+        displayName = userData.displayName || displayName;
+      }
+
       req.user = {
         uid: decodedToken.uid,
         email: decodedToken.email,
-        emailVerified: decodedToken.email_verified
+        emailVerified: decodedToken.email_verified,
+        displayName: displayName,
+        role: role
       };
     }
 

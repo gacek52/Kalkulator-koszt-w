@@ -29,7 +29,9 @@ export function PackagingCalculation({
         name: 'Niestandardowa',
         cost: parseFloat(item.packaging.customPrice) || 0,
         packagesPerPallet: 0,
-        palletsPerSpace: 0
+        palletsPerSpace: 0,
+        standardPalletWeight: 0,
+        totalWeight: 0
       };
     }
 
@@ -41,11 +43,19 @@ export function PackagingCalculation({
 
     if (!composition) return null;
 
+    // Znajdź typ opakowania aby pobrać wagę kartonu
+    const packagingType = packagingState.types?.find(
+      t => t.id === composition.packagingTypeId
+    );
+
     return {
       name: composition.name,
       cost: composition.compositionCost,
       packagesPerPallet: composition.packagesPerPallet,
-      palletsPerSpace: composition.palletsPerSpace
+      palletsPerSpace: composition.palletsPerSpace,
+      standardPalletWeight: composition.standardPalletWeight || 0,
+      totalWeight: composition.totalWeight || 0,
+      cartonWeight: packagingType?.weight || 0
     };
   };
 
@@ -67,7 +77,9 @@ export function PackagingCalculation({
         partsPerPallet: 0,
         partsPerSpace: 0,
         costPerPart: compositionData.cost / partsInBox,
-        compositionCost: compositionData.cost
+        compositionCost: compositionData.cost,
+        cartonWeight: 0,
+        palletWeight: 0
       };
     }
 
@@ -75,12 +87,25 @@ export function PackagingCalculation({
     const partsPerSpace = partsPerPallet * compositionData.palletsPerSpace;
     const costPerPart = compositionData.cost / partsPerSpace;
 
+    // Oblicz wagi
+    // Waga detalu (jeśli dostępna w item.results)
+    const detailWeight = item.results?.nettoWeight || item.results?.bruttoWeight || 0;
+
+    // Waga kartonu = waga opakowania + (waga detalu × ilość detali w kartonie)
+    const cartonWeight = compositionData.cartonWeight + (detailWeight * partsInBox / 1000); // detailWeight w gramach, cartonWeight w kg
+
+    // Waga palety = waga standardowej palety + (waga kartonu × ilość kartonów na palecie)
+    const palletWeight = compositionData.standardPalletWeight + (cartonWeight * compositionData.packagesPerPallet);
+
     return {
       partsInBox,
       partsPerPallet,
       partsPerSpace,
       costPerPart,
-      compositionCost: compositionData.cost
+      compositionCost: compositionData.cost,
+      cartonWeight: cartonWeight,
+      palletWeight: palletWeight,
+      detailWeight: detailWeight
     };
   };
 
@@ -257,6 +282,20 @@ export function PackagingCalculation({
                     <span>Części na miejsce paletowe:</span>
                     <span className="font-medium">{metrics.partsPerSpace} szt.</span>
                   </div>
+                  {metrics.detailWeight > 0 && (
+                    <>
+                      <div className={`flex justify-between pt-2 border-t ${
+                        darkMode ? 'border-gray-600' : 'border-gray-300'
+                      } ${themeClasses.text.secondary}`}>
+                        <span>Waga kartonu:</span>
+                        <span className="font-medium">{metrics.cartonWeight.toFixed(2)} kg</span>
+                      </div>
+                      <div className={`flex justify-between ${themeClasses.text.secondary}`}>
+                        <span>Waga palety:</span>
+                        <span className="font-medium">{metrics.palletWeight.toFixed(2)} kg</span>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
               <div className={`flex justify-between pt-2 border-t ${
@@ -264,6 +303,46 @@ export function PackagingCalculation({
               } ${themeClasses.text.primary}`}>
                 <span className="font-semibold">Koszt pakowania na detal:</span>
                 <span className="font-semibold">{metrics.costPerPart.toFixed(4)} €</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Metryki transportu - roczne zapotrzebowanie */}
+        {metrics && compositionData && item.packaging.compositionId !== 'custom' &&
+         item.annualVolume && parseFloat(item.annualVolume) > 0 && metrics.partsPerSpace > 0 && (
+          <div className={`mt-3 p-3 rounded-lg ${
+            darkMode ? 'bg-blue-900/20' : 'bg-blue-50'
+          }`}>
+            <div className={`text-xs font-semibold mb-2 ${
+              darkMode ? 'text-blue-400' : 'text-blue-800'
+            }`}>
+              Metryki transportu (rocznie)
+            </div>
+            <div className="space-y-1 text-xs">
+              <div className={`flex justify-between ${
+                darkMode ? 'text-blue-300' : 'text-blue-700'
+              }`}>
+                <span>Kartonów rocznie:</span>
+                <span className="font-medium">
+                  {Math.ceil(parseFloat(item.annualVolume) / metrics.partsInBox)} szt.
+                </span>
+              </div>
+              <div className={`flex justify-between ${
+                darkMode ? 'text-blue-300' : 'text-blue-700'
+              }`}>
+                <span>Palet rocznie:</span>
+                <span className="font-medium">
+                  {Math.ceil(parseFloat(item.annualVolume) / metrics.partsPerPallet)} szt.
+                </span>
+              </div>
+              <div className={`flex justify-between pt-2 border-t ${
+                darkMode ? 'border-blue-700' : 'border-blue-200'
+              } ${darkMode ? 'text-blue-300' : 'text-blue-800'}`}>
+                <span className="font-semibold">Miejsc paletowych rocznie:</span>
+                <span className="font-semibold">
+                  {Math.ceil(parseFloat(item.annualVolume) / metrics.partsPerSpace)} szt.
+                </span>
               </div>
             </div>
           </div>

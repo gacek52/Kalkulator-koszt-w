@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { clientsApi } from '../services/api';
 import { useAuth } from './AuthContext';
+import { useRole } from './RoleContext';
 
 /**
  * Kontekst zarządzania klientami
@@ -37,7 +38,7 @@ function clientReducer(state, action) {
         ...state,
         clients: state.clients.map(client =>
           client.id === action.payload.id
-            ? action.payload.updates
+            ? { ...client, ...action.payload.updates }
             : client
         )
       };
@@ -127,7 +128,8 @@ const ClientContext = createContext();
 
 // Provider
 export function ClientProvider({ children }) {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser } = useAuth();
+  const { isAdminOrSuper } = useRole();
   const [state, dispatch] = useReducer(clientReducer, initialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -220,7 +222,7 @@ export function ClientProvider({ children }) {
       }
 
       // ADMIN - zapisz bezpośrednio do Firestore
-      if (isAdmin) {
+      if (isAdminOrSuper()) {
         try {
           const response = await clientsApi.create(clientData);
           if (response.success) {
@@ -252,7 +254,7 @@ export function ClientProvider({ children }) {
 
     updateClient: async (id, updates) => {
       // ADMIN - aktualizuj w Firestore (tylko jeśli nie jest lokalny)
-      if (isAdmin && !id.toString().startsWith('local-')) {
+      if (isAdminOrSuper() && !id.toString().startsWith('local-')) {
         try {
           const response = await clientsApi.update(id, updates);
           if (response.success) {
@@ -279,7 +281,7 @@ export function ClientProvider({ children }) {
       }
 
       // ADMIN - usuń z Firestore (tylko jeśli nie jest lokalny)
-      if (isAdmin && !id.toString().startsWith('local-')) {
+      if (isAdminOrSuper() && !id.toString().startsWith('local-')) {
         try {
           const response = await clientsApi.delete(id);
           if (response.success) {
@@ -322,38 +324,33 @@ export function ClientProvider({ children }) {
 
     // Manualne pchnięcie danych do Firestore (tylko dla admin)
     pushToFirestore: async () => {
-      if (!isAdmin) {
+      if (!isAdminOrSuper()) {
         throw new Error('Tylko admin może zapisywać do Firestore');
       }
 
       try {
         // Filtruj tylko klientów globalnych (bez prefix 'local-')
-        const globalClients = state.clients.filter(client => !client.id.toString().startsWith('local-'));
+        // oraz wykluczających domyślnych klientów 1-7
+        const globalClients = state.clients.filter(client => {
+          const clientId = client.id.toString();
+          // Wyklucz lokalne klienty
+          if (clientId.startsWith('local-')) return false;
+          // Wyklucz domyślnych klientów 1-7
+          if (['1', '2', '3', '4', '5', '6', '7'].includes(clientId)) return false;
+          return true;
+        });
 
-        // Pobierz istniejące klienty z bazy
-        const response = await clientsApi.getAll();
-        const existingClients = response.success && response.data ? response.data : [];
-        const existingIds = new Set(existingClients.map(c => c.id));
+        let count = 0;
 
-        let created = 0;
-        let updated = 0;
-
-        // Zapisz każdego klienta
+        // Zapisz każdego klienta - używamy create() z ID, które nadpisuje jeśli istnieje
         for (const client of globalClients) {
-          if (existingIds.has(client.id)) {
-            // Klient już istnieje - aktualizuj
-            await clientsApi.update(client.id, client);
-            updated++;
-          } else {
-            // Nowy klient - utwórz
-            await clientsApi.create(client);
-            created++;
-          }
+          await clientsApi.create({ ...client, id: client.id });
+          count++;
         }
 
         return {
           success: true,
-          message: `Zapisano ${created + updated} klientów do Firestore (${created} nowych, ${updated} zaktualizowanych)`
+          message: `Zsynchronizowano ${count} klientów`
         };
       } catch (error) {
         console.error('Błąd podczas pushowania klientów:', error);

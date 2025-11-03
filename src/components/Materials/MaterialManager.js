@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { Layers, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Lock, Cloud } from 'lucide-react';
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
 import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../context/RoleContext';
 
 /**
  * Główny komponent zarządzania materiałami
  */
 export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClasses }) {
   const { state, actions } = useMaterial();
-  const { isAdmin } = useAuth();
+  const { currentUser } = useAuth();
+  const { hasPermission } = useRole();
   const [activeTab, setActiveTab] = useState('types'); // 'types' or 'compositions'
   const [editingType, setEditingType] = useState(null);
   const [editingComposition, setEditingComposition] = useState(null);
@@ -39,8 +41,8 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
 
   // Dodaj/edytuj typ materiału
   const handleSaveType = () => {
-    if (!isAdmin) {
-      alert('Tylko administrator może dodawać/edytować materiały');
+    if (!hasPermission('materials_edit')) {
+      alert('Nie masz uprawnień do edycji materiałów');
       return;
     }
 
@@ -305,10 +307,10 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
     reader.readAsText(file);
   };
 
-  // Push do Firestore (tylko admin)
+  // Push do Firestore
   const handlePushToFirestore = async () => {
-    if (!isAdmin) {
-      alert('Tylko administrator może synchronizować dane z bazą.');
+    if (!hasPermission('materials_sync')) {
+      alert('Nie masz uprawnień do synchronizacji materiałów z bazą.');
       return;
     }
 
@@ -363,7 +365,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
-              {isAdmin && (
+              {hasPermission('materials_sync') && (
                 <button
                   onClick={handlePushToFirestore}
                   disabled={isPushing}
@@ -375,7 +377,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
                   title="Synchronizuj materiały z bazą Firestore"
                 >
                   <Cloud size={16} />
-                  {isPushing ? 'Synchronizuję...' : 'Push to Firestore'}
+                  {isPushing ? 'Synchronizuję...' : 'Push to Database'}
                 </button>
               )}
 
@@ -481,9 +483,11 @@ function TypesTab({
   themeClasses,
   darkMode
 }) {
+  const { hasPermission } = useRole();
   return (
     <div className="space-y-6">
       {/* Formularz dodawania/edycji */}
+      {hasPermission('materials_edit') && (
       <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
         <h3 className={`text-lg font-medium mb-4 ${themeClasses.text.primary}`}>
           {editingType ? 'Edytuj typ materiału' : 'Dodaj nowy typ materiału'}
@@ -557,6 +561,7 @@ function TypesTab({
           )}
         </div>
       </div>
+      )}
 
       {/* Lista typów */}
       <div className="space-y-3">
@@ -588,22 +593,24 @@ function TypesTab({
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditType(type)}
-                      className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
-                      title="Edytuj"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteType(type.id)}
-                      className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
-                      title="Usuń"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {hasPermission('materials_edit') && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditType(type)}
+                        className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
+                        title="Edytuj"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteType(type.id)}
+                        className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
+                        title="Usuń"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -634,11 +641,13 @@ function CompositionsTab({
   themeClasses,
   darkMode
 }) {
+  const { hasPermission } = useRole();
   const compositionsWithDetails = materialUtils.getAllCompositionsWithDetails(state);
 
   return (
     <div className="space-y-6">
       {/* Przycisk szybkiego tworzenia */}
+      {hasPermission('materials_edit') && (
       <div className="flex justify-end">
         <button
           onClick={() => setShowBulkHelper(!showBulkHelper)}
@@ -650,9 +659,10 @@ function CompositionsTab({
           {showBulkHelper ? 'Ukryj masowe tworzenie' : 'Szybkie tworzenie kombinacji'}
         </button>
       </div>
+      )}
 
       {/* Helper masowego tworzenia */}
-      {showBulkHelper && (
+      {hasPermission('materials_edit') && showBulkHelper && (
         <div className={`border-2 rounded-lg p-4 ${darkMode ? 'border-blue-600 bg-blue-900/20' : 'border-blue-400 bg-blue-50'}`}>
           <h3 className={`text-lg font-medium mb-3 ${themeClasses.text.primary}`}>
             🚀 Szybkie tworzenie wielu kombinacji
@@ -743,6 +753,7 @@ function CompositionsTab({
       )}
 
       {/* Formularz dodawania/edycji */}
+      {hasPermission('materials_edit') && (
       <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
         <h3 className={`text-lg font-medium mb-4 ${themeClasses.text.primary}`}>
           {editingComposition ? 'Edytuj kombinację materiału' : 'Dodaj nową kombinację materiału'}
@@ -843,6 +854,7 @@ function CompositionsTab({
           )}
         </div>
       </div>
+      )}
 
       {/* Lista kombinacji */}
       <div className="space-y-3">
@@ -879,22 +891,24 @@ function CompositionsTab({
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditComposition(comp)}
-                      className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
-                      title="Edytuj"
-                    >
-                      <Edit2 size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteComposition(comp.id)}
-                      className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
-                      title="Usuń"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  {hasPermission('materials_edit') && (
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleEditComposition(comp)}
+                        className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
+                        title="Edytuj"
+                      >
+                        <Edit2 size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteComposition(comp.id)}
+                        className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
+                        title="Usuń"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

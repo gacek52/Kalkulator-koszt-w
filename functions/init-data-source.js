@@ -1,85 +1,8 @@
 // ============================================================================
 // DOMYŚLNI KLIENCI
 // ============================================================================
-const defaultClients = [
-  {
-    id: '1',
-    name: 'Tenneco Polska',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Rybnik',
-    country: 'Polska',
-    notes: ''
-  },
-  {
-    id: '2',
-    name: 'Tenneco Edenkoben',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Edenkoben',
-    country: 'Niemcy',
-    notes: ''
-  },
-  {
-    id: '3',
-    name: 'Tenneco Edenkoben Prototypy',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Edenkoben',
-    country: 'Niemcy',
-    notes: ''
-  },
-  {
-    id: '4',
-    name: 'Tenneco Zwickau',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Zwickau',
-    country: 'Niemcy',
-    notes: ''
-  },
-  {
-    id: '5',
-    name: 'Purem Tondela',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Tondela',
-    country: 'Portugalia',
-    notes: ''
-  },
-  {
-    id: '6',
-    name: 'Purem Rakovnik',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Rakovnik',
-    country: 'Czechy',
-    notes: ''
-  },
-  {
-    id: '7',
-    name: 'Purem Neunkirchen',
-    code: '',
-    nip: '',
-    address: '',
-    postalCode: '',
-    city: 'Neunkirchen',
-    country: 'Niemcy',
-    notes: ''
-  }
-];
+// Pusta tablica - klienci dodawani przez użytkowników
+const defaultClients = [];
 
 // ============================================================================
 // TYPY MATERIAŁÓW

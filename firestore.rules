@@ -12,64 +12,124 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    function isSuperAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == 'gacek52@gmail.com' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'super-admin'
+      );
+    }
+
     function isAdmin() {
       return isAuthenticated() &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Users collection - każdy może czytać swój dokument, tylko sam użytkownik może go modyfikować
+    function isAdminOrSuper() {
+      return isAdmin() || isSuperAdmin();
+    }
+
+    // Sprawdź czy użytkownik ma konkretne uprawnienie w swojej roli
+    function hasPermission(permission) {
+      return isAuthenticated() && (
+        request.auth.token.email == 'gacek52@gmail.com' ||
+        get(/databases/$(database)/documents/roles/$(get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role)).data.permissions[permission] == true
+      );
+    }
+
+    // Users collection
     match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow write: if isOwner(userId);
+      allow read: if hasPermission('users_view');
+      allow create: if hasPermission('users_create') || isOwner(userId);
+      allow update: if isOwner(userId) || hasPermission('users_edit');
+      allow delete: if hasPermission('users_delete');
+    }
+
+    // Roles collection - zarządzanie rolami
+    match /roles/{roleId} {
+      allow read: if isAuthenticated(); // Wszyscy mogą czytać role (potrzebne do hasPermission())
+      allow create, update, delete: if hasPermission('roles_manage');
     }
 
     // Catalog collection (metadata kalkulacji)
     match /catalog/{calculationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() &&
-                             (resource.data.ownerId == request.auth.uid ||
-                              resource.data.sharedAccess == true ||
-                              isAdmin());
+      allow read: if hasPermission('catalog_view_all') ||
+                    (hasPermission('catalog_view_own') && resource.data.ownerId == request.auth.uid);
+      allow create: if hasPermission('catalog_edit_own');
+      allow update: if hasPermission('catalog_edit_all') ||
+                      (hasPermission('catalog_edit_own') && resource.data.ownerId == request.auth.uid) ||
+                      resource.data.sharedAccess == true;
+      allow delete: if hasPermission('catalog_edit_all') ||
+                      (hasPermission('catalog_edit_own') && resource.data.ownerId == request.auth.uid);
     }
 
     // Calculations collection (pełne dane kalkulacji)
     match /calculations/{calculationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update, delete: if isAuthenticated() &&
-                             (get(/databases/$(database)/documents/catalog/$(calculationId)).data.ownerId == request.auth.uid ||
-                              get(/databases/$(database)/documents/catalog/$(calculationId)).data.sharedAccess == true ||
-                              isAdmin());
+      allow read: if hasPermission('calculations_view_all') ||
+                    (hasPermission('calculations_view_own') &&
+                     get(/databases/$(database)/documents/catalog/$(calculationId)).data.ownerId == request.auth.uid);
+      allow create: if hasPermission('calculations_edit_own');
+      allow update: if hasPermission('calculations_edit_all') ||
+                      (hasPermission('calculations_edit_own') &&
+                       get(/databases/$(database)/documents/catalog/$(calculationId)).data.ownerId == request.auth.uid) ||
+                      get(/databases/$(database)/documents/catalog/$(calculationId)).data.sharedAccess == true;
+      allow delete: if hasPermission('calculations_delete_all') ||
+                      (hasPermission('calculations_delete_own') &&
+                       get(/databases/$(database)/documents/catalog/$(calculationId)).data.ownerId == request.auth.uid);
     }
 
     // Clients collection
     match /clients/{clientId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Wszyscy zalogowani mogą zarządzać klientami
+      allow read: if hasPermission('clients_view_all') ||
+                    (hasPermission('clients_view_own') && resource.data.ownerId == request.auth.uid);
+      allow create: if hasPermission('clients_edit_own');
+      allow update: if hasPermission('clients_edit_all') ||
+                      (hasPermission('clients_edit_own') && resource.data.ownerId == request.auth.uid);
+      allow delete: if hasPermission('clients_delete');
     }
 
     // Materials collection
     match /materials/{materialId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Wszyscy zalogowani mogą zarządzać materiałami
+      allow read: if hasPermission('materials_view');
+      allow create, update: if hasPermission('materials_edit');
+      allow delete: if hasPermission('materials_edit');
     }
 
     // Packaging collection
     match /packaging/{packagingId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated(); // Wszyscy zalogowani mogą zarządzać opakowaniami
+      allow read: if hasPermission('packaging_view');
+      allow create, update: if hasPermission('packaging_edit');
+      allow delete: if hasPermission('packaging_edit');
+    }
+
+    // Transport collection
+    match /transport/{transportId} {
+      allow read: if hasPermission('transport_view');
+      allow create, update: if hasPermission('transport_edit');
+      allow delete: if hasPermission('transport_edit');
     }
 
     // Client Manual collection
     match /client-manual/{manualId} {
       allow read: if isAuthenticated();
-      allow write: if isAdmin(); // Tylko admini mogą modyfikować instrukcje
+      allow write: if hasPermission('settings_edit');
+    }
+
+    // Workstations collection - globalne stanowiska produkcyjne
+    match /workstations/{workstationId} {
+      allow read: if hasPermission('workstations_view');
+      allow create, update, delete: if hasPermission('workstations_edit');
     }
 
     // Sessions collection - każdy użytkownik ma dostęp tylko do swojej sesji
     match /sessions/{userId} {
       allow read, write: if isOwner(userId);
+    }
+
+    // WorkstationAssignments collection - przypisania stanowisk do elementów kalkulacji
+    // Używane przez dashboard capacity do obliczenia zajętości stanowisk
+    match /workstationAssignments/{assignmentId} {
+      allow read: if isAuthenticated(); // Wszyscy mogą czytać (dashboard)
+      allow write: if isAuthenticated(); // Wszyscy mogą zapisywać swoje przypisania
     }
   }
 }

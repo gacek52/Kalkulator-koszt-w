@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { packagingTypesApi, packagingCompositionsApi } from '../services/api';
 import { useAuth } from './AuthContext';
+import { useRole } from './RoleContext';
 
 // Akcje dla reducer'a
 const PACKAGING_ACTIONS = {
@@ -153,7 +154,8 @@ const PackagingContext = createContext();
 
 // Provider component
 export function PackagingProvider({ children }) {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser } = useAuth();
+  const { isAdminOrSuper } = useRole();
   const [state, dispatch] = useReducer(packagingReducer, initialPackagingState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -296,55 +298,27 @@ export function PackagingProvider({ children }) {
 
     // Manualne pchnięcie danych do Firestore (tylko dla admin)
     pushToFirestore: async () => {
-      if (!isAdmin) {
+      if (!isAdminOrSuper()) {
         throw new Error('Tylko admin może zapisywać do Firestore');
       }
 
       try {
-        // Pobierz istniejące dane z Firestore
-        const [existingTypesResponse, existingCompositionsResponse] = await Promise.all([
-          packagingTypesApi.getAll(),
-          packagingCompositionsApi.getAll()
-        ]);
+        let typesCount = 0;
+        let compositionsCount = 0;
 
-        const existingTypes = existingTypesResponse.success ? (existingTypesResponse.data || []) : [];
-        const existingCompositions = existingCompositionsResponse.success ? (existingCompositionsResponse.data || []) : [];
-
-        const existingTypeIds = new Set(existingTypes.map(t => t.id));
-        const existingCompositionIds = new Set(existingCompositions.map(c => c.id));
-
-        let typesCreated = 0;
-        let typesUpdated = 0;
-        let compositionsCreated = 0;
-        let compositionsUpdated = 0;
-
-        // Zapisz typy opakowań
+        // Zapisz typy opakowań - używamy create() z ID, które nadpisuje jeśli istnieje
         for (const packagingType of state.packagingTypes) {
-          if (existingTypeIds.has(packagingType.id)) {
-            // Aktualizuj istniejący
-            await packagingTypesApi.update(packagingType.id, packagingType);
-            typesUpdated++;
-          } else {
-            // Utwórz nowy
-            await packagingTypesApi.create({ ...packagingType, id: packagingType.id });
-            typesCreated++;
-          }
+          await packagingTypesApi.create({ ...packagingType, id: packagingType.id });
+          typesCount++;
         }
 
-        // Zapisz kompozycje opakowań
+        // Zapisz kompozycje opakowań - używamy create() z ID, które nadpisuje jeśli istnieje
         for (const composition of state.compositions) {
-          if (existingCompositionIds.has(composition.id)) {
-            // Aktualizuj istniejący
-            await packagingCompositionsApi.update(composition.id, composition);
-            compositionsUpdated++;
-          } else {
-            // Utwórz nowy
-            await packagingCompositionsApi.create({ ...composition, id: composition.id });
-            compositionsCreated++;
-          }
+          await packagingCompositionsApi.create({ ...composition, id: composition.id });
+          compositionsCount++;
         }
 
-        const message = `Synchronizacja zakończona!\n\nTypy opakowań: ${typesCreated} nowych, ${typesUpdated} zaktualizowanych\nKompozycje: ${compositionsCreated} nowych, ${compositionsUpdated} zaktualizowanych`;
+        const message = `Zsynchronizowano ${typesCount} typów opakowań i ${compositionsCount} kompozycji`;
         return { success: true, message };
       } catch (error) {
         console.error('Błąd podczas pushowania opakowań:', error);

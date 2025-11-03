@@ -1,12 +1,69 @@
-import React, { useState } from 'react';
-import { Settings, X, Plus, Trash2 } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Settings, X, Plus, Trash2, Save } from 'lucide-react';
 import { EditableCurve } from '../Graphs/EditableCurve';
+import { useCurvePresets } from '../../context/CurvePresetContext';
+import { useAuth } from '../../context/AuthContext';
+import { useRole } from '../../context/RoleContext';
 
 /**
  * Panel ustawień z edycją krzywych i procesów
  */
 export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onClose }) {
   const [activeSection, setActiveSection] = useState('curves'); // 'curves' | 'customCurves'
+  const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+  const [presetName, setPresetName] = useState('');
+  const [presetDescription, setPresetDescription] = useState('');
+  const [makeGlobal, setMakeGlobal] = useState(false);
+  const [selectedPresetId, setSelectedPresetId] = useState('custom');
+
+  const { presets, actions: presetActions, loading } = useCurvePresets();
+  const { isAdminOrSuper } = useRole();
+
+  // Funkcja porównująca krzywe (deep equality)
+  const compareCurves = (curves1, curves2) => {
+    return JSON.stringify(curves1) === JSON.stringify(curves2);
+  };
+
+  // Znajdź preset pasujący do obecnych krzywych
+  const findMatchingPreset = () => {
+    if (!presets || presets.length === 0) return null;
+
+    for (const preset of presets) {
+      if (preset.curves) {
+        const editingCurvesMatch = compareCurves(
+          tab.editingCurves,
+          preset.curves.editingCurves
+        );
+        const customCurvesMatch = compareCurves(
+          tab.customCurves || [],
+          preset.curves.customCurves || []
+        );
+
+        if (editingCurvesMatch && customCurvesMatch) {
+          return preset.id;
+        }
+      }
+    }
+
+    return null;
+  };
+
+  // Automatyczne wykrywanie dopasowania do presetu
+  useEffect(() => {
+    const matchingPresetId = findMatchingPreset();
+
+    if (matchingPresetId) {
+      // Znaleziono preset pasujący do obecnych krzywych
+      if (selectedPresetId !== matchingPresetId) {
+        setSelectedPresetId(matchingPresetId);
+      }
+    } else {
+      // Brak dopasowania - ustaw "custom"
+      if (selectedPresetId !== 'custom') {
+        setSelectedPresetId('custom');
+      }
+    }
+  }, [tab.editingCurves, tab.customCurves, presets]);
 
   // Obsługa aktualizacji krzywej pieczenia
   const handleBakingCurveUpdate = (newCurveData) => {
@@ -142,12 +199,76 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
     return 0;
   };
 
+  // Handler do wczytania presetu
+  const handleLoadPreset = async (presetId) => {
+    if (presetId === 'custom') {
+      setSelectedPresetId('custom');
+      return;
+    }
+
+    const preset = presetActions.getById(presetId);
+    if (!preset || !preset.curves) return;
+
+    // Zastosuj krzywe z presetu
+    const updates = {
+      editingCurves: preset.curves.editingCurves || tab.editingCurves,
+      customCurves: preset.curves.customCurves || tab.customCurves
+    };
+
+    // Przelicz wszystkie elementy po zmianie krzywych
+    const updatedItems = tab.items.map(item => {
+      if (item.weight) {
+        const results = calculateItemCost(item, { ...tab, ...updates });
+        return { ...item, results };
+      }
+      return item;
+    });
+
+    actions.updateTab(tabId, { ...updates, items: updatedItems });
+    setSelectedPresetId(presetId);
+  };
+
+  // Handler do zapisania presetu
+  const handleSavePreset = () => {
+    setShowSavePresetModal(true);
+  };
+
+  // Handler do potwierdzenia zapisu presetu
+  const handleSavePresetConfirm = async () => {
+    if (!presetName.trim()) {
+      alert('Wprowadź nazwę presetu');
+      return;
+    }
+
+    try {
+      const presetData = {
+        name: presetName.trim(),
+        description: presetDescription.trim(),
+        curves: {
+          editingCurves: tab.editingCurves,
+          customCurves: tab.customCurves
+        },
+        isGlobal: makeGlobal && isAdminOrSuper()
+      };
+
+      const savedPreset = await presetActions.create(presetData);
+      setSelectedPresetId(savedPreset.id);
+      setShowSavePresetModal(false);
+      setPresetName('');
+      setPresetDescription('');
+      setMakeGlobal(false);
+    } catch (error) {
+      console.error('Error saving preset:', error);
+      alert('Błąd podczas zapisywania presetu: ' + error.message);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className={`${themeClasses.card} rounded-lg border max-w-6xl w-full max-h-[90vh] overflow-hidden flex flex-col`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-600">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3 flex-1">
             <Settings className="w-5 h-5 text-blue-600" />
             <h2 className={`text-xl font-semibold ${themeClasses.text.primary}`}>
               Ustawienia zakładki: {tab.name}
@@ -158,6 +279,34 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
             className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
           >
             <X size={20} />
+          </button>
+        </div>
+
+        {/* Preset selector */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
+          <label className={`text-sm font-medium ${themeClasses.text.secondary} whitespace-nowrap`}>
+            Preset krzywych:
+          </label>
+          <select
+            value={selectedPresetId}
+            onChange={(e) => handleLoadPreset(e.target.value)}
+            className={`flex-1 px-3 py-2 text-sm border rounded-lg ${themeClasses.input}`}
+            disabled={loading}
+          >
+            <option value="custom">(Niestandardowy)</option>
+            {presets && presets.map(preset => (
+              <option key={preset.id} value={preset.id}>
+                {preset.name} {preset.isGlobal ? '(Globalny)' : ''}
+              </option>
+            ))}
+          </select>
+          <button
+            onClick={handleSavePreset}
+            className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2 whitespace-nowrap`}
+            disabled={loading}
+          >
+            <Save size={16} />
+            Zapisz preset
           </button>
         </div>
 
@@ -533,6 +682,84 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
           </button>
         </div>
       </div>
+
+      {/* Modal zapisywania presetu */}
+      {showSavePresetModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className={`${themeClasses.card} rounded-lg border max-w-md w-full mx-4`}>
+            <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+              <h3 className={`text-lg font-semibold ${themeClasses.text.primary}`}>
+                Zapisz preset krzywych
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${themeClasses.text.secondary}`}>
+                  Nazwa presetu *
+                </label>
+                <input
+                  type="text"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  placeholder="np. Moje niestandardowe krzywe"
+                  className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${themeClasses.text.secondary}`}>
+                  Opis (opcjonalnie)
+                </label>
+                <textarea
+                  value={presetDescription}
+                  onChange={(e) => setPresetDescription(e.target.value)}
+                  placeholder="Krótki opis tego presetu..."
+                  rows={3}
+                  className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                />
+              </div>
+
+              {isAdminOrSuper() && (
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="makeGlobal"
+                    checked={makeGlobal}
+                    onChange={(e) => setMakeGlobal(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="makeGlobal" className={`text-sm ${themeClasses.text.secondary}`}>
+                    Udostępnij globalnie (widoczny dla wszystkich użytkowników)
+                  </label>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-6 border-t border-gray-200 dark:border-gray-600">
+              <button
+                onClick={() => {
+                  setShowSavePresetModal(false);
+                  setPresetName('');
+                  setPresetDescription('');
+                  setMakeGlobal(false);
+                }}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary}`}
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={handleSavePresetConfirm}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.success}`}
+                disabled={!presetName.trim()}
+              >
+                Zapisz
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

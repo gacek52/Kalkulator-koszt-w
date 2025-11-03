@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import { db } from '../firebase';
+import { collection, getDocs, doc, setDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 // Akcje dla reducer'a
 const WORKSTATION_ACTIONS = {
@@ -102,56 +104,118 @@ const WorkstationContext = createContext();
 // Provider component
 export function WorkstationProvider({ children }) {
   const [state, dispatch] = useReducer(workstationReducer, initialWorkstationState);
+  const [loading, setLoading] = React.useState(true);
 
-  // Załaduj dane z localStorage przy starcie
+  // Załaduj dane z Firestore i nasłuchuj zmian w czasie rzeczywistym
   useEffect(() => {
-    const savedData = localStorage.getItem('workstationData');
-    if (savedData) {
-      try {
-        const parsedData = JSON.parse(savedData);
-        dispatch({ type: WORKSTATION_ACTIONS.LOAD_WORKSTATION_DATA, payload: parsedData });
-      } catch (error) {
-        console.error('Błąd wczytywania stanowisk z localStorage:', error);
-      }
-    }
+    const workstationsRef = collection(db, 'workstations');
+
+    // Real-time listener
+    const unsubscribe = onSnapshot(workstationsRef, (snapshot) => {
+      const workstationsData = [];
+      let maxId = 0;
+
+      snapshot.forEach((doc) => {
+        const data = doc.data();
+        workstationsData.push(data);
+        if (data.id > maxId) {
+          maxId = data.id;
+        }
+      });
+
+      // Sortuj po id
+      workstationsData.sort((a, b) => a.id - b.id);
+
+      dispatch({
+        type: WORKSTATION_ACTIONS.LOAD_WORKSTATION_DATA,
+        payload: {
+          workstations: workstationsData,
+          nextWorkstationId: maxId + 1
+        }
+      });
+
+      setLoading(false);
+    }, (error) => {
+      console.error('Error loading workstations from Firestore:', error);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
 
-  // Zapisz do localStorage przy każdej zmianie
-  useEffect(() => {
-    localStorage.setItem('workstationData', JSON.stringify(state));
-  }, [state]);
-
-  // Action creators
+  // Action creators with Firestore sync
   const actions = {
-    addWorkstation: (workstation) => {
-      dispatch({
-        type: WORKSTATION_ACTIONS.ADD_WORKSTATION,
-        payload: workstation
-      });
+    addWorkstation: async (workstation) => {
+      const newId = state.nextWorkstationId;
+      const newWorkstation = { ...workstation, id: newId };
+
+      try {
+        // Zapisz do Firestore (używamy id jako document ID)
+        await setDoc(doc(db, 'workstations', `ws_${newId}`), newWorkstation);
+
+        // Dispatch zostanie wywołane automatycznie przez onSnapshot listener
+      } catch (error) {
+        console.error('Error adding workstation to Firestore:', error);
+        throw error;
+      }
     },
 
-    updateWorkstation: (id, updates) => {
-      dispatch({
-        type: WORKSTATION_ACTIONS.UPDATE_WORKSTATION,
-        payload: { id, updates }
-      });
+    updateWorkstation: async (id, updates) => {
+      try {
+        // Znajdź stanowisko do aktualizacji
+        const workstation = state.workstations.find(ws => ws.id === id);
+        if (!workstation) {
+          throw new Error(`Workstation with id ${id} not found`);
+        }
+
+        const updatedWorkstation = { ...workstation, ...updates };
+
+        // Aktualizuj w Firestore
+        await setDoc(doc(db, 'workstations', `ws_${id}`), updatedWorkstation);
+
+        // Dispatch zostanie wywołane automatycznie przez onSnapshot listener
+      } catch (error) {
+        console.error('Error updating workstation in Firestore:', error);
+        throw error;
+      }
     },
 
-    removeWorkstation: (id) => {
-      dispatch({
-        type: WORKSTATION_ACTIONS.REMOVE_WORKSTATION,
-        payload: id
-      });
+    removeWorkstation: async (id) => {
+      try {
+        // Usuń z Firestore
+        await deleteDoc(doc(db, 'workstations', `ws_${id}`));
+
+        // Dispatch zostanie wywołane automatycznie przez onSnapshot listener
+      } catch (error) {
+        console.error('Error removing workstation from Firestore:', error);
+        throw error;
+      }
     },
 
-    duplicateWorkstation: (id) => {
-      dispatch({
-        type: WORKSTATION_ACTIONS.DUPLICATE_WORKSTATION,
-        payload: id
-      });
+    duplicateWorkstation: async (id) => {
+      const workstationToDuplicate = state.workstations.find(ws => ws.id === id);
+      if (!workstationToDuplicate) return;
+
+      const newId = state.nextWorkstationId;
+      const duplicatedWorkstation = {
+        ...workstationToDuplicate,
+        id: newId,
+        name: `${workstationToDuplicate.name} (kopia)`
+      };
+
+      try {
+        // Zapisz do Firestore
+        await setDoc(doc(db, 'workstations', `ws_${newId}`), duplicatedWorkstation);
+
+        // Dispatch zostanie wywołane automatycznie przez onSnapshot listener
+      } catch (error) {
+        console.error('Error duplicating workstation in Firestore:', error);
+        throw error;
+      }
     },
 
     loadWorkstationData: (data) => {
+      // Ta funkcja jest teraz używana tylko przez onSnapshot listener
       dispatch({
         type: WORKSTATION_ACTIONS.LOAD_WORKSTATION_DATA,
         payload: data
@@ -169,7 +233,8 @@ export function WorkstationProvider({ children }) {
     <WorkstationContext.Provider value={{
       state,
       actions,
-      utils: workstationUtils
+      utils: workstationUtils,
+      loading
     }}>
       {children}
     </WorkstationContext.Provider>

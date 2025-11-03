@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState, useRef } from 'react';
 import { materialTypesApi, materialCompositionsApi } from '../services/api';
 import { useAuth } from './AuthContext';
+import { useRole } from './RoleContext';
 
 // Akcje dla reducer'a
 const MATERIAL_ACTIONS = {
@@ -142,7 +143,8 @@ const MaterialContext = createContext();
 
 // Provider component
 export function MaterialProvider({ children }) {
-  const { currentUser, isAdmin } = useAuth();
+  const { currentUser } = useAuth();
+  const { isAdminOrSuper } = useRole();
   const [state, dispatch] = useReducer(materialReducer, initialMaterialState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -263,61 +265,36 @@ export function MaterialProvider({ children }) {
 
     // Manualne pchnięcie danych do Firestore (tylko dla admin)
     pushToFirestore: async () => {
-      if (!isAdmin) {
+      if (!isAdminOrSuper()) {
         throw new Error('Tylko admin może zapisywać do Firestore');
       }
 
       try {
-        // Pobierz istniejące dane z Firestore
-        const [existingTypesResponse, existingCompositionsResponse] = await Promise.all([
-          materialTypesApi.getAll(),
-          materialCompositionsApi.getAll()
-        ]);
+        let typesCount = 0;
+        let compositionsCount = 0;
 
-        const existingTypes = existingTypesResponse.success ? (existingTypesResponse.data || []) : [];
-        const existingCompositions = existingCompositionsResponse.success ? (existingCompositionsResponse.data || []) : [];
-
-        const existingTypeIds = new Set(existingTypes.map(t => t.id));
-        const existingCompositionIds = new Set(existingCompositions.map(c => c.id));
-
-        let typesCreated = 0;
-        let typesUpdated = 0;
-        let compositionsCreated = 0;
-        let compositionsUpdated = 0;
-
-        // Zapisz typy materiałów
+        // Zapisz typy materiałów - używamy create() z ID, które nadpisuje jeśli istnieje
         for (const materialType of state.materialTypes) {
-          if (existingTypeIds.has(materialType.id)) {
-            // Aktualizuj istniejący
-            await materialTypesApi.update(materialType.id, materialType);
-            typesUpdated++;
-          } else {
-            // Utwórz nowy
-            await materialTypesApi.create({ ...materialType, id: materialType.id });
-            typesCreated++;
-          }
+          await materialTypesApi.create({ ...materialType, id: materialType.id });
+          typesCount++;
         }
 
-        // Zapisz kompozycje materiałów
+        // Zapisz kompozycje materiałów - używamy create() z ID, które nadpisuje jeśli istnieje
         for (const composition of state.materialCompositions) {
-          if (existingCompositionIds.has(composition.id)) {
-            // Aktualizuj istniejący
-            await materialCompositionsApi.update(composition.id, composition);
-            compositionsUpdated++;
-          } else {
-            // Utwórz nowy
-            await materialCompositionsApi.create({ ...composition, id: composition.id });
-            compositionsCreated++;
-          }
+          await materialCompositionsApi.create({ ...composition, id: composition.id });
+          compositionsCount++;
         }
 
-        const message = `Synchronizacja zakończona!\n\nTypy materiałów: ${typesCreated} nowych, ${typesUpdated} zaktualizowanych\nKompozycje: ${compositionsCreated} nowych, ${compositionsUpdated} zaktualizowanych`;
+        const message = `Zsynchronizowano ${typesCount} typów materiałów i ${compositionsCount} kompozycji`;
         return { success: true, message };
       } catch (error) {
         console.error('Błąd podczas pushowania materiałów:', error);
         throw new Error('Nie udało się zapisać materiałów do Firestore');
       }
-    }
+    },
+
+    // Automatyczny zapis włączony/wyłączony (można to rozszerzyć w przyszłości)
+    isAutoSaveEnabled: () => isAdminOrSuper()
   };
 
   return (

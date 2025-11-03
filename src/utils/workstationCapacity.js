@@ -16,169 +16,6 @@ export function calculateRequiredHours(annualVolume, efficiency) {
 }
 
 /**
- * Zbierz wszystkie kalkulacje z katalogu i pogrupuj według stanowisk
- * @param {Array} catalogItems - Tablica kalkulacji z katalogu
- * @param {Array} workstations - Tablica stanowisk z WorkstationContext
- * @returns {Object} Obiekt z obliczoną zajętością dla każdego stanowiska
- */
-export function calculateWorkstationUtilization(catalogItems, workstations) {
-  // Inicjalizuj obiekt z danymi o stanowiskach
-  const utilizationData = {};
-
-  // Zabezpieczenie przed undefined/null
-  if (!workstations || !Array.isArray(workstations)) {
-    console.warn('workstations is not an array:', workstations);
-    return utilizationData;
-  }
-
-  // Utwórz mapę wszystkich stanowisk (z aktualnych + ze snapshots)
-  const allWorkstations = new Map();
-
-  // Dodaj aktualne stanowiska
-  workstations.forEach(ws => {
-    allWorkstations.set(ws.id, ws);
-    utilizationData[ws.id] = {
-      workstation: ws,
-      products: [],
-      totalRequiredHours: 0,
-      availableHours: calculateAvailableHours(ws),
-      utilizationPercent: 0
-    };
-  });
-
-  // Dodaj stanowiska ze snapshots kalkulacji (jeśli nie istnieją już)
-  catalogItems.forEach(calculation => {
-    if (calculation.workstationsSnapshot && Array.isArray(calculation.workstationsSnapshot)) {
-      calculation.workstationsSnapshot.forEach(ws => {
-        if (!allWorkstations.has(ws.id)) {
-          allWorkstations.set(ws.id, ws);
-          utilizationData[ws.id] = {
-            workstation: ws,
-            products: [],
-            totalRequiredHours: 0,
-            availableHours: calculateAvailableHours(ws),
-            utilizationPercent: 0,
-            isFromSnapshot: true // Oznacz że pochodzi ze snapshota
-          };
-        }
-      });
-    }
-  });
-
-  // Zabezpieczenie przed undefined/null catalogItems
-  if (!catalogItems || !Array.isArray(catalogItems)) {
-    console.warn('catalogItems is not an array:', catalogItems);
-    return utilizationData;
-  }
-
-  // Przejdź przez wszystkie kalkulacje
-  catalogItems.forEach(calculation => {
-    // Sprawdź czy to kalkulacja z zakładkami (nowa struktura) czy z items (stara struktura)
-    if (calculation.tabs && Array.isArray(calculation.tabs)) {
-      // Nowa struktura: calculation.tabs[].items[]
-      calculation.tabs.forEach(tab => {
-        if (!tab.items) return;
-
-        // Przejdź przez wszystkie items w zakładce
-        tab.items.forEach(item => {
-          const annualVolume = parseFloat(item.annualVolume);
-
-          // Nowa struktura: item.workstations[] (wiele stanowisk)
-          if (item.workstations && Array.isArray(item.workstations) && item.workstations.length > 0) {
-            item.workstations.forEach(ws => {
-              const workstationId = ws.workstationId;
-              const efficiency = parseFloat(ws.efficiency);
-
-              // Sprawdź czy ma wszystkie wymagane dane
-              if (workstationId && efficiency > 0 && annualVolume > 0) {
-                const requiredHours = calculateRequiredHours(annualVolume, efficiency);
-
-                // Dodaj do danych stanowiska
-                if (utilizationData[workstationId]) {
-                  utilizationData[workstationId].products.push({
-                    catalogId: calculation.id,
-                    catalogName: calculation.client || 'Bez nazwy',
-                    tabName: tab.name,
-                    partId: item.partId || 'Brak ID',
-                    workstationName: ws.name || 'Stanowisko',
-                    annualVolume,
-                    efficiency,
-                    requiredHours
-                  });
-
-                  utilizationData[workstationId].totalRequiredHours += requiredHours;
-                }
-              }
-            });
-          }
-          // Backward compatibility: stara struktura item.workstation
-          else if (item.workstation?.id) {
-            const workstationId = item.workstation.id;
-            const efficiency = parseFloat(item.workstation.efficiency);
-
-            if (workstationId && efficiency > 0 && annualVolume > 0) {
-              const requiredHours = calculateRequiredHours(annualVolume, efficiency);
-
-              if (utilizationData[workstationId]) {
-                utilizationData[workstationId].products.push({
-                  catalogId: calculation.id,
-                  catalogName: calculation.client || 'Bez nazwy',
-                  tabName: tab.name,
-                  partId: item.partId || 'Brak ID',
-                  workstationName: 'Stanowisko',
-                  annualVolume,
-                  efficiency,
-                  requiredHours
-                });
-
-                utilizationData[workstationId].totalRequiredHours += requiredHours;
-              }
-            }
-          }
-        });
-      });
-    } else if (calculation.items && Array.isArray(calculation.items)) {
-      // Stara struktura: calculation.items[] (bez tabs)
-      calculation.items.forEach(item => {
-        const workstationId = item.workstation?.id;
-        const efficiency = parseFloat(item.workstation?.efficiency);
-        const annualVolume = parseFloat(item.annualVolume);
-
-        // Sprawdź czy item ma przypisane stanowisko i wszystkie wymagane dane
-        if (workstationId && efficiency > 0 && annualVolume > 0) {
-          const requiredHours = calculateRequiredHours(annualVolume, efficiency);
-
-          // Dodaj do danych stanowiska
-          if (utilizationData[workstationId]) {
-            utilizationData[workstationId].products.push({
-              catalogId: calculation.id,
-              catalogName: calculation.client || 'Bez nazwy',
-              tabName: item.tabName || '-',
-              partId: item.partId || 'Brak ID',
-              annualVolume,
-              efficiency,
-              requiredHours
-            });
-
-            utilizationData[workstationId].totalRequiredHours += requiredHours;
-          }
-        }
-      });
-    }
-  });
-
-  // Oblicz % wykorzystania dla każdego stanowiska
-  Object.keys(utilizationData).forEach(wsId => {
-    const data = utilizationData[wsId];
-    if (data.availableHours > 0) {
-      data.utilizationPercent = (data.totalRequiredHours / data.availableHours) * 100;
-    }
-  });
-
-  return utilizationData;
-}
-
-/**
  * Oblicz dostępną capacity w godzinach na rok dla stanowiska
  * @param {Object} workstation - Obiekt stanowiska
  * @returns {number} Dostępne godziny rocznie
@@ -199,6 +36,200 @@ function calculateAvailableHours(workstation) {
 }
 
 /**
+ * Zbierz wszystkie kalkulacje z katalogu i pogrupuj według stanowisk
+ * @param {Array} catalogItems - Tablica kalkulacji z katalogu
+ * @param {Array} workstations - Tablica stanowisk z WorkstationContext (z Firestore)
+ * @returns {Object} Obiekt z obliczoną zajętością dla każdego stanowiska
+ */
+export function calculateWorkstationUtilization(catalogItems, workstations) {
+  // Krok 1: Inicjalizuj obiekt z danymi dla KAŻDEGO stanowiska z Firestore
+  const utilizationData = {};
+
+  if (!workstations || !Array.isArray(workstations)) {
+    console.error('❌ workstations is not an array:', workstations);
+    return utilizationData;
+  }
+
+  // Stwórz wpis dla każdego stanowiska z Firestore
+  workstations.forEach(ws => {
+    utilizationData[ws.id] = {
+      workstation: ws,
+      products: [],
+      totalRequiredHours: 0,
+      availableHours: calculateAvailableHours(ws),
+      utilizationPercent: 0
+    };
+  });
+
+  console.log(`📊 Zainicjalizowano ${Object.keys(utilizationData).length} stanowisk z Firestore:`, Object.keys(utilizationData));
+
+  if (!catalogItems || !Array.isArray(catalogItems)) {
+    console.error('❌ catalogItems is not an array:', catalogItems);
+    alert(`BŁĄD: catalogItems nie jest tablicą! Typ: ${typeof catalogItems}`);
+    return utilizationData;
+  }
+
+  alert(`DEBUG: Mam ${catalogItems.length} kalkulacji do przetworzenia, ${Object.keys(utilizationData).length} stanowisk`);
+
+  // Krok 2: Przejdź przez wszystkie kalkulacje i zlicz godziny
+  let processedCount = 0;
+  let skippedCount = 0;
+
+  catalogItems.forEach((calculation, calcIndex) => {
+    console.log(`\n📋 Kalkulacja ${calcIndex + 1}/${catalogItems.length}: ${calculation.id}`);
+
+    // Nowa struktura: calculation.tabs[].items[]
+    if (calculation.tabs && Array.isArray(calculation.tabs)) {
+      console.log(`  ✅ Ma tabs[], ilość: ${calculation.tabs.length}`);
+
+      calculation.tabs.forEach((tab, tabIndex) => {
+        console.log(`    📑 Tab ${tabIndex + 1}: ${tab.name}, items: ${tab.items?.length || 0}`);
+
+        alert(`📑 TAB: ${tab.name}, ma items? ${!!tab.items}, jest array? ${Array.isArray(tab.items)}, długość: ${tab.items?.length || 0}`);
+
+        if (!tab.items || !Array.isArray(tab.items)) {
+          console.warn(`    ⚠️ Tab nie ma items[] - pomijam`);
+          alert(`⚠️ TAB NIE MA ITEMS - POMIJAM`);
+          return;
+        }
+
+        if (tab.items.length === 0) {
+          alert(`⚠️ TAB MA 0 ITEMS - POMIJAM`);
+          return;
+        }
+
+        alert(`✅ Zaczynam pętlę przez ${tab.items.length} items w tabie ${tab.name}`);
+
+        // Przejdź przez wszystkie items w zakładce
+        tab.items.forEach((item, itemIndex) => {
+          alert(`🔍 ITEM ${itemIndex + 1}/${tab.items.length}: partId=${item.partId}, annualVolume=${item.annualVolume}`);
+
+          const annualVolume = parseFloat(item.annualVolume);
+
+          if (!annualVolume || annualVolume <= 0) {
+            console.warn(`⚠️ Item bez annualVolume - pomijam`, {
+              calcId: calculation.id,
+              tabName: tab.name,
+              partId: item.partId
+            });
+            alert(`⚠️ ITEM ${item.partId} - BRAK annualVolume (${item.annualVolume}) - POMIJAM`);
+            return;
+          }
+
+          // Debug: sprawdź strukturę item
+          console.log(`Item structure:`, {
+            hasWorkstations: !!item.workstations,
+            isArray: Array.isArray(item.workstations),
+            length: item.workstations?.length,
+            workstations: item.workstations
+          });
+
+          // TYLKO nowa struktura: item.workstations[] (array)
+          if (item.workstations && Array.isArray(item.workstations) && item.workstations.length > 0) {
+
+            console.log(`\n🔍 Processing item: calcId=${calculation.id}, tab=${tab.name}, partId=${item.partId}, annualVolume=${annualVolume}, workstations count=${item.workstations.length}`);
+            alert(`✅ ITEM OK: partId=${item.partId}, annualVolume=${annualVolume}, workstations=${item.workstations.length}`);
+
+            // ITERUJ PRZEZ WSZYSTKIE STANOWISKA W ITEM
+            item.workstations.forEach((ws, wsIndex) => {
+              const workstationId = ws.workstationId;
+              const efficiency = parseFloat(ws.efficiency);
+
+              console.log(`  🔧 [Workstation ${wsIndex + 1}/${item.workstations.length}]`, {
+                name: ws.name,
+                workstationId,
+                efficiency,
+                hasValidData: workstationId && efficiency > 0,
+                existsInFirestore: !!utilizationData[workstationId]
+              });
+
+              // Sprawdź czy ma wszystkie wymagane dane
+              if (!workstationId || !efficiency || efficiency <= 0) {
+                console.warn(`    ⚠️ Brak wymaganych danych - pomijam:`, {
+                  workstationId,
+                  efficiency,
+                  name: ws.name
+                });
+                skippedCount++;
+                return;
+              }
+
+              // Sprawdź czy stanowisko istnieje w Firestore
+              if (!utilizationData[workstationId]) {
+                console.warn(`    ⚠️ Stanowisko ${workstationId} (${ws.name}) nie istnieje w Firestore - pomijam`);
+                skippedCount++;
+                return;
+              }
+
+              // Oblicz wymagane godziny
+              const requiredHours = calculateRequiredHours(annualVolume, efficiency);
+
+              // Dodaj produkt do listy stanowiska
+              utilizationData[workstationId].products.push({
+                catalogId: calculation.id,
+                catalogName: calculation.client || 'Bez nazwy',
+                tabName: tab.name,
+                partId: item.partId || 'Brak ID',
+                workstationName: ws.name || 'Stanowisko',
+                annualVolume,
+                efficiency,
+                requiredHours
+              });
+
+              // Dodaj godziny do sumy
+              utilizationData[workstationId].totalRequiredHours += requiredHours;
+
+              console.log(`    ✅ Dodano ${requiredHours.toFixed(0)}h do stanowiska ${workstationId} (${utilizationData[workstationId].workstation.name}). Nowa suma: ${utilizationData[workstationId].totalRequiredHours.toFixed(0)}h`);
+
+              processedCount++;
+            });
+          } else {
+            // Item nie ma workstations[] - pomiń
+            const reason = !item.workstations ? 'brak pola workstations' :
+                          !Array.isArray(item.workstations) ? 'workstations nie jest array' :
+                          'workstations.length === 0';
+
+            console.warn(`⚠️ Item nie ma workstations[] array - pomijam`, {
+              calcId: calculation.id,
+              tabName: tab.name,
+              partId: item.partId,
+              reason,
+              hasOldWorkstation: !!item.workstation
+            });
+
+            alert(`❌ POMINIĘTO ITEM: ${reason}, partId=${item.partId}, hasWorkstations=${!!item.workstations}, isArray=${Array.isArray(item.workstations)}, length=${item.workstations?.length}`);
+
+            skippedCount++;
+          }
+        });
+      });
+    } else {
+      // Kalkulacja nie ma tabs[] - pomiń (stara struktura)
+      console.warn(`⚠️ Kalkulacja nie ma tabs[] - pomijam (stara struktura?)`, {
+        calcId: calculation.id,
+        hasOldItems: !!calculation.items
+      });
+    }
+  });
+
+  // Krok 3: Oblicz % wykorzystania dla każdego stanowiska
+  Object.keys(utilizationData).forEach(wsId => {
+    const data = utilizationData[wsId];
+    if (data.availableHours > 0) {
+      data.utilizationPercent = (data.totalRequiredHours / data.availableHours) * 100;
+    }
+  });
+
+  console.log(`\n✅ Przetworzono ${processedCount} przypisań stanowisk, pominięto ${skippedCount}`);
+  console.log('📊 Podsumowanie wykorzystania stanowisk:');
+  Object.values(utilizationData).forEach(data => {
+    console.log(`  - ${data.workstation.name}: ${data.totalRequiredHours.toFixed(0)}h / ${data.availableHours}h (${data.utilizationPercent.toFixed(1)}%)`);
+  });
+
+  return utilizationData;
+}
+
+/**
  * Filtruj dane wykorzystania według kryteriów
  * @param {Object} utilizationData - Dane wykorzystania stanowisk
  * @param {Object} filters - Filtry (showOnlyOverloaded, workstationType, minUtilization, maxUtilization)
@@ -209,7 +240,7 @@ export function filterUtilizationData(utilizationData, filters = {}) {
     showOnlyOverloaded = false,
     workstationType = '',
     minUtilization = 0,
-    maxUtilization = 100
+    maxUtilization = 200
   } = filters;
 
   const filtered = {};

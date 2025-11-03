@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useWorkstation } from '../../context/WorkstationContext';
+import { WorkstationFields } from './WorkstationFields';
 
 /**
  * Pola wejściowe dla trybu kalkulacji PROSTE HEATSHIELD'Y
@@ -485,56 +486,13 @@ export function HeatshieldModeFields({ item, onUpdate, themeClasses, darkMode })
         </div>
       </div>
 
-      {/* Stanowisko produkcyjne */}
-      <div className={`p-4 rounded-lg border ${darkMode ? 'bg-orange-900/20 border-orange-800' : 'bg-orange-50 border-orange-200'}`}>
-        <div className={`text-sm font-medium mb-3 ${themeClasses.text.primary}`}>
-          🏭 Stanowisko produkcyjne
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-              Stanowisko
-            </label>
-            <select
-              value={item.workstation?.id || ''}
-              onChange={(e) => onUpdate({
-                workstation: {
-                  ...item.workstation,
-                  id: e.target.value ? parseInt(e.target.value) : null
-                }
-              })}
-              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-            >
-              <option value="">-- Wybierz stanowisko --</option>
-              {workstationState.workstations.map(ws => (
-                <option key={ws.id} value={ws.id}>
-                  {ws.name} ({ws.type})
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className={`block text-sm font-medium mb-1 ${themeClasses.text.secondary}`}>
-              Wydajność (szt/8h)
-            </label>
-            <input
-              type="number"
-              value={item.workstation?.efficiency || ''}
-              onChange={(e) => onUpdate({
-                workstation: {
-                  ...item.workstation,
-                  efficiency: e.target.value
-                }
-              })}
-              className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
-              min="0"
-              step="1"
-              placeholder="np. 100"
-            />
-          </div>
-        </div>
-      </div>
+      {/* Stanowiska produkcyjne */}
+      <WorkstationFields
+        item={item}
+        onUpdate={onUpdate}
+        themeClasses={themeClasses}
+        darkMode={darkMode}
+      />
     </div>
   );
 }

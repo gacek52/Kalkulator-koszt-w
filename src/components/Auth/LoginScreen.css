@@ -57,6 +57,41 @@
   text-align: center;
 }
 
+.login-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.login-tab {
+  flex: 1;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  color: #718096;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+
+.login-tab:hover:not(:disabled) {
+  color: #667eea;
+}
+
+.login-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+}
+
+.login-tab:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
 .login-options {
   display: flex;
   flex-direction: column;
@@ -77,13 +112,29 @@
   text-align: center;
 }
 
-.guest-form {
+.guest-form,
+.email-form {
   display: flex;
   flex-direction: column;
   gap: 12px;
 }
 
-.nickname-input {
+.input-group {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.input-icon {
+  position: absolute;
+  left: 12px;
+  color: #a0aec0;
+  z-index: 1;
+}
+
+.nickname-input,
+.email-input,
+.password-input {
   width: 100%;
   padding: 12px 16px;
   border: 2px solid #e2e8f0;
@@ -93,13 +144,48 @@
   box-sizing: border-box;
 }
 
-.nickname-input:focus {
+.email-input,
+.password-input {
+  padding-left: 44px;
+}
+
+.password-input {
+  padding-right: 44px;
+}
+
+.nickname-input:focus,
+.email-input:focus,
+.password-input:focus {
   outline: none;
   border-color: #667eea;
 }
 
-.nickname-input:disabled {
+.nickname-input:disabled,
+.email-input:disabled,
+.password-input:disabled {
   background: #f7fafc;
+  cursor: not-allowed;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 12px;
+  border: none;
+  background: transparent;
+  color: #a0aec0;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.password-toggle:hover:not(:disabled) {
+  color: #667eea;
+}
+
+.password-toggle:disabled {
   cursor: not-allowed;
 }
 
@@ -123,12 +209,14 @@
   cursor: not-allowed;
 }
 
-.guest-button {
+.guest-button,
+.email-button {
   background: #667eea;
   color: white;
 }
 
-.guest-button:hover:not(:disabled) {
+.guest-button:hover:not(:disabled),
+.email-button:hover:not(:disabled) {
   background: #5568d3;
   transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
