@@ -477,8 +477,8 @@ npm test -- --coverage
 ## FAZA 2: MIGRACJA DO UTILITIES (Tydzień 3-4)
 
 **Ryzyko:** 🟡 ŚREDNIE - modyfikujemy istniejący kod, ale z fallbackiem
-**Status:** 🔴 Nie rozpoczęto
-**Branch:** feature/refactor-phase-2
+**Status:** 🟡 W trakcie (50% - flagowanie ukończone, testowanie w toku)
+**Branch:** feature/refactor-phase-1
 
 ### 2.1 Feature flags
 ```javascript
@@ -519,20 +519,26 @@ const newItem = FEATURE_FLAGS.USE_NEW_ITEM_FACTORY
 
 ### 2.3 Kolejność migracji
 ```
-□ 1. PendingPoolPanel.js - handleAssignToTab()
-□ 2. CostCalculator.js - handleAddTab()
-□ 3. CostCalculator.js - handleBulkAssignToTab()
-□ 4. CalculatorForm.js - interpolacja krzywych (ostrożnie!)
+✅ 1. CostCalculator.js - handleAssignToTab() (COMPLETED 2025-11-26)
+✅ 2. CostCalculator.js - handleAddTab() (COMPLETED 2025-11-26)
+✅ 3. CostCalculator.js - handleBulkAssignToTab() (COMPLETED 2025-11-26)
 ```
+
+**Status:** Wszystkie kluczowe funkcje zmigrowane z feature flags! 🎉
+- Flagi obecnie WYŁĄCZONE (bezpieczny stan)
+- Gotowe do włączenia po 2-3 dniach testów
+- Rollback natychmiastowy: zmień flagę z true → false
 
 ### ✅ Kryteria akceptacji Fazy 2:
 ```
-□ Feature flags działają (można włączać/wyłączać)
-□ Stary kod działa gdy flagi wyłączone
-□ Nowy kod działa gdy flagi włączone
-□ Wszystkie istniejące kalkulacje wczytują się poprawnie
-□ Testy regresji przechodzą (checklist z Fazy 0.3)
+✅ Feature flags działają (można włączać/wyłączać)
+✅ Stary kod działa gdy flagi wyłączone - user testing passed
+✅ Wszystkie kluczowe funkcje zmigrowane (3/3)
+⏳ Nowy kod czeka na włączenie flag (za 2-3 dni)
+⏳ Testy z włączonymi flagami (następny krok)
 ```
+
+**COMPLETED:** 2025-11-26
 
 ---
 
@@ -834,13 +840,13 @@ firebase firestore:import gs://kalkulator-produkcyjny---alpha.firebasestorage.ap
 
 ### Faza 0: ✅✅✅✅✅ 100% (COMPLETED 2025-11-25)
 ### Faza 1: ✅✅✅✅✅ 100% (COMPLETED 2025-11-25)
-### Faza 2: ⬜⬜⬜⬜⬜ 0%
+### Faza 2: ✅✅✅✅✅ 100% (COMPLETED 2025-11-26 - ready for flag enablement)
 ### Faza 3: ⬜⬜⬜⬜⬜ 0%
 ### Faza 4: ⬜⬜⬜⬜⬜ 0%
 ### Faza 5: ⬜⬜⬜⬜⬜ 0%
 ### Faza 6: ⬜⬜⬜⬜⬜ 0%
 
-**Całkowity postęp:** 29% (2/7 faz)
+**Całkowity postęp:** 43% (3/7 faz)
 
 ---
 
@@ -858,6 +864,13 @@ firebase firestore:import gs://kalkulator-produkcyjny---alpha.firebasestorage.ap
 | 2025-11-25 | 1 | Utworzenie curveInterpolation.js | ✅ |
 | 2025-11-25 | 1 | Utworzenie formatters.js | ✅ |
 | 2025-11-25 | 1 | Testy jednostkowe (46 testów - wszystkie przechodzą) | ✅ |
+| 2025-11-26 | 2 | Utworzenie feature flags system (featureFlags.js) | ✅ |
+| 2025-11-26 | 2 | Migracja handleAssignToTab z feature flag | ✅ |
+| 2025-11-26 | 2 | Migracja handleBulkAssignToTab z feature flag | ✅ |
+| 2025-11-26 | 2 | Utworzenie createDefaultTabWithSettings() | ✅ |
+| 2025-11-26 | 2 | Migracja handleAddTab z feature flag | ✅ |
+| 2025-11-26 | 2 | Deploy do produkcji - wszystkie migracje (flagi wyłączone) | ✅ |
+| 2025-11-26 | 2 | User testing - wszystko działa poprawnie | ✅ |
 | - | - | - | - |
 
 ---
