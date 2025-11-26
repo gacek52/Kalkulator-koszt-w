@@ -188,7 +188,7 @@ export const createDefaultItem = (id, overrides = {}) => {
 };
 
 /**
- * Tworzy nową zakładkę z domyślnymi wartościami
+ * Tworzy nową zakładkę z domyślnymi wartościami (minimalna wersja)
  * @param {number} id - ID zakładki
  * @param {string} name - Nazwa zakładki
  * @param {string} mode - Tryb kalkulacji (weight, surface, volume, heatshield, multilayer)
@@ -203,6 +203,47 @@ export const createDefaultTab = (id, name, mode = 'weight') => {
     calculationType: mode,
     items: [],
     nextItemId: 1
+  };
+};
+
+/**
+ * Tworzy nową zakładkę z pełną konfiguracją (dla głównego kalkulatora)
+ * @param {number} tabCount - Liczba istniejących zakładek (dla nazwy "Materiał N")
+ * @param {object} options - Opcje konfiguracji
+ * @param {string} options.defaultPresetId - ID domyślnego presetu krzywych
+ * @param {object} options.defaultCurves - Fallback krzywe jeśli brak presetu
+ * @returns {object} Nowa zakładka z pełną konfiguracją
+ * @example
+ * const tab = createDefaultTabWithSettings(tabs.length, {
+ *   defaultPresetId: 'preset-123',
+ *   defaultCurves: {...}
+ * });
+ */
+export const createDefaultTabWithSettings = (tabCount, options = {}) => {
+  const {
+    defaultPresetId = null,
+    defaultCurves = {}
+  } = options;
+
+  return {
+    id: Date.now(),
+    name: `Materiał ${tabCount + 1}`,
+    calculationType: 'weight',
+    materialCost: '2.0',
+    materialPriceUnit: 'kg',
+    bakingCost: '110',
+    cleaningCost: '90',
+    handlingCost: '0.08',
+    prepCost: '90',
+    customProcesses: [],
+    nextProcessId: 1,
+    showAdvanced: false,
+    curvePresetId: defaultPresetId,
+    editingCurves: defaultCurves,
+    customCurves: [],
+    nextCurveId: 1,
+    items: [createDefaultItem(1)],
+    nextItemId: 2
   };
 };
 
@@ -294,6 +335,7 @@ export default {
   DEFAULT_ITEM_STRUCTURE,
   createDefaultItem,
   createDefaultTab,
+  createDefaultTabWithSettings,
   createItemFromPending,
   cloneItem,
   isEmptyItem,

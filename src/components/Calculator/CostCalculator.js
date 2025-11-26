@@ -18,7 +18,7 @@ import PendingPoolPanel from './PendingPoolPanel';
 import CBDImportModal from './CBDImportModal';
 // Feature flags i nowe utilities
 import { FEATURE_FLAGS, logFeatureUsage } from '../../config/featureFlags';
-import { createItemFromPending } from '../../utils/itemFactory';
+import { createItemFromPending, createDefaultTabWithSettings } from '../../utils/itemFactory';
 
 /**
  * Główny komponent kalkulatora kosztów
@@ -265,191 +265,190 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
   // Obsługa dodawania nowej zakładki
   const handleAddTab = () => {
-    // Domyślne krzywe (fallback jeśli nie ma domyślnego presetu)
-    const defaultCurves = {
-      baking: [
-        { x: 50, y: 45 },
-        { x: 100, y: 55 },
-        { x: 500, y: 70 },
-        { x: 1000, y: 80 },
-        { x: 2000, y: 90 },
-        { x: 3000, y: 95 }
-      ],
-      cleaning: [
-        { x: 50, y: 45 },
-        { x: 100, y: 55 },
-        { x: 500, y: 70 },
-        { x: 1000, y: 80 },
-        { x: 2000, y: 90 },
-        { x: 3000, y: 95 }
-      ],
-      bruttoWeight: [
-        { x: 50, y: 60 },
-        { x: 100, y: 120 },
-        { x: 500, y: 600 },
-        { x: 1000, y: 1200 },
-        { x: 2000, y: 2300 },
-        { x: 3000, y: 3300 }
-      ],
-      heatshieldPrep: [
-        { x: 0.01, y: 30 },
-        { x: 0.05, y: 45 },
-        { x: 0.1, y: 60 },
-        { x: 0.5, y: 120 },
-        { x: 1.0, y: 180 },
-        { x: 2.0, y: 300 }
-      ],
-      heatshieldLaser: [
-        { x: 0.0, y: 5 },
-        { x: 0.01, y: 5 },
-        { x: 0.05, y: 8 },
-        { x: 0.1, y: 12 },
-        { x: 0.5, y: 25 },
-        { x: 1.0, y: 40 },
-        { x: 2.0, y: 70 }
-      ]
-    };
+    // Feature flag: użyj nowego createDefaultTabWithSettings lub starego inline kodu
+    const newTab = FEATURE_FLAGS.USE_NEW_ITEM_FACTORY
+      ? (() => {
+          logFeatureUsage('USE_NEW_ITEM_FACTORY', 'handleAddTab');
 
-    // Znajdź globalny domyślny preset (NIE z kalkulacji, tylko globalny isDefault)
-    const defaultPreset = presets && presets.length > 0
-      ? presets.find(p => p.isDefault === true)
-      : null;
-    const defaultPresetId = defaultPreset?.id || null;
+          // Domyślne krzywe (fallback jeśli nie ma domyślnego presetu)
+          const defaultCurves = {
+            baking: [
+              { x: 50, y: 45 }, { x: 100, y: 55 }, { x: 500, y: 70 },
+              { x: 1000, y: 80 }, { x: 2000, y: 90 }, { x: 3000, y: 95 }
+            ],
+            cleaning: [
+              { x: 50, y: 45 }, { x: 100, y: 55 }, { x: 500, y: 70 },
+              { x: 1000, y: 80 }, { x: 2000, y: 90 }, { x: 3000, y: 95 }
+            ],
+            bruttoWeight: [
+              { x: 50, y: 60 }, { x: 100, y: 120 }, { x: 500, y: 600 },
+              { x: 1000, y: 1200 }, { x: 2000, y: 2300 }, { x: 3000, y: 3300 }
+            ],
+            heatshieldPrep: [
+              { x: 0.01, y: 30 }, { x: 0.05, y: 45 }, { x: 0.1, y: 60 },
+              { x: 0.5, y: 120 }, { x: 1.0, y: 180 }, { x: 2.0, y: 300 }
+            ],
+            heatshieldLaser: [
+              { x: 0.0, y: 5 }, { x: 0.01, y: 5 }, { x: 0.05, y: 8 },
+              { x: 0.1, y: 12 }, { x: 0.5, y: 25 }, { x: 1.0, y: 40 }, { x: 2.0, y: 70 }
+            ]
+          };
 
-    // WAŻNE: NIE kopiujemy krzywych! Trzymamy tylko ID presetu.
-    // Krzywe będą ładowane dynamicznie przez useDynamicCurves hook.
-    // To pozwala na automatyczne aktualizacje wszystkich kalkulacji gdy preset się zmieni.
+          const defaultPreset = presets && presets.length > 0
+            ? presets.find(p => p.isDefault === true)
+            : null;
 
-    const newTab = {
-      id: Date.now(),
-      name: `Materiał ${tabs.length + 1}`,
-      calculationType: 'weight',
-      materialCost: '2.0',
-      materialPriceUnit: 'kg',
-      bakingCost: '110',
-      cleaningCost: '90',
-      handlingCost: '0.08',
-      prepCost: '90',
-      customProcesses: [],
-      nextProcessId: 1,
-      showAdvanced: false,
-      curvePresetId: defaultPresetId, // ID presetu dla dynamicznego ładowania krzywych
-      // STARE POLA (dla kompatybilności wstecznej ze starymi kalkulacjami):
-      // editingCurves i customCurves będą ignorowane jeśli curvePresetId istnieje
-      editingCurves: defaultCurves, // Fallback dla starych kalkulacji bez preset ID
-      customCurves: [],
-      nextCurveId: 1,
-      items: [{
-        id: 1,
-        partId: '',
-        weight: '',
-        weightOption: 'netto',
-        bruttoWeight: '',
-        cleaningOption: 'scaled',
-        manualCleaningTime: '45',
-        margin: '',
-        customValues: {},
-        customCurveValues: {},
-        results: null,
-        annualVolume: '',
-        // Kalendarz prognoz wolumenu
-        volumeForecast: {
-          enabled: false,
-          years: {}
-        },
-        // Pola dla stanowisk produkcyjnych
-        workstation: {
-          id: null,
-          efficiency: ''
-        },
-        // Nowa struktura dla wielu stanowisk - ZAWSZE jedno puste stanowisko
-        workstations: [{
-          id: 1,
-          workstationId: null,
-          efficiency: '',
-          name: 'Stanowisko 1',
-          costMode: 'auto',
-          manualCost: ''
-        }],
-        nextWorkstationId: 2,
-        // Pola dla trybu WAGA
-        weightUnit: 'g',
-        // Pola dla trybu POWIERZCHNIA
-        surfaceArea: '',
-        surfaceUnit: 'mm2',
-        thickness: '',
-        density: '',
-        surfaceWeight: '',
-        surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
-        sheetLength: '1000',
-        sheetWidth: '1000',
-        partsPerSheet: '',
-        surfaceBrutto: '',
-        // Pola dla trybu OBJĘTOŚĆ
-        volume: '',
-        volumeUnit: 'mm3',
-        dimensions: { length: '', width: '', height: '' },
-        volumeWeightOption: 'brutto-auto',
-        // Pola dla trybu HEATSHIELD
-        heatshield: {
-          surfaceNettoInput: '',
-          surfaceNetto: '',
-          surfaceUnit: 'mm2',
-          sheetThickness: '',
-          sheetDensity: '',
-          sheetPrice: '',
-          sheetPriceUnit: 'kg',
-          matThickness: '',
-          matDensity: '',
-          matPrice: '',
-          matPriceUnit: 'm2',
-          bendingCost: '',
-          joiningCost: '0',
-          gluingCost: '',
-          surfaceBruttoSheet: '',
-          surfaceNettoSheet: '',
-          surfaceNettoMat: '',
-          sheetWeight: '',
-          matWeight: ''
-        },
-        // Pola dla trybu MULTILAYER
-        multilayer: {
-          layers: [
-            {
+          return createDefaultTabWithSettings(tabs.length, {
+            defaultPresetId: defaultPreset?.id || null,
+            defaultCurves
+          });
+        })()
+      : {
+          // OLD CODE (fallback) - zachowaj istniejący kod dla bezpieczeństwa
+          id: Date.now(),
+          name: `Materiał ${tabs.length + 1}`,
+          calculationType: 'weight',
+          materialCost: '2.0',
+          materialPriceUnit: 'kg',
+          bakingCost: '110',
+          cleaningCost: '90',
+          handlingCost: '0.08',
+          prepCost: '90',
+          customProcesses: [],
+          nextProcessId: 1,
+          showAdvanced: false,
+          curvePresetId: (() => {
+            const defaultPreset = presets && presets.length > 0
+              ? presets.find(p => p.isDefault === true)
+              : null;
+            return defaultPreset?.id || null;
+          })(),
+          editingCurves: {
+            baking: [
+              { x: 50, y: 45 }, { x: 100, y: 55 }, { x: 500, y: 70 },
+              { x: 1000, y: 80 }, { x: 2000, y: 90 }, { x: 3000, y: 95 }
+            ],
+            cleaning: [
+              { x: 50, y: 45 }, { x: 100, y: 55 }, { x: 500, y: 70 },
+              { x: 1000, y: 80 }, { x: 2000, y: 90 }, { x: 3000, y: 95 }
+            ],
+            bruttoWeight: [
+              { x: 50, y: 60 }, { x: 100, y: 120 }, { x: 500, y: 600 },
+              { x: 1000, y: 1200 }, { x: 2000, y: 2300 }, { x: 3000, y: 3300 }
+            ],
+            heatshieldPrep: [
+              { x: 0.01, y: 30 }, { x: 0.05, y: 45 }, { x: 0.1, y: 60 },
+              { x: 0.5, y: 120 }, { x: 1.0, y: 180 }, { x: 2.0, y: 300 }
+            ],
+            heatshieldLaser: [
+              { x: 0.0, y: 5 }, { x: 0.01, y: 5 }, { x: 0.05, y: 8 },
+              { x: 0.1, y: 12 }, { x: 0.5, y: 25 }, { x: 1.0, y: 40 }, { x: 2.0, y: 70 }
+            ]
+          },
+          customCurves: [],
+          nextCurveId: 1,
+          items: [{
+            id: 1,
+            partId: '',
+            weight: '',
+            weightOption: 'netto',
+            bruttoWeight: '',
+            cleaningOption: 'scaled',
+            manualCleaningTime: '45',
+            margin: '',
+            customValues: {},
+            customCurveValues: {},
+            results: null,
+            annualVolume: '',
+            volumeForecast: {
+              enabled: false,
+              years: {}
+            },
+            workstation: {
+              id: null,
+              efficiency: ''
+            },
+            workstations: [{
               id: 1,
-              name: 'Warstwa 1',
-              thickness: '',
-              density: '',
-              priceUnit: 'kg',
-              price: '',
+              workstationId: null,
+              efficiency: '',
+              name: 'Stanowisko 1',
+              costMode: 'auto',
+              manualCost: ''
+            }],
+            nextWorkstationId: 2,
+            weightUnit: 'g',
+            surfaceArea: '',
+            surfaceUnit: 'mm2',
+            thickness: '',
+            density: '',
+            surfaceWeight: '',
+            surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
+            sheetLength: '1000',
+            sheetWidth: '1000',
+            partsPerSheet: '',
+            surfaceBrutto: '',
+            volume: '',
+            volumeUnit: 'mm3',
+            dimensions: { length: '', width: '', height: '' },
+            volumeWeightOption: 'brutto-auto',
+            heatshield: {
               surfaceNettoInput: '',
-              surfaceUnit: 'mm2',
               surfaceNetto: '',
-              sheetLength: '',
-              sheetWidth: '',
-              partsPerSheet: '',
-              surfaceBrutto: '',
-              weightNetto: '',
-              weightBrutto: '',
-              curveScope: 'global',
-              customCurveValues: {}
+              surfaceUnit: 'mm2',
+              sheetThickness: '',
+              sheetDensity: '',
+              sheetPrice: '',
+              sheetPriceUnit: 'kg',
+              matThickness: '',
+              matDensity: '',
+              matPrice: '',
+              matPriceUnit: 'm2',
+              bendingCost: '',
+              joiningCost: '0',
+              gluingCost: '',
+              surfaceBruttoSheet: '',
+              surfaceNettoSheet: '',
+              surfaceNettoMat: '',
+              sheetWeight: '',
+              matWeight: ''
+            },
+            multilayer: {
+              layers: [
+                {
+                  id: 1,
+                  name: 'Warstwa 1',
+                  thickness: '',
+                  density: '',
+                  priceUnit: 'kg',
+                  price: '',
+                  surfaceNettoInput: '',
+                  surfaceUnit: 'mm2',
+                  surfaceNetto: '',
+                  sheetLength: '',
+                  sheetWidth: '',
+                  partsPerSheet: '',
+                  surfaceBrutto: '',
+                  weightNetto: '',
+                  weightBrutto: '',
+                  curveScope: 'global',
+                  customCurveValues: {}
+                }
+              ],
+              nextLayerId: 2
+            },
+            unit: 'kg',
+            packaging: {
+              partsPerLayer: '',
+              layers: '',
+              partsInBox: '',
+              manualPartsInBox: false,
+              compositionId: null,
+              customPrice: ''
             }
-          ],
-          nextLayerId: 2
-        },
-        // Pola dla pakowania
-        unit: 'kg',
-        packaging: {
-          partsPerLayer: '',
-          layers: '',
-          partsInBox: '',
-          manualPartsInBox: false,
-          compositionId: null,
-          customPrice: ''
-        }
-      }],
-      nextItemId: 2
-    };
+          }],
+          nextItemId: 2
+        };
 
     actions.addTab(newTab);
     actions.setActiveTab(tabs.length);
