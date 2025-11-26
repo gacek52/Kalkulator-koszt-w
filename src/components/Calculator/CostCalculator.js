@@ -5,6 +5,7 @@ import { useSession } from '../../context/SessionContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
 import { useClient } from '../../context/ClientContext';
 import { useWorkstation } from '../../context/WorkstationContext';
+import { useCurvePresets } from '../../context/CurvePresetContext';
 import { CalculatorForm } from './CalculatorForm';
 import { CalculatorResults } from './CalculatorResults';
 import { SettingsPanel } from './SettingsPanel';
@@ -13,6 +14,11 @@ import { SaveStatusIndicator } from '../Session/SaveStatusIndicator';
 import { JsonExportButton } from '../Common/JsonExportButton';
 import { JsonImportButton, validationSchemas } from '../Common/JsonImportButton';
 import { updateSessionCalculationId, saveWorkstationAssignment, deleteCalculationAssignments } from '../../services/workstationAssignments';
+import PendingPoolPanel from './PendingPoolPanel';
+import CBDImportModal from './CBDImportModal';
+// Feature flags i nowe utilities
+import { FEATURE_FLAGS, logFeatureUsage } from '../../config/featureFlags';
+import { createItemFromPending } from '../../utils/itemFactory';
 
 /**
  * Główny komponent kalkulatora kosztów
@@ -23,6 +29,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   const { state: catalogState, actions: catalogActions } = useCatalog();
   const { state: clientState } = useClient();
   const { state: workstationState } = useWorkstation();
+  const { presets } = useCurvePresets();
   const { updateSession, activeSession, startNewSession, clearSession } = useSession();
   const [editingTabId, setEditingTabId] = React.useState(null);
   const [editingTabName, setEditingTabName] = React.useState('');
@@ -30,6 +37,8 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   const [showSaveMenu, setShowSaveMenu] = useState(false);
   const [showLoadConfirmDialog, setShowLoadConfirmDialog] = useState(false);
   const [pendingCalculationToLoad, setPendingCalculationToLoad] = useState(null);
+  const [showCBDImportModal, setShowCBDImportModal] = useState(false);
+  const [pendingPool, setPendingPool] = useState(state.pendingPool || []);
 
   // Konfiguracja motywów
   const themeClasses = {
@@ -108,6 +117,17 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
       });
     }
   }, []); // Tylko przy pierwszym renderowaniu
+
+  // Inicjalizacja domyślnego presetu dla pierwszej zakładki (jeśli nie ma curvePresetId)
+  React.useEffect(() => {
+    // Sprawdź tylko przy pierwszym renderze i tylko jeśli presets są już załadowane
+    if (tabs.length > 0 && presets && presets.length > 0 && !tabs[0].curvePresetId) {
+      const defaultPreset = presets.find(p => p.isDefault === true);
+      if (defaultPreset) {
+        actions.updateTab(tabs[0].id, { curvePresetId: defaultPreset.id });
+      }
+    }
+  }, [presets]); // Wykonaj gdy presets się załadują
 
   const loadCalculationFromCatalog = (calculation) => {
     actions.loadCalculation(calculation);
@@ -245,6 +265,61 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
 
   // Obsługa dodawania nowej zakładki
   const handleAddTab = () => {
+    // Domyślne krzywe (fallback jeśli nie ma domyślnego presetu)
+    const defaultCurves = {
+      baking: [
+        { x: 50, y: 45 },
+        { x: 100, y: 55 },
+        { x: 500, y: 70 },
+        { x: 1000, y: 80 },
+        { x: 2000, y: 90 },
+        { x: 3000, y: 95 }
+      ],
+      cleaning: [
+        { x: 50, y: 45 },
+        { x: 100, y: 55 },
+        { x: 500, y: 70 },
+        { x: 1000, y: 80 },
+        { x: 2000, y: 90 },
+        { x: 3000, y: 95 }
+      ],
+      bruttoWeight: [
+        { x: 50, y: 60 },
+        { x: 100, y: 120 },
+        { x: 500, y: 600 },
+        { x: 1000, y: 1200 },
+        { x: 2000, y: 2300 },
+        { x: 3000, y: 3300 }
+      ],
+      heatshieldPrep: [
+        { x: 0.01, y: 30 },
+        { x: 0.05, y: 45 },
+        { x: 0.1, y: 60 },
+        { x: 0.5, y: 120 },
+        { x: 1.0, y: 180 },
+        { x: 2.0, y: 300 }
+      ],
+      heatshieldLaser: [
+        { x: 0.0, y: 5 },
+        { x: 0.01, y: 5 },
+        { x: 0.05, y: 8 },
+        { x: 0.1, y: 12 },
+        { x: 0.5, y: 25 },
+        { x: 1.0, y: 40 },
+        { x: 2.0, y: 70 }
+      ]
+    };
+
+    // Znajdź globalny domyślny preset (NIE z kalkulacji, tylko globalny isDefault)
+    const defaultPreset = presets && presets.length > 0
+      ? presets.find(p => p.isDefault === true)
+      : null;
+    const defaultPresetId = defaultPreset?.id || null;
+
+    // WAŻNE: NIE kopiujemy krzywych! Trzymamy tylko ID presetu.
+    // Krzywe będą ładowane dynamicznie przez useDynamicCurves hook.
+    // To pozwala na automatyczne aktualizacje wszystkich kalkulacji gdy preset się zmieni.
+
     const newTab = {
       id: Date.now(),
       name: `Materiał ${tabs.length + 1}`,
@@ -258,49 +333,10 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
       customProcesses: [],
       nextProcessId: 1,
       showAdvanced: false,
-      editingCurves: {
-        baking: [
-          { x: 50, y: 45 },
-          { x: 100, y: 55 },
-          { x: 500, y: 70 },
-          { x: 1000, y: 80 },
-          { x: 2000, y: 90 },
-          { x: 3000, y: 95 }
-        ],
-        cleaning: [
-          { x: 50, y: 45 },
-          { x: 100, y: 55 },
-          { x: 500, y: 70 },
-          { x: 1000, y: 80 },
-          { x: 2000, y: 90 },
-          { x: 3000, y: 95 }
-        ],
-        bruttoWeight: [
-          { x: 50, y: 60 },
-          { x: 100, y: 120 },
-          { x: 500, y: 600 },
-          { x: 1000, y: 1200 },
-          { x: 2000, y: 2300 },
-          { x: 3000, y: 3300 }
-        ],
-        heatshieldPrep: [
-          { x: 0.01, y: 30 },
-          { x: 0.05, y: 45 },
-          { x: 0.1, y: 60 },
-          { x: 0.5, y: 120 },
-          { x: 1.0, y: 180 },
-          { x: 2.0, y: 300 }
-        ],
-        heatshieldLaser: [
-          { x: 0.0, y: 5 },
-          { x: 0.01, y: 5 },
-          { x: 0.05, y: 8 },
-          { x: 0.1, y: 12 },
-          { x: 0.5, y: 25 },
-          { x: 1.0, y: 40 },
-          { x: 2.0, y: 70 }
-        ]
-      },
+      curvePresetId: defaultPresetId, // ID presetu dla dynamicznego ładowania krzywych
+      // STARE POLA (dla kompatybilności wstecznej ze starymi kalkulacjami):
+      // editingCurves i customCurves będą ignorowane jeśli curvePresetId istnieje
+      editingCurves: defaultCurves, // Fallback dla starych kalkulacji bez preset ID
       customCurves: [],
       nextCurveId: 1,
       items: [{
@@ -316,11 +352,26 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
         customCurveValues: {},
         results: null,
         annualVolume: '',
+        // Kalendarz prognoz wolumenu
+        volumeForecast: {
+          enabled: false,
+          years: {}
+        },
         // Pola dla stanowisk produkcyjnych
         workstation: {
           id: null,
           efficiency: ''
         },
+        // Nowa struktura dla wielu stanowisk - ZAWSZE jedno puste stanowisko
+        workstations: [{
+          id: 1,
+          workstationId: null,
+          efficiency: '',
+          name: 'Stanowisko 1',
+          costMode: 'auto',
+          manualCost: ''
+        }],
+        nextWorkstationId: 2,
         // Pola dla trybu WAGA
         weightUnit: 'g',
         // Pola dla trybu POWIERZCHNIA
@@ -508,6 +559,387 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
     setEditingTabName('');
   };
 
+  // === CBD Import Handlers ===
+
+  // Handler importu CBD
+  const handleImportCBD = () => {
+    setShowCBDImportModal(true);
+  };
+
+  // Handler potwierdzenia importu z modala
+  const handleCBDImportConfirm = (pendingItems) => {
+    // Dodaj do pending pool
+    setPendingPool(prev => [...prev, ...pendingItems]);
+
+    // Aktualizuj sesję
+    const calculationData = {
+      globalSGA,
+      tabs,
+      activeTab,
+      pendingPool: [...pendingPool, ...pendingItems],
+      calculationMeta
+    };
+    updateSession(calculationData);
+
+    console.log(`✅ Imported ${pendingItems.length} items to pending pool`);
+  };
+
+  // Handler przypisania pozycji do zakładki
+  const handleAssignToTab = (pendingItemId, tabId) => {
+    const pendingItem = pendingPool.find(p => p.id === pendingItemId);
+    if (!pendingItem) return;
+
+    const targetTab = tabs.find(t => t.id === tabId);
+    if (!targetTab) return;
+
+    // Feature flag: użyj nowego itemFactory lub starego inline kodu
+    const newItem = FEATURE_FLAGS.USE_NEW_ITEM_FACTORY
+      ? (() => {
+          logFeatureUsage('USE_NEW_ITEM_FACTORY', 'handleAssignToTab');
+          return createItemFromPending(pendingItem, targetTab.nextItemId);
+        })()
+      : {
+          // OLD CODE (fallback) - zachowaj istniejący kod dla bezpieczeństwa
+          id: targetTab.nextItemId,
+          partId: pendingItem.partId,
+          description: pendingItem.description || '',
+          annualVolume: pendingItem.annualVolume.toString(),
+          // Włącz kalendarz prognoz jeśli pending item go ma
+          // UWAGA: Struktura volumeForecast musi być { enabled: bool, years: {} }
+          volumeForecast: pendingItem.hasVolumeForecast ? {
+            enabled: true,
+            years: pendingItem.volumeForecast || {}
+          } : {
+            enabled: false,
+            years: {}
+          },
+          // Domyślne wartości dla nowego itemu (zależnie od trybu)
+          weight: '',
+          weightOption: 'netto',
+          bruttoWeight: '',
+          cleaningOption: 'scaled',
+          manualCleaningTime: '45',
+          margin: '',
+          customValues: {},
+          customCurveValues: {},
+          results: null,
+          workstation: {
+            id: null,
+            efficiency: ''
+          },
+          workstations: [{
+            id: 1,
+            workstationId: null,
+            efficiency: '',
+            name: 'Stanowisko 1',
+            costMode: 'auto',
+            manualCost: ''
+          }],
+          nextWorkstationId: 2,
+          weightUnit: 'g',
+          surfaceArea: '',
+          surfaceUnit: 'mm2',
+          thickness: '',
+          density: '',
+          surfaceWeight: '',
+          surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
+          sheetLength: '1000',
+          sheetWidth: '1000',
+          partsPerSheet: '',
+          surfaceBrutto: '',
+          volume: '',
+          volumeUnit: 'mm3',
+          dimensions: { length: '', width: '', height: '' },
+          volumeWeightOption: 'brutto-auto',
+          heatshield: {
+            surfaceNettoInput: '',
+            surfaceNetto: '',
+            surfaceUnit: 'mm2',
+            sheetThickness: '',
+            sheetDensity: '',
+            sheetPrice: '',
+            sheetPriceUnit: 'kg',
+            matThickness: '',
+            matDensity: '',
+            matPrice: '',
+            matPriceUnit: 'm2',
+            bendingCost: '',
+            joiningCost: '0',
+            gluingCost: '',
+            surfaceBruttoSheet: '',
+            surfaceNettoSheet: '',
+            surfaceNettoMat: '',
+            sheetWeight: '',
+            matWeight: ''
+          },
+          multilayer: {
+            layers: [{
+              id: 1,
+              name: 'Warstwa 1',
+              thickness: '',
+              density: '',
+              priceUnit: 'kg',
+              price: '',
+              surfaceNettoInput: '',
+              surfaceUnit: 'mm2',
+              surfaceNetto: '',
+              sheetLength: '',
+              sheetWidth: '',
+              partsPerSheet: '',
+              surfaceBrutto: '',
+              weightNetto: '',
+              weightBrutto: '',
+              curveScope: 'global',
+              customCurveValues: {}
+            }],
+            nextLayerId: 2
+          },
+          unit: 'kg',
+          packaging: {
+            partsPerLayer: '',
+            layers: '',
+            partsInBox: '',
+            manualPartsInBox: false,
+            compositionId: null,
+            customPrice: ''
+          }
+        };
+
+    // Dodaj item do zakładki
+    const updatedTabs = tabs.map(tab => {
+      if (tab.id === tabId) {
+        return {
+          ...tab,
+          items: [...tab.items, newItem],
+          nextItemId: tab.nextItemId + 1
+        };
+      }
+      return tab;
+    });
+
+    // Oznacz pending item jako assigned
+    const updatedPool = pendingPool.map(p => {
+      if (p.id === pendingItemId) {
+        return {
+          ...p,
+          status: 'assigned',
+          assignedToTab: tabId
+        };
+      }
+      return p;
+    });
+
+    // Aktualizuj stan
+    actions.loadData({ ...state, tabs: updatedTabs });
+    setPendingPool(updatedPool);
+
+    // Aktualizuj sesję
+    const calculationData = {
+      globalSGA,
+      tabs: updatedTabs,
+      activeTab,
+      pendingPool: updatedPool,
+      calculationMeta
+    };
+    updateSession(calculationData);
+
+    console.log(`✅ Assigned ${pendingItem.partId} to tab ${targetTab.name}`);
+  };
+
+  // Handler masowego przypisania wielu pozycji do zakładki (bulk assign)
+  const handleBulkAssignToTab = (pendingItemIds, tabId) => {
+    if (!pendingItemIds || pendingItemIds.length === 0) return;
+
+    const targetTab = tabs.find(t => t.id === tabId);
+    if (!targetTab) return;
+
+    // Zbierz wszystkie pending items do przypisania
+    const itemsToAssign = pendingItemIds
+      .map(id => pendingPool.find(p => p.id === id))
+      .filter(item => item && item.status === 'pending');
+
+    if (itemsToAssign.length === 0) return;
+
+    // Utwórz nowe itemy dla wszystkich pending items
+    let currentNextItemId = targetTab.nextItemId;
+    const newItems = itemsToAssign.map(pendingItem => {
+      // Feature flag: użyj nowego itemFactory lub starego inline kodu
+      const newItem = FEATURE_FLAGS.USE_NEW_ITEM_FACTORY
+        ? (() => {
+            logFeatureUsage('USE_NEW_ITEM_FACTORY', 'handleBulkAssignToTab');
+            return createItemFromPending(pendingItem, currentNextItemId++);
+          })()
+        : {
+            // OLD CODE (fallback) - zachowaj istniejący kod dla bezpieczeństwa
+            id: currentNextItemId++,
+            partId: pendingItem.partId,
+            description: pendingItem.description || '',
+            annualVolume: pendingItem.annualVolume.toString(),
+            volumeForecast: pendingItem.hasVolumeForecast ? {
+              enabled: true,
+              years: pendingItem.volumeForecast || {}
+            } : {
+              enabled: false,
+              years: {}
+            },
+            weight: '',
+            weightOption: 'netto',
+            bruttoWeight: '',
+            cleaningOption: 'scaled',
+            manualCleaningTime: '45',
+            margin: '',
+            customValues: {},
+            customCurveValues: {},
+            results: null,
+            workstation: { id: null, efficiency: '' },
+            workstations: [{
+              id: 1,
+              workstationId: null,
+              efficiency: '',
+              name: 'Stanowisko 1',
+              costMode: 'auto',
+              manualCost: ''
+            }],
+            nextWorkstationId: 2,
+            weightUnit: 'g',
+            surfaceArea: '',
+            surfaceUnit: 'mm2',
+            thickness: '',
+            density: '',
+            surfaceWeight: '',
+            surfaceCalcLocked: { thickness: true, density: true, surfaceWeight: false },
+            sheetLength: '1000',
+            sheetWidth: '1000',
+            partsPerSheet: '',
+            surfaceBrutto: '',
+            volume: '',
+            volumeUnit: 'mm3',
+            dimensions: { length: '', width: '', height: '' },
+            volumeWeightOption: 'brutto-auto',
+            heatshield: {
+              surfaceNettoInput: '', surfaceNetto: '', surfaceUnit: 'mm2',
+              sheetThickness: '', sheetDensity: '', sheetPrice: '', sheetPriceUnit: 'kg',
+              matThickness: '', matDensity: '', matPrice: '', matPriceUnit: 'm2',
+              bendingCost: '', joiningCost: '0', gluingCost: '',
+              surfaceBruttoSheet: '', surfaceNettoSheet: '', surfaceNettoMat: '',
+              sheetWeight: '', matWeight: ''
+            },
+            multilayer: {
+              layers: [{
+                id: 1, name: 'Warstwa 1', thickness: '', density: '', priceUnit: 'kg', price: '',
+                surfaceNettoInput: '', surfaceUnit: 'mm2', surfaceNetto: '',
+                sheetLength: '', sheetWidth: '', partsPerSheet: '', surfaceBrutto: '',
+                weightNetto: '', weightBrutto: '', curveScope: 'global', customCurveValues: {}
+              }],
+              nextLayerId: 2
+            },
+            unit: 'kg',
+            packaging: {
+              partsPerLayer: '', layers: '', partsInBox: '',
+              manualPartsInBox: false, compositionId: null, customPrice: ''
+            }
+          };
+      return newItem;
+    });
+
+    // Zaktualizuj zakładkę - dodaj wszystkie nowe itemy naraz
+    const updatedTabs = tabs.map(tab => {
+      if (tab.id === tabId) {
+        return {
+          ...tab,
+          items: [...tab.items, ...newItems],
+          nextItemId: currentNextItemId
+        };
+      }
+      return tab;
+    });
+
+    // Oznacz wszystkie pending items jako assigned
+    const assignedIds = new Set(pendingItemIds);
+    const updatedPool = pendingPool.map(p => {
+      if (assignedIds.has(p.id)) {
+        return {
+          ...p,
+          status: 'assigned',
+          assignedToTab: tabId
+        };
+      }
+      return p;
+    });
+
+    // Aktualizuj stan - JEDEN raz dla wszystkich zmian
+    actions.loadData({ ...state, tabs: updatedTabs });
+    setPendingPool(updatedPool);
+
+    // Aktualizuj sesję
+    const calculationData = {
+      globalSGA,
+      tabs: updatedTabs,
+      activeTab,
+      pendingPool: updatedPool,
+      calculationMeta
+    };
+    updateSession(calculationData);
+
+    console.log(`✅ Bulk assigned ${itemsToAssign.length} items to tab ${targetTab.name}`);
+  };
+
+  // Handler duplikacji pozycji
+  const handleDuplicatePendingItem = (pendingItemId) => {
+    const itemToDuplicate = pendingPool.find(p => p.id === pendingItemId);
+    if (!itemToDuplicate) return;
+
+    // Zlicz ile duplikatów już istnieje
+    const duplicates = pendingPool.filter(p =>
+      p.partId === itemToDuplicate.partId && p.isDuplicate
+    );
+    const variantNumber = duplicates.length + 1;
+
+    // Utwórz duplikat
+    const duplicate = {
+      ...deepCopy(itemToDuplicate),
+      id: `pending_${Date.now()}_${Math.random()}`,
+      displayPartId: `${itemToDuplicate.partId} (Variant ${variantNumber})`,
+      description: `${itemToDuplicate.description} (Variant ${variantNumber})`,
+      isDuplicate: true,
+      originalId: itemToDuplicate.partId,
+      status: 'pending',
+      assignedToTab: null
+    };
+
+    // Dodaj do pool
+    const updatedPool = [...pendingPool, duplicate];
+    setPendingPool(updatedPool);
+
+    // Aktualizuj sesję
+    const calculationData = {
+      globalSGA,
+      tabs,
+      activeTab,
+      pendingPool: updatedPool,
+      calculationMeta
+    };
+    updateSession(calculationData);
+
+    console.log(`✅ Created duplicate of ${itemToDuplicate.partId} as Variant ${variantNumber}`);
+  };
+
+  // Handler usuwania pozycji z pool
+  const handleRemovePendingItem = (pendingItemId) => {
+    const updatedPool = pendingPool.filter(p => p.id !== pendingItemId);
+    setPendingPool(updatedPool);
+
+    // Aktualizuj sesję
+    const calculationData = {
+      globalSGA,
+      tabs,
+      activeTab,
+      pendingPool: updatedPool,
+      calculationMeta
+    };
+    updateSession(calculationData);
+  };
+
   // Przygotuj dane do eksportu - wszystkie dane potrzebne do pełnego odtworzenia stanu
   const exportData = {
     version: '2.2', // Updated: transport in calculationMeta, annualVolume field
@@ -581,6 +1013,25 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
             <SaveStatusIndicator darkMode={darkMode} />
           </div>
         </div>
+
+        {/* Pending Pool Panel - CBD Import */}
+        <PendingPoolPanel
+          pendingPool={pendingPool}
+          tabs={tabs}
+          activeTab={tabs[activeTab]?.id}
+          onImportCBD={handleImportCBD}
+          onAssignToTab={handleAssignToTab}
+          onBulkAssignToTab={handleBulkAssignToTab}
+          onDuplicate={handleDuplicatePendingItem}
+          onRemove={handleRemovePendingItem}
+        />
+
+        {/* CBD Import Modal */}
+        <CBDImportModal
+          isOpen={showCBDImportModal}
+          onClose={() => setShowCBDImportModal(false)}
+          onImport={handleCBDImportConfirm}
+        />
 
         {/* Navigation tabs */}
         <div className={`${themeClasses.card} rounded-lg border mb-6`}>
