@@ -3,6 +3,7 @@ import { useClient, clientUtils } from '../../context/ClientContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
 import { Plus, Edit2, Trash2, Search, Upload, Download, X, Check, Cloud } from 'lucide-react';
+import { PermissionGate } from '../Common/PermissionGate';
 
 /**
  * Komponent zarządzania klientami
@@ -171,29 +172,27 @@ export function ClientManager({ themeClasses, darkMode, onClose }) {
                 {isPushing ? 'Synchronizuję...' : 'Push to Database'}
               </button>
             )}
-            <button
-              onClick={handleExport}
-              className={`px-4 py-2 rounded-lg ${themeClasses.button.secondary} flex items-center gap-2`}
-            >
-              <Download size={16} />
-              Eksportuj
-            </button>
-            <label className={`px-4 py-2 rounded-lg ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
-              <Upload size={16} />
-              Importuj
-              <input
-                type="file"
-                accept=".json"
-                onChange={handleImport}
-                className="hidden"
-              />
-            </label>
-            <button
-              onClick={actions.resetClients}
-              className={`px-4 py-2 rounded-lg ${themeClasses.button.danger} flex items-center gap-2`}
-            >
-              Reset
-            </button>
+            <PermissionGate permission="clients_export">
+              <button
+                onClick={handleExport}
+                className={`px-4 py-2 rounded-lg ${themeClasses.button.secondary} flex items-center gap-2`}
+              >
+                <Download size={16} />
+                Eksportuj
+              </button>
+            </PermissionGate>
+            <PermissionGate permission="clients_import">
+              <label className={`px-4 py-2 rounded-lg ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
+                <Upload size={16} />
+                Importuj
+                <input
+                  type="file"
+                  accept=".json"
+                  onChange={handleImport}
+                  className="hidden"
+                />
+              </label>
+            </PermissionGate>
             <div className={`text-sm ${themeClasses.text.secondary} ml-auto flex items-center`}>
               Liczba klientów: <span className="font-bold ml-1">{state.clients.length}</span>
             </div>

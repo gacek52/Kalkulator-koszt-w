@@ -235,120 +235,54 @@ export function EditableCurve({
         )}
       </div>
 
-      <div className={`grid grid-cols-1 ${showTable ? 'lg:grid-cols-2' : ''} gap-6`}>
-        {/* Wykres interaktywny */}
-        <div
-          ref={chartContainerRef}
-          className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}
-          style={{ userSelect: 'none' }}
-        >
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart
-                data={displayData}
-                margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
-                onClick={handleChartClick}
-              >
-                <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#E5E7EB"} />
-                <XAxis
-                  dataKey="x"
-                  stroke={darkMode ? "#9CA3AF" : "#6B7280"}
-                  label={{ value: xLabel, position: 'insideBottom', offset: -10 }}
-                />
-                <YAxis
-                  stroke={darkMode ? "#9CA3AF" : "#6B7280"}
-                  label={{ value: yLabel, angle: -90, position: 'insideLeft' }}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: darkMode ? "#1F2937" : "#FFFFFF",
-                    border: `1px solid ${darkMode ? "#374151" : "#E5E7EB"}`,
-                    borderRadius: "6px",
-                    color: darkMode ? "#F9FAFB" : "#111827"
-                  }}
-                  formatter={(value, name) => [value.toFixed(2), yLabel]}
-                  labelFormatter={(x) => `${xLabel}: ${x}`}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="y"
-                  stroke={color}
-                  strokeWidth={2}
-                  dot={<ControlPoint />}
-                  activeDot={{ r: 8, stroke: color, strokeWidth: 2 }}
-                  connectNulls={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          {!readonly && (
-            <div className={`text-xs mt-2 ${themeClasses.text?.secondary || 'text-gray-500'}`}>
-              💡 Kliknij na wykres aby dodać punkt, podwójnie kliknij punkt aby usunąć, przeciągnij punkt aby go przesunąć
-            </div>
-          )}
+      {/* Wykres interaktywny - pełna szerokość */}
+      <div
+        ref={chartContainerRef}
+        className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}
+        style={{ userSelect: 'none' }}
+      >
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={displayData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 20 }}
+              onClick={handleChartClick}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? "#374151" : "#E5E7EB"} />
+              <XAxis
+                dataKey="x"
+                stroke={darkMode ? "#9CA3AF" : "#6B7280"}
+                label={{ value: xLabel, position: 'insideBottom', offset: -10 }}
+              />
+              <YAxis
+                stroke={darkMode ? "#9CA3AF" : "#6B7280"}
+                label={{ value: yLabel, angle: -90, position: 'insideLeft' }}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: darkMode ? "#1F2937" : "#FFFFFF",
+                  border: `1px solid ${darkMode ? "#374151" : "#E5E7EB"}`,
+                  borderRadius: "6px",
+                  color: darkMode ? "#F9FAFB" : "#111827"
+                }}
+                formatter={(value, name) => [value.toFixed(2), yLabel]}
+                labelFormatter={(x) => `${xLabel}: ${x}`}
+              />
+              <Line
+                type="monotone"
+                dataKey="y"
+                stroke={color}
+                strokeWidth={2}
+                dot={<ControlPoint />}
+                activeDot={{ r: 8, stroke: color, strokeWidth: 2 }}
+                connectNulls={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
-
-        {/* Tabela z danymi */}
-        {showTable && (
-          <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
-            <div className="max-h-64 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0" style={{ backgroundColor: darkMode ? "#1F2937" : "#FFFFFF" }}>
-                  <tr>
-                    <th className="text-left pb-2">{xLabel}</th>
-                    <th className="text-left pb-2">{yLabel}</th>
-                    {!readonly && <th className="w-8 pb-2"></th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {curveData.map((point, index) => (
-                    <tr key={index} className="border-t border-gray-200 dark:border-gray-600">
-                      <td className="pr-2 py-1">
-                        <input
-                          type="number"
-                          value={point.x}
-                          onChange={(e) => handlePointUpdate(index, 'x', e.target.value)}
-                          className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input || ''}`}
-                          min="0"
-                          disabled={readonly}
-                        />
-                      </td>
-                      <td className="pr-2 py-1">
-                        <input
-                          type="number"
-                          value={point.y}
-                          onChange={(e) => handlePointUpdate(index, 'y', e.target.value)}
-                          className={`w-full px-2 py-1 border rounded text-xs ${themeClasses.input || ''}`}
-                          step="1"
-                          min="0"
-                          disabled={readonly}
-                        />
-                      </td>
-                      {!readonly && (
-                        <td className="py-1">
-                          {curveData.length > 2 && (
-                            <button
-                              onClick={() => removePoint(index)}
-                              className="text-red-500 hover:text-red-700 text-xs"
-                            >
-                              <Trash2 size={12} />
-                            </button>
-                          )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {!readonly && (
-                <button
-                  onClick={addPoint}
-                  className={`mt-2 text-xs px-2 py-1 rounded ${themeClasses.button?.primary || 'bg-blue-600 text-white'}`}
-                >
-                  <Plus size={12} className="inline mr-1" /> Dodaj punkt
-                </button>
-              )}
-            </div>
+        {!readonly && (
+          <div className={`text-xs mt-2 ${themeClasses.text?.secondary || 'text-gray-500'}`}>
+            💡 Kliknij na wykres aby dodać punkt, podwójnie kliknij punkt aby usunąć, przeciągnij punkt aby go przesunąć
           </div>
         )}
       </div>

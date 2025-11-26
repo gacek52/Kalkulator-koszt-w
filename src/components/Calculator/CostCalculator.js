@@ -19,6 +19,8 @@ import CBDImportModal from './CBDImportModal';
 // Feature flags i nowe utilities
 import { FEATURE_FLAGS, logFeatureUsage } from '../../config/featureFlags';
 import { createItemFromPending, createDefaultTabWithSettings } from '../../utils/itemFactory';
+import notify from '../../utils/notifications';
+import ConfirmDialog from '../Common/ConfirmDialog';
 
 /**
  * Główny komponent kalkulatora kosztów
@@ -246,11 +248,11 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
     // Wyczyść sesję roboczą po pomyślnym zapisie
     clearSession();
 
-    // Pokaż alert DOPIERO po zapisaniu wszystkiego (na końcu!)
+    // Pokaż toast notification DOPIERO po zapisaniu wszystkiego (na końcu!)
     if (!asNewVariant && existingCalculation) {
-      alert('Kalkulacja zaktualizowana w katalogu!');
+      notify.success('Kalkulacja zaktualizowana w katalogu!');
     } else {
-      alert(asNewVariant ? 'Zapisano jako nowy wariant!' : 'Kalkulacja zapisana w katalogu!');
+      notify.success(asNewVariant ? 'Zapisano jako nowy wariant!' : 'Kalkulacja zapisana w katalogu!');
     }
 
     setShowSaveMenu(false);
@@ -457,7 +459,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
   // Obsługa usuwania zakładki
   const handleRemoveTab = (tabId, tabIndex) => {
     if (tabs.length <= 1) {
-      alert('Nie możesz usunąć ostatniej zakładki!');
+      notify.error('Nie możesz usunąć ostatniej zakładki!');
       return;
     }
 
@@ -536,7 +538,7 @@ export function CostCalculator({ onBackToCatalog, calculationToLoad, onSaveRef }
     }));
 
     actions.loadData(migratedData);
-    alert('Dane zostały pomyślnie zaimportowane!');
+    notify.success('Dane zostały pomyślnie zaimportowane!');
   };
 
   // Obsługa edycji nazwy zakładki

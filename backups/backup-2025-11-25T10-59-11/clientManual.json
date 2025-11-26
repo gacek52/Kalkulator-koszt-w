@@ -1,0 +1,19 @@
+{
+  "collection": "clientManual",
+  "count": 1,
+  "documents": [
+    {
+      "id": "xdW29ycrGj1a5bv4oEsb",
+      "createdAt": {
+        "_seconds": 1759930901,
+        "_nanoseconds": 837000000
+      },
+      "nextManualId": 1,
+      "manuals": [],
+      "updatedAt": {
+        "_seconds": 1763991416,
+        "_nanoseconds": 188000000
+      }
+    }
+  ]
+}

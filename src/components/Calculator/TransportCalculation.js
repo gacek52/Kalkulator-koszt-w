@@ -69,11 +69,24 @@ export function TransportCalculation({
   const calculatePreview = () => {
     if (!selectedTransportType) return null;
 
-    const distance = getCurrentDistance();
-    if (distance === 0) return null;
+    let costPerSpace;
+    let totalCost;
+    let distance;
 
-    const totalCost = selectedTransportType.pricePerKm * distance;
-    const costPerSpace = totalCost / selectedTransportType.palletSpaces;
+    // Priorytet: jeśli podano ręczną cenę za paletę, użyj jej
+    const manualPricePerPallet = parseFloat(calculationMeta.transport?.manualPricePerPallet);
+    if (calculationMeta.transport?.distanceSource === 'manual' && manualPricePerPallet > 0) {
+      costPerSpace = manualPricePerPallet;
+      totalCost = costPerSpace * selectedTransportType.palletSpaces;
+      distance = null; // Odległość nie jest używana
+    } else {
+      // W przeciwnym razie oblicz na podstawie odległości
+      distance = getCurrentDistance();
+      if (distance === 0) return null;
+
+      totalCost = selectedTransportType.pricePerKm * distance;
+      costPerSpace = totalCost / selectedTransportType.palletSpaces;
+    }
 
     // Oblicz roczne zapotrzebowanie na miejsca paletowe dla WSZYSTKICH zakładek
     let yearlySpaces = 0;
@@ -128,6 +141,35 @@ export function TransportCalculation({
   };
 
   const preview = calculatePreview();
+
+  // Zapisz obliczony koszt transportu na miejsce paletowe do stanu
+  useEffect(() => {
+    if (!preview) {
+      // Jeśli brak podglądu (np. nie wybrano transportu), wyczyść zapisany koszt
+      if (calculationMeta.transport && calculationMeta.transport.calculatedCostPerSpace !== undefined) {
+        onUpdate({
+          transport: {
+            ...calculationMeta.transport,
+            calculatedCostPerSpace: undefined
+          }
+        });
+      }
+      return;
+    }
+
+    const newCostPerSpace = parseFloat(preview.costPerSpace);
+    const currentCostPerSpace = calculationMeta.transport?.calculatedCostPerSpace;
+
+    // Zapisz tylko jeśli wartość się zmieniła
+    if (newCostPerSpace !== currentCostPerSpace) {
+      onUpdate({
+        transport: {
+          ...calculationMeta.transport,
+          calculatedCostPerSpace: newCostPerSpace
+        }
+      });
+    }
+  }, [preview?.costPerSpace]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Sprawdź maksymalną wysokość pakowania dla wszystkich itemów we wszystkich zakładkach
   const checkHeightCompatibility = () => {
@@ -263,16 +305,47 @@ export function TransportCalculation({
                   </label>
 
                   {calculationMeta.transport.distanceSource === 'manual' && (
-                    <div className="ml-6">
-                      <input
-                        type="number"
-                        value={calculationMeta.transport.manualDistance}
-                        onChange={(e) => handleFieldChange('manualDistance', e.target.value)}
-                        className={`w-full px-3 py-2 rounded-lg border text-sm ${themeClasses.input}`}
-                        placeholder="Wprowadź odległość (km)"
-                        min="0"
-                        step="1"
-                      />
+                    <div className="ml-6 space-y-3">
+                      <div>
+                        <label className={`block text-xs mb-1 ${themeClasses.text.secondary}`}>
+                          Podaj odległość (automatyczne obliczenie)
+                        </label>
+                        <input
+                          type="number"
+                          value={calculationMeta.transport.manualDistance || ''}
+                          onChange={(e) => handleFieldChange('manualDistance', e.target.value)}
+                          className={`w-full px-3 py-2 rounded-lg border text-sm ${themeClasses.input}`}
+                          placeholder="Odległość w km"
+                          min="0"
+                          step="1"
+                        />
+                      </div>
+
+                      <div className="relative">
+                        <div className="absolute inset-0 flex items-center">
+                          <div className={`w-full border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}></div>
+                        </div>
+                        <div className="relative flex justify-center">
+                          <span className={`px-2 text-xs ${darkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500'}`}>
+                            lub
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className={`block text-xs mb-1 ${themeClasses.text.secondary}`}>
+                          Podaj cenę za paletę (bezpośrednio)
+                        </label>
+                        <input
+                          type="number"
+                          value={calculationMeta.transport.manualPricePerPallet || ''}
+                          onChange={(e) => handleFieldChange('manualPricePerPallet', e.target.value)}
+                          className={`w-full px-3 py-2 rounded-lg border text-sm ${themeClasses.input}`}
+                          placeholder="Cena w €"
+                          min="0"
+                          step="0.01"
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
@@ -305,14 +378,18 @@ export function TransportCalculation({
                     Podgląd kosztów transportu
                   </h5>
                   <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className={themeClasses.text.secondary}>Odległość:</span>
-                      <span className={themeClasses.text.primary}>{preview.distance} km</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className={themeClasses.text.secondary}>Koszt całkowity:</span>
-                      <span className={themeClasses.text.primary}>€{preview.totalCost}</span>
-                    </div>
+                    {preview.distance !== null && (
+                      <div className="flex justify-between">
+                        <span className={themeClasses.text.secondary}>Odległość:</span>
+                        <span className={themeClasses.text.primary}>{preview.distance} km</span>
+                      </div>
+                    )}
+                    {preview.distance !== null && (
+                      <div className="flex justify-between">
+                        <span className={themeClasses.text.secondary}>Koszt całkowity:</span>
+                        <span className={themeClasses.text.primary}>€{preview.totalCost}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className={themeClasses.text.secondary}>Koszt na miejsce paletowe:</span>
                       <span className={`font-semibold ${themeClasses.text.primary}`}>

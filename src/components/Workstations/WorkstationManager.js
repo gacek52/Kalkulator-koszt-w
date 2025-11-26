@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
 import { Wrench, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Copy } from 'lucide-react';
 import { useWorkstation } from '../../context/WorkstationContext';
+import { useRole } from '../../context/RoleContext';
+import { PermissionGate } from '../Common/PermissionGate';
 
 /**
  * Główny komponent zarządzania stanowiskami produkcyjnymi
  */
 export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeClasses }) {
   const { state, actions, utils } = useWorkstation();
+  const { hasPermission } = useRole();
   const [editingWorkstation, setEditingWorkstation] = useState(null);
 
   // Formularz stanowiska
@@ -208,24 +211,28 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
                 {darkMode ? <Sun size={20} /> : <Moon size={20} />}
               </button>
 
-              <button
-                onClick={handleExport}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
-              >
-                <Download size={16} />
-                Eksportuj JSON
-              </button>
+              <PermissionGate permission="workstations_export">
+                <button
+                  onClick={handleExport}
+                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
+                >
+                  <Download size={16} />
+                  Eksportuj JSON
+                </button>
+              </PermissionGate>
 
-              <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
-                <Upload size={16} />
-                Importuj JSON
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </label>
+              <PermissionGate permission="workstations_import">
+                <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
+                  <Upload size={16} />
+                  Importuj JSON
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                </label>
+              </PermissionGate>
             </div>
           </div>
         </div>
@@ -234,10 +241,11 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
         <div className={`${themeClasses.card} rounded-lg border p-6`}>
           <div className="space-y-6">
             {/* Formularz dodawania/edycji */}
-            <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
-              <h3 className={`text-lg font-medium mb-4 ${themeClasses.text.primary}`}>
-                {editingWorkstation ? 'Edytuj stanowisko' : 'Dodaj nowe stanowisko'}
-              </h3>
+            <PermissionGate permission="workstations_edit">
+              <div className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600 bg-gray-800' : 'border-gray-200 bg-gray-50'}`}>
+                <h3 className={`text-lg font-medium mb-4 ${themeClasses.text.primary}`}>
+                  {editingWorkstation ? 'Edytuj stanowisko' : 'Dodaj nowe stanowisko'}
+                </h3>
 
               <div className="space-y-4">
                 {/* Nazwa i typ */}
@@ -411,6 +419,7 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
                 )}
               </div>
             </div>
+            </PermissionGate>
 
             {/* Lista stanowisk */}
             <div className="space-y-3">
@@ -476,27 +485,33 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
                           </div>
 
                           <div className="flex gap-2 ml-4">
-                            <button
-                              onClick={() => handleEditWorkstation(ws)}
-                              className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
-                              title="Edytuj"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => actions.duplicateWorkstation(ws.id)}
-                              className={`p-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600`}
-                              title="Duplikuj"
-                            >
-                              <Copy size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteWorkstation(ws.id)}
-                              className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
-                              title="Usuń"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <PermissionGate permission="workstations_edit">
+                              <button
+                                onClick={() => handleEditWorkstation(ws)}
+                                className={`p-2 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
+                                title="Edytuj"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                            </PermissionGate>
+                            <PermissionGate permission="workstations_edit">
+                              <button
+                                onClick={() => actions.duplicateWorkstation(ws.id)}
+                                className={`p-2 rounded hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600`}
+                                title="Duplikuj"
+                              >
+                                <Copy size={16} />
+                              </button>
+                            </PermissionGate>
+                            <PermissionGate permission="workstations_edit">
+                              <button
+                                onClick={() => handleDeleteWorkstation(ws.id)}
+                                className={`p-2 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
+                                title="Usuń"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </PermissionGate>
                           </div>
                         </div>
                       </div>

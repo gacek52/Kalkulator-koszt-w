@@ -213,7 +213,7 @@ class FirestoreStorageService {
    */
   async saveCalculation(metadata, fullData) {
     try {
-      const id = metadata.id || this._generateId();
+      const id = metadata.id || await this._generateId();
 
       // Metadata do catalog collection
       const metadataToSave = {
@@ -305,20 +305,47 @@ class FirestoreStorageService {
   }
 
   /**
-   * Generuj ID w formacie RRMMDD-NN
+   * Generuj ID w formacie RRMMDD-nnnn
+   * Używa sekwencyjnego licznika 0000-9999 (z resetem po 9999)
    */
-  _generateId() {
+  async _generateId() {
     const now = new Date();
     const year = now.getFullYear().toString().slice(-2);
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
     const datePrefix = `${year}${month}${day}`;
 
-    // Używamy timestamp jako unikalnego sufiksu
-    // W production można to ulepszyć używając Firestore counter
-    const uniqueSuffix = String(Date.now()).slice(-4);
+    // Użyj Firestore transaction aby atomically pobrac i zinkrementować licznik
+    const counterRef = this.db.collection('counters').doc('catalogIdSequence');
 
-    return `${datePrefix}-${uniqueSuffix}`;
+    try {
+      const result = await this.db.runTransaction(async (transaction) => {
+        const counterDoc = await transaction.get(counterRef);
+
+        let currentValue = 0;
+        if (counterDoc.exists) {
+          currentValue = counterDoc.data().value || 0;
+        }
+
+        // Inkrementuj licznik (z resetem po 9999)
+        const nextValue = (currentValue + 1) % 10000; // 0-9999
+
+        // Zapisz nową wartość
+        transaction.set(counterRef, { value: nextValue }, { merge: true });
+
+        return currentValue; // Zwróć aktualną wartość (przed inkrementacją)
+      });
+
+      // Formatuj licznik na 4 cyfry (0000-9999)
+      const sequenceNumber = String(result).padStart(4, '0');
+
+      return `${datePrefix}-${sequenceNumber}`;
+    } catch (error) {
+      console.error('Error generating sequential ID:', error);
+      // Fallback do timestamp jeśli transakcja nie powiedzie się
+      const uniqueSuffix = String(Date.now()).slice(-4);
+      return `${datePrefix}-${uniqueSuffix}`;
+    }
   }
 
   /**

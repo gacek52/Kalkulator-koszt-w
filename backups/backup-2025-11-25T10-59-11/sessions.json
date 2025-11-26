@@ -1,0 +1,1916 @@
+{
+  "collection": "sessions",
+  "count": 2,
+  "documents": [
+    {
+      "id": "T37NgkKM2pYzEmlU0D7wHjAkKfh1",
+      "calculation": {
+        "globalSGA": "12",
+        "tabs": [
+          {
+            "id": 1,
+            "name": "Materiał 1",
+            "calculationType": "weight",
+            "materialCost": "2.0",
+            "materialPriceUnit": "kg",
+            "bakingCost": "110",
+            "cleaningCost": "90",
+            "handlingCost": "0.08",
+            "prepCost": "90",
+            "customProcesses": [],
+            "nextProcessId": 1,
+            "showAdvanced": false,
+            "editingCurves": {
+              "baking": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "cleaning": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "bruttoWeight": [
+                {
+                  "x": 50,
+                  "y": 60
+                },
+                {
+                  "x": 100,
+                  "y": 120
+                },
+                {
+                  "x": 500,
+                  "y": 600
+                },
+                {
+                  "x": 1000,
+                  "y": 1200
+                },
+                {
+                  "x": 2000,
+                  "y": 2300
+                },
+                {
+                  "x": 3000,
+                  "y": 3300
+                }
+              ],
+              "heatshieldPrep": [
+                {
+                  "x": 0.01,
+                  "y": 30
+                },
+                {
+                  "x": 0.05,
+                  "y": 45
+                },
+                {
+                  "x": 0.1,
+                  "y": 60
+                },
+                {
+                  "x": 0.5,
+                  "y": 120
+                },
+                {
+                  "x": 1,
+                  "y": 180
+                },
+                {
+                  "x": 2,
+                  "y": 300
+                }
+              ],
+              "heatshieldLaser": [
+                {
+                  "x": 0,
+                  "y": 5
+                },
+                {
+                  "x": 0.01,
+                  "y": 5
+                },
+                {
+                  "x": 0.05,
+                  "y": 8
+                },
+                {
+                  "x": 0.1,
+                  "y": 12
+                },
+                {
+                  "x": 0.5,
+                  "y": 25
+                },
+                {
+                  "x": 1,
+                  "y": 40
+                },
+                {
+                  "x": 2,
+                  "y": 70
+                }
+              ]
+            },
+            "customCurves": [],
+            "nextCurveId": 1,
+            "items": [
+              {
+                "id": 1,
+                "partId": "",
+                "weight": "",
+                "weightOption": "netto",
+                "bruttoWeight": "",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "",
+                "customValues": {},
+                "results": null,
+                "annualVolume": "",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "",
+                "surfaceUnit": "mm2",
+                "thickness": "",
+                "density": "",
+                "surfaceWeight": "",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1000",
+                "sheetWidth": "1000",
+                "partsPerSheet": "",
+                "surfaceBrutto": "",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "",
+                  "layers": "",
+                  "partsInBox": "",
+                  "manualPartsInBox": false,
+                  "compositionId": null,
+                  "customPrice": ""
+                },
+                "workstations": [],
+                "nextWorkstationId": 1
+              }
+            ],
+            "nextItemId": 2
+          }
+        ],
+        "activeTab": 0,
+        "calculationMeta": {
+          "client": "Purem Tondela",
+          "status": "draft",
+          "notes": "",
+          "createdDate": "2025-10-17T10:52:31.228Z",
+          "modifiedDate": "2025-10-17T10:53:22.214Z",
+          "catalogId": null,
+          "sharedAccess": false,
+          "clientId": 5,
+          "clientCity": "Tondela"
+        }
+      },
+      "isDraft": true,
+      "linkedCalculationId": null,
+      "lastModified": "2025-10-17T10:53:22.216Z",
+      "lastAutoSave": "2025-10-17T10:53:53.073Z",
+      "createdAt": {
+        "_seconds": 1760698421,
+        "_nanoseconds": 466000000
+      },
+      "updatedAt": {
+        "_seconds": 1760698421,
+        "_nanoseconds": 466000000
+      }
+    },
+    {
+      "id": "uXDjifQbHpMViH4k8tWg5oRYHJF2",
+      "calculation": {
+        "globalSGA": "12",
+        "tabs": [
+          {
+            "id": 1,
+            "name": "2:3 superwool z alternatywą 10mm (128 kg/m³)",
+            "calculationType": "surface",
+            "materialCost": "4",
+            "materialPriceUnit": "m2",
+            "bakingCost": "0",
+            "cleaningCost": "0",
+            "handlingCost": "",
+            "prepCost": "90",
+            "transport": {
+              "enabled": false,
+              "transportTypeId": null,
+              "distanceSource": "client",
+              "manualDistance": "",
+              "clientDistance": ""
+            },
+            "customProcesses": [],
+            "nextProcessId": 1,
+            "showAdvanced": false,
+            "editingCurves": {
+              "baking": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "cleaning": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "bruttoWeight": [
+                {
+                  "x": 50,
+                  "y": 60
+                },
+                {
+                  "x": 100,
+                  "y": 120
+                },
+                {
+                  "x": 500,
+                  "y": 600
+                },
+                {
+                  "x": 1000,
+                  "y": 1200
+                },
+                {
+                  "x": 2000,
+                  "y": 2300
+                },
+                {
+                  "x": 3000,
+                  "y": 3300
+                }
+              ],
+              "heatshieldPrep": [
+                {
+                  "x": 0.01,
+                  "y": 30
+                },
+                {
+                  "x": 0.05,
+                  "y": 45
+                },
+                {
+                  "x": 0.1,
+                  "y": 60
+                },
+                {
+                  "x": 0.5,
+                  "y": 120
+                },
+                {
+                  "x": 1,
+                  "y": 180
+                },
+                {
+                  "x": 2,
+                  "y": 300
+                }
+              ],
+              "heatshieldLaser": [
+                {
+                  "x": 0,
+                  "y": 5
+                },
+                {
+                  "x": 0.01,
+                  "y": 5
+                },
+                {
+                  "x": 0.05,
+                  "y": 8
+                },
+                {
+                  "x": 0.1,
+                  "y": 12
+                },
+                {
+                  "x": 0.5,
+                  "y": 25
+                },
+                {
+                  "x": 1,
+                  "y": 40
+                },
+                {
+                  "x": 2,
+                  "y": 70
+                }
+              ]
+            },
+            "customCurves": [],
+            "nextCurveId": 1,
+            "items": [
+              {
+                "id": 1,
+                "partId": "11.22.515.872.000",
+                "weight": "21.8",
+                "weightOption": "netto",
+                "bruttoWeight": "33.2",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "25",
+                "customValues": {},
+                "results": {
+                  "materialCost": 0.1036,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.065,
+                  "workstationCosts": {
+                    "1": {
+                      "cost": 0.065,
+                      "mode": "manual",
+                      "name": "Stanowisko 1"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.005085714285714286,
+                  "transportCost": 0.014437229437229436,
+                  "totalCost": 0.17368571428571428,
+                  "totalWithMargin": 0.21710714285714283,
+                  "totalWithSGA": 0.24316,
+                  "finalTotalCost": 0.2575972294372294,
+                  "nettoWeight": 21.8,
+                  "bruttoWeight": 33.2,
+                  "bakingTime": 41.64,
+                  "cleaningTime": 39.36
+                },
+                "annualVolume": "100000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "17000",
+                "surfaceUnit": "mm2",
+                "thickness": "10",
+                "density": "128",
+                "surfaceWeight": "1280.00",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1220",
+                "sheetWidth": "85",
+                "partsPerSheet": "4",
+                "surfaceBrutto": "0.0259",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "10",
+                  "layers": "35",
+                  "partsInBox": "",
+                  "manualPartsInBox": false,
+                  "compositionId": "6",
+                  "customPrice": ""
+                },
+                "workstations": [
+                  {
+                    "id": 1,
+                    "workstationId": 4,
+                    "efficiency": "4000",
+                    "name": "Stanowisko 1",
+                    "costMode": "manual",
+                    "manualCost": ".065"
+                  }
+                ],
+                "nextWorkstationId": 3,
+                "tooling": {
+                  "enabled": true,
+                  "items": [
+                    {
+                      "id": "tool-1761735587991",
+                      "name": "Diecut tool",
+                      "cost": 400
+                    }
+                  ]
+                },
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2026": 20000,
+                    "2027": 91841,
+                    "2028": 146389,
+                    "2029": 149143,
+                    "2030": 97333,
+                    "2031": 66220,
+                    "2032": 42187,
+                    "2033": 41496,
+                    "2034": 21044
+                  }
+                }
+              },
+              {
+                "id": 2,
+                "partId": "11.22.715.872.000",
+                "weight": "17.9",
+                "weightOption": "netto",
+                "bruttoWeight": "32.8",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "25",
+                "customValues": {},
+                "results": {
+                  "materialCost": 0.1024,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.065,
+                  "workstationCosts": {
+                    "2": {
+                      "cost": 0.065,
+                      "mode": "manual",
+                      "name": "Stanowisko 1"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.005085714285714286,
+                  "transportCost": 0.014437229437229436,
+                  "totalCost": 0.17248571428571427,
+                  "totalWithMargin": 0.21560714285714283,
+                  "totalWithSGA": 0.24148,
+                  "finalTotalCost": 0.25591722943722944,
+                  "nettoWeight": 17.9,
+                  "bruttoWeight": 32.8,
+                  "bakingTime": 41.56,
+                  "cleaningTime": 38.58
+                },
+                "annualVolume": "40000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "14000",
+                "surfaceUnit": "mm2",
+                "thickness": "10",
+                "density": "128",
+                "surfaceWeight": "1280.00",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1220",
+                "sheetWidth": "84",
+                "partsPerSheet": "4",
+                "surfaceBrutto": "0.0256",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "10",
+                  "layers": "35",
+                  "partsInBox": "",
+                  "manualPartsInBox": false,
+                  "compositionId": "6",
+                  "customPrice": ""
+                },
+                "workstations": [
+                  {
+                    "id": 2,
+                    "workstationId": 4,
+                    "efficiency": "4000",
+                    "name": "Stanowisko 1",
+                    "costMode": "manual",
+                    "manualCost": ".065"
+                  }
+                ],
+                "nextWorkstationId": 3,
+                "tooling": {
+                  "enabled": true,
+                  "items": [
+                    {
+                      "id": "tool-1761735587991",
+                      "name": "Diecut tool",
+                      "cost": 400
+                    }
+                  ]
+                },
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2026": 34266,
+                    "2027": 37579,
+                    "2028": 37905,
+                    "2029": 40444,
+                    "2030": 39235,
+                    "2031": 38715,
+                    "2032": 38207,
+                    "2033": 37714,
+                    "2034": 0
+                  }
+                }
+              },
+              {
+                "id": 3,
+                "partId": "11.22.715.872.001",
+                "weight": "17.9",
+                "weightOption": "netto",
+                "bruttoWeight": "32.0",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "25",
+                "customValues": {},
+                "results": {
+                  "materialCost": 0.1,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.065,
+                  "workstationCosts": {
+                    "2": {
+                      "cost": 0.065,
+                      "mode": "manual",
+                      "name": "Stanowisko 1"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.005085714285714286,
+                  "transportCost": 0.014437229437229436,
+                  "totalCost": 0.17008571428571428,
+                  "totalWithMargin": 0.21260714285714286,
+                  "totalWithSGA": 0.23812000000000003,
+                  "finalTotalCost": 0.25255722943722947,
+                  "nettoWeight": 17.9,
+                  "bruttoWeight": 32,
+                  "bakingTime": 41.4,
+                  "cleaningTime": 38.58
+                },
+                "annualVolume": "40000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "14000",
+                "surfaceUnit": "mm2",
+                "thickness": "10",
+                "density": "128",
+                "surfaceWeight": "1280.00",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1220",
+                "sheetWidth": "82",
+                "partsPerSheet": "4",
+                "surfaceBrutto": "0.0250",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "10",
+                  "layers": "35",
+                  "partsInBox": "",
+                  "manualPartsInBox": false,
+                  "compositionId": "6",
+                  "customPrice": ""
+                },
+                "workstations": [
+                  {
+                    "id": 2,
+                    "workstationId": 4,
+                    "efficiency": "4000",
+                    "name": "Stanowisko 1",
+                    "costMode": "manual",
+                    "manualCost": ".065"
+                  }
+                ],
+                "nextWorkstationId": 3,
+                "tooling": {
+                  "enabled": true,
+                  "items": [
+                    {
+                      "id": "tool-1761735587991",
+                      "name": "Diecut tool",
+                      "cost": 400
+                    }
+                  ]
+                },
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2026": 34266,
+                    "2027": 37579,
+                    "2028": 37905,
+                    "2029": 40444,
+                    "2030": 39235,
+                    "2031": 38715,
+                    "2032": 38207,
+                    "2033": 37714,
+                    "2034": 0
+                  }
+                }
+              },
+              {
+                "id": 4,
+                "partId": "11.22.515.872.001",
+                "weight": "17.3",
+                "weightOption": "netto",
+                "bruttoWeight": "36.3",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "25",
+                "customValues": {},
+                "results": {
+                  "materialCost": 0.1136,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.075,
+                  "workstationCosts": {
+                    "1": {
+                      "cost": 0.075,
+                      "mode": "manual",
+                      "name": "Stanowisko 1"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.005085714285714286,
+                  "transportCost": 0.014437229437229436,
+                  "totalCost": 0.19368571428571427,
+                  "totalWithMargin": 0.24210714285714283,
+                  "totalWithSGA": 0.27116,
+                  "finalTotalCost": 0.2855972294372294,
+                  "nettoWeight": 17.3,
+                  "bruttoWeight": 36.3,
+                  "bakingTime": 42.26,
+                  "cleaningTime": 38.46
+                },
+                "annualVolume": "100000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "13500",
+                "surfaceUnit": "mm2",
+                "thickness": "10",
+                "density": "128",
+                "surfaceWeight": "1280.00",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1220",
+                "sheetWidth": "93",
+                "partsPerSheet": "4",
+                "surfaceBrutto": "0.0284",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "10",
+                  "layers": "35",
+                  "partsInBox": "",
+                  "manualPartsInBox": false,
+                  "compositionId": "6",
+                  "customPrice": ""
+                },
+                "workstations": [
+                  {
+                    "id": 1,
+                    "workstationId": 4,
+                    "efficiency": "4000",
+                    "name": "Stanowisko 1",
+                    "costMode": "manual",
+                    "manualCost": "0.075"
+                  }
+                ],
+                "nextWorkstationId": 3,
+                "tooling": {
+                  "enabled": true,
+                  "items": [
+                    {
+                      "id": "tool-1761735587991",
+                      "name": "Diecut tool",
+                      "cost": 400
+                    }
+                  ]
+                },
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2026": 20000,
+                    "2027": 91841,
+                    "2028": 146389,
+                    "2029": 149143,
+                    "2030": 97333,
+                    "2031": 66220,
+                    "2032": 42187,
+                    "2033": 41496,
+                    "2034": 21044
+                  }
+                }
+              }
+            ],
+            "nextItemId": 5,
+            "selectedMaterialCompositionId": 147,
+            "isCustomName": true
+          },
+          {
+            "id": 1761737163662,
+            "name": "2:3 superwool z alternatywą 24mm (160 kg/m³)",
+            "calculationType": "surface",
+            "materialCost": "11.7",
+            "materialPriceUnit": "m2",
+            "bakingCost": "0",
+            "cleaningCost": "0",
+            "handlingCost": "",
+            "prepCost": "90",
+            "customProcesses": [],
+            "nextProcessId": 1,
+            "showAdvanced": false,
+            "editingCurves": {
+              "baking": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "cleaning": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "bruttoWeight": [
+                {
+                  "x": 50,
+                  "y": 60
+                },
+                {
+                  "x": 100,
+                  "y": 120
+                },
+                {
+                  "x": 500,
+                  "y": 600
+                },
+                {
+                  "x": 1000,
+                  "y": 1200
+                },
+                {
+                  "x": 2000,
+                  "y": 2300
+                },
+                {
+                  "x": 3000,
+                  "y": 3300
+                }
+              ],
+              "heatshieldPrep": [
+                {
+                  "x": 0.01,
+                  "y": 30
+                },
+                {
+                  "x": 0.05,
+                  "y": 45
+                },
+                {
+                  "x": 0.1,
+                  "y": 60
+                },
+                {
+                  "x": 0.5,
+                  "y": 120
+                },
+                {
+                  "x": 1,
+                  "y": 180
+                },
+                {
+                  "x": 2,
+                  "y": 300
+                }
+              ],
+              "heatshieldLaser": [
+                {
+                  "x": 0,
+                  "y": 5
+                },
+                {
+                  "x": 0.01,
+                  "y": 5
+                },
+                {
+                  "x": 0.05,
+                  "y": 8
+                },
+                {
+                  "x": 0.1,
+                  "y": 12
+                },
+                {
+                  "x": 0.5,
+                  "y": 25
+                },
+                {
+                  "x": 1,
+                  "y": 40
+                },
+                {
+                  "x": 2,
+                  "y": 70
+                }
+              ]
+            },
+            "customCurves": [],
+            "nextCurveId": 1,
+            "items": [
+              {
+                "id": 1,
+                "partId": "11.22.515.870.004",
+                "weight": "491.5",
+                "weightOption": "netto",
+                "bruttoWeight": "655.9",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "20",
+                "customValues": {},
+                "customCurveValues": {},
+                "results": {
+                  "materialCost": 1.99836,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.075,
+                  "workstationCosts": {
+                    "1": {
+                      "cost": 0.075,
+                      "mode": "auto",
+                      "name": "Stanowisko 1"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.10833333333333334,
+                  "transportCost": 0.4210858585858585,
+                  "totalCost": 2.1816933333333335,
+                  "totalWithMargin": 2.618032,
+                  "totalWithSGA": 2.9321958400000003,
+                  "finalTotalCost": 3.353281698585859,
+                  "nettoWeight": 491.5,
+                  "bruttoWeight": 655.9,
+                  "bakingTime": 73.118,
+                  "cleaningTime": 69.68125
+                },
+                "annualVolume": "100000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "128000",
+                "surfaceUnit": "mm2",
+                "thickness": "24",
+                "density": "160",
+                "surfaceWeight": "3840.00",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1220",
+                "sheetWidth": "560",
+                "partsPerSheet": "4",
+                "surfaceBrutto": "0.1708",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "2",
+                  "layers": "5",
+                  "partsInBox": "",
+                  "manualPartsInBox": false,
+                  "compositionId": "8",
+                  "customPrice": "2"
+                },
+                "workstations": [
+                  {
+                    "id": 1,
+                    "workstationId": 4,
+                    "efficiency": "1200",
+                    "name": "Stanowisko 1",
+                    "costMode": "auto",
+                    "manualCost": ""
+                  }
+                ],
+                "nextWorkstationId": 2,
+                "tooling": {
+                  "enabled": true,
+                  "items": [
+                    {
+                      "id": "tool-1761737454644",
+                      "name": "Diecut tool",
+                      "cost": 400
+                    }
+                  ]
+                },
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2025": 0,
+                    "2026": 48266,
+                    "2027": 103529,
+                    "2028": 144551,
+                    "2029": 145655,
+                    "2030": 91268,
+                    "2031": 62093,
+                    "2032": 38207,
+                    "2033": 37714,
+                    "2034": 0
+                  }
+                }
+              }
+            ],
+            "nextItemId": 2,
+            "selectedMaterialCompositionId": 164,
+            "transport": {
+              "enabled": false,
+              "transportTypeId": null,
+              "distanceSource": "client",
+              "manualDistance": "",
+              "clientDistance": ""
+            },
+            "isCustomName": true
+          },
+          {
+            "id": 1761737698729,
+            "name": "Advantex 25mm (130 kg/m³) (worki komorowe)",
+            "calculationType": "weight",
+            "materialCost": "1.2",
+            "materialPriceUnit": "kg",
+            "bakingCost": "0",
+            "cleaningCost": "0",
+            "handlingCost": "",
+            "prepCost": "90",
+            "customProcesses": [],
+            "nextProcessId": 1,
+            "showAdvanced": false,
+            "editingCurves": {
+              "baking": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "cleaning": [
+                {
+                  "x": 50,
+                  "y": 45
+                },
+                {
+                  "x": 100,
+                  "y": 55
+                },
+                {
+                  "x": 500,
+                  "y": 70
+                },
+                {
+                  "x": 1000,
+                  "y": 80
+                },
+                {
+                  "x": 2000,
+                  "y": 90
+                },
+                {
+                  "x": 3000,
+                  "y": 95
+                }
+              ],
+              "bruttoWeight": [
+                {
+                  "x": 50,
+                  "y": 60
+                },
+                {
+                  "x": 100,
+                  "y": 120
+                },
+                {
+                  "x": 500,
+                  "y": 600
+                },
+                {
+                  "x": 1000,
+                  "y": 1200
+                },
+                {
+                  "x": 2000,
+                  "y": 2300
+                },
+                {
+                  "x": 3000,
+                  "y": 3300
+                }
+              ],
+              "heatshieldPrep": [
+                {
+                  "x": 0.01,
+                  "y": 30
+                },
+                {
+                  "x": 0.05,
+                  "y": 45
+                },
+                {
+                  "x": 0.1,
+                  "y": 60
+                },
+                {
+                  "x": 0.5,
+                  "y": 120
+                },
+                {
+                  "x": 1,
+                  "y": 180
+                },
+                {
+                  "x": 2,
+                  "y": 300
+                }
+              ],
+              "heatshieldLaser": [
+                {
+                  "x": 0,
+                  "y": 5
+                },
+                {
+                  "x": 0.01,
+                  "y": 5
+                },
+                {
+                  "x": 0.05,
+                  "y": 8
+                },
+                {
+                  "x": 0.1,
+                  "y": 12
+                },
+                {
+                  "x": 0.5,
+                  "y": 25
+                },
+                {
+                  "x": 1,
+                  "y": 40
+                },
+                {
+                  "x": 2,
+                  "y": 70
+                }
+              ]
+            },
+            "customCurves": [],
+            "nextCurveId": 1,
+            "items": [
+              {
+                "id": 1,
+                "partId": "11.22.015.871.000 (2 komory)",
+                "weight": "184",
+                "weightOption": "brutto-manual",
+                "bruttoWeight": "190",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "25",
+                "customValues": {},
+                "customCurveValues": {},
+                "results": {
+                  "materialCost": 0.22799999999999998,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.0675,
+                  "workstationCosts": {
+                    "1": {
+                      "cost": 0.045,
+                      "mode": "auto",
+                      "name": "Stanowisko 1"
+                    },
+                    "2": {
+                      "cost": 0.0225,
+                      "mode": "auto",
+                      "name": "Przygotowanie worków"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.010833333333333334,
+                  "transportCost": 0.04210858585858585,
+                  "totalCost": 0.30633333333333335,
+                  "totalWithMargin": 0.3829166666666667,
+                  "totalWithSGA": 0.42886666666666673,
+                  "finalTotalCost": 0.4709752525252526,
+                  "nettoWeight": 184,
+                  "bruttoWeight": 190,
+                  "bakingTime": 58.375,
+                  "cleaningTime": 58.15
+                },
+                "annualVolume": "40000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "",
+                "surfaceUnit": "mm2",
+                "thickness": "",
+                "density": "",
+                "surfaceWeight": "",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1000",
+                "sheetWidth": "1000",
+                "partsPerSheet": "",
+                "surfaceBrutto": "",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "",
+                  "layers": "",
+                  "partsInBox": "100",
+                  "manualPartsInBox": true,
+                  "compositionId": "8",
+                  "customPrice": ""
+                },
+                "workstations": [
+                  {
+                    "id": 1,
+                    "workstationId": 10,
+                    "efficiency": "2000",
+                    "name": "Stanowisko 1",
+                    "costMode": "auto",
+                    "manualCost": ""
+                  },
+                  {
+                    "id": 2,
+                    "workstationId": 12,
+                    "efficiency": "4000",
+                    "name": "Przygotowanie worków",
+                    "costMode": "auto",
+                    "manualCost": ""
+                  }
+                ],
+                "nextWorkstationId": 3,
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2025": 0,
+                    "2026": 53000,
+                    "2027": 38789,
+                    "2028": 40801,
+                    "2029": 43846,
+                    "2030": 44687,
+                    "2031": 44902,
+                    "2032": 43795,
+                    "2033": 42334,
+                    "2034": 1930
+                  }
+                }
+              },
+              {
+                "id": 2,
+                "partId": "11.22.615.871.001 (3 komory)",
+                "weight": "493",
+                "weightOption": "brutto-manual",
+                "bruttoWeight": "500",
+                "cleaningOption": "scaled",
+                "manualCleaningTime": "45",
+                "margin": "25",
+                "customValues": {},
+                "customCurveValues": {},
+                "results": {
+                  "materialCost": 0.6,
+                  "bakingCost": 0,
+                  "cleaningCost": 0,
+                  "handlingCost": 0,
+                  "workstationsCost": 0.075,
+                  "workstationCosts": {
+                    "1": {
+                      "cost": 0.045,
+                      "mode": "auto",
+                      "name": "Stanowisko 1"
+                    },
+                    "2": {
+                      "cost": 0.03,
+                      "mode": "auto",
+                      "name": "Przygotowanie worków"
+                    }
+                  },
+                  "customProcessesCost": 0,
+                  "customCurvesCost": 0,
+                  "customCurveCosts": {},
+                  "packagingCost": 0.004,
+                  "transportCost": 0.2021212121212121,
+                  "totalCost": 0.6789999999999999,
+                  "totalWithMargin": 0.8487499999999999,
+                  "totalWithSGA": 0.9506,
+                  "finalTotalCost": 1.152721212121212,
+                  "nettoWeight": 493,
+                  "bruttoWeight": 500,
+                  "bakingTime": 70,
+                  "cleaningTime": 69.7375
+                },
+                "annualVolume": "100000",
+                "workstation": {
+                  "id": null,
+                  "efficiency": ""
+                },
+                "weightUnit": "g",
+                "surfaceArea": "",
+                "surfaceUnit": "mm2",
+                "thickness": "",
+                "density": "",
+                "surfaceWeight": "",
+                "surfaceCalcLocked": {
+                  "thickness": true,
+                  "density": true,
+                  "surfaceWeight": false
+                },
+                "sheetLength": "1000",
+                "sheetWidth": "1000",
+                "partsPerSheet": "",
+                "surfaceBrutto": "",
+                "volume": "",
+                "volumeUnit": "mm3",
+                "dimensions": {
+                  "length": "",
+                  "width": "",
+                  "height": ""
+                },
+                "volumeWeightOption": "brutto-auto",
+                "heatshield": {
+                  "surfaceNettoInput": "",
+                  "surfaceNetto": "",
+                  "surfaceUnit": "mm2",
+                  "sheetThickness": "",
+                  "sheetDensity": "",
+                  "sheetPrice": "",
+                  "sheetPriceUnit": "kg",
+                  "matThickness": "",
+                  "matDensity": "",
+                  "matPrice": "",
+                  "matPriceUnit": "m2",
+                  "bendingCost": "",
+                  "joiningCost": "0",
+                  "gluingCost": "",
+                  "surfaceBruttoSheet": "",
+                  "surfaceNettoSheet": "",
+                  "surfaceNettoMat": "",
+                  "sheetWeight": "",
+                  "matWeight": ""
+                },
+                "multilayer": {
+                  "layers": [
+                    {
+                      "id": 1,
+                      "name": "Warstwa 1",
+                      "thickness": "",
+                      "density": "",
+                      "priceUnit": "kg",
+                      "price": "",
+                      "surfaceNettoInput": "",
+                      "surfaceUnit": "mm2",
+                      "surfaceNetto": "",
+                      "sheetLength": "",
+                      "sheetWidth": "",
+                      "partsPerSheet": "",
+                      "surfaceBrutto": "",
+                      "weightNetto": "",
+                      "weightBrutto": "",
+                      "curveScope": "global",
+                      "customCurveValues": {}
+                    }
+                  ],
+                  "nextLayerId": 2
+                },
+                "unit": "kg",
+                "packaging": {
+                  "partsPerLayer": "",
+                  "layers": "",
+                  "partsInBox": "250",
+                  "manualPartsInBox": true,
+                  "compositionId": "10",
+                  "customPrice": ""
+                },
+                "workstations": [
+                  {
+                    "id": 1,
+                    "workstationId": 10,
+                    "efficiency": "2000",
+                    "name": "Stanowisko 1",
+                    "costMode": "auto",
+                    "manualCost": ""
+                  },
+                  {
+                    "id": 2,
+                    "workstationId": 12,
+                    "efficiency": "3000",
+                    "name": "Przygotowanie worków",
+                    "costMode": "auto",
+                    "manualCost": ""
+                  }
+                ],
+                "nextWorkstationId": 3,
+                "volumeForecast": {
+                  "enabled": true,
+                  "years": {
+                    "2025": 0,
+                    "2026": 48266,
+                    "2027": 103529,
+                    "2028": 144551,
+                    "2029": 145655,
+                    "2030": 91268,
+                    "2031": 62093,
+                    "2032": 38207,
+                    "2033": 37714,
+                    "2034": 0
+                  }
+                }
+              }
+            ],
+            "nextItemId": 3,
+            "selectedMaterialCompositionId": 112,
+            "isCustomName": true,
+            "transport": {
+              "enabled": false,
+              "transportTypeId": null,
+              "distanceSource": "client",
+              "manualDistance": "",
+              "clientDistance": ""
+            }
+          }
+        ],
+        "activeTab": 0,
+        "calculationMeta": {
+          "client": "Purem Tondela",
+          "status": "in_progress",
+          "notes": "Wariant  Superowool+ 2:3 z alt",
+          "createdDate": "2025-10-29T09:01:12.066Z",
+          "modifiedDate": "2025-11-04T12:05:22.559Z",
+          "catalogId": "251030-1677",
+          "clientId": "WS5ArIvyJCBgye4hNiB5",
+          "clientCity": "Tondela",
+          "transport": {
+            "enabled": true,
+            "transportTypeId": 1,
+            "distanceSource": "manual",
+            "clientDistance": "2800",
+            "manualDistance": "1450"
+          }
+        }
+      },
+      "isDraft": true,
+      "linkedCalculationId": null,
+      "lastModified": "2025-11-05T14:10:24.034Z",
+      "lastAutoSave": "2025-11-05T14:10:54.215Z",
+      "createdAt": {
+        "_seconds": 1762351855,
+        "_nanoseconds": 942000000
+      },
+      "updatedAt": {
+        "_seconds": 1762351855,
+        "_nanoseconds": 942000000
+      }
+    }
+  ]
+}

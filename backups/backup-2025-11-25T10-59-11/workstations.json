@@ -1,0 +1,149 @@
+{
+  "collection": "workstations",
+  "count": 13,
+  "documents": [
+    {
+      "id": 10,
+      "name": "Strzelanie I",
+      "type": "Ręczne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 90
+    },
+    {
+      "id": 11,
+      "name": "Strzelanie II",
+      "type": "Ręczne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 90
+    },
+    {
+      "id": 12,
+      "name": "Zgrzewanie worków",
+      "type": "Ręczne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 90
+    },
+    {
+      "id": 13,
+      "name": "Klejenie SCANIA 1",
+      "type": "Ręczne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 90
+    },
+    {
+      "id": 14,
+      "name": "Klejenie SCANIA 2",
+      "type": "Ręczne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 90
+    },
+    {
+      "id": 2,
+      "hoursPerShift": 8,
+      "type": "Ręczne",
+      "efficiency": 0.85,
+      "name": "Stanowisko przygotówki 1",
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "shiftsPerDay": 3,
+      "costPer8h": 90
+    },
+    {
+      "id": 3,
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "type": "Prasa",
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "costPer8h": 90,
+      "name": "Prasa",
+      "efficiency": 0.85
+    },
+    {
+      "id": 4,
+      "holidaysPerYear": 10,
+      "costPer8h": 90,
+      "shiftsPerDay": 3,
+      "workDaysPerWeek": 5,
+      "efficiency": 0.85,
+      "name": "Prasa sztanca",
+      "hoursPerShift": 8,
+      "type": "Prasa"
+    },
+    {
+      "id": 5,
+      "name": "Rollsztanca",
+      "hoursPerShift": 8,
+      "costPer8h": 90,
+      "efficiency": 0.85,
+      "shiftsPerDay": 3,
+      "workDaysPerWeek": 5,
+      "type": "Prasa",
+      "holidaysPerYear": 10
+    },
+    {
+      "id": 6,
+      "shiftsPerDay": 3,
+      "type": "Prasa",
+      "efficiency": 0.85,
+      "name": "Rollsztanca 2",
+      "hoursPerShift": 8,
+      "costPer8h": 90,
+      "holidaysPerYear": 10,
+      "workDaysPerWeek": 5
+    },
+    {
+      "id": 7,
+      "name": "Gilotyna",
+      "type": "Inne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 90
+    },
+    {
+      "id": 8,
+      "name": "Pieczenie",
+      "type": "Inne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 110
+    },
+    {
+      "id": 9,
+      "name": "Igłowarka",
+      "type": "Inne",
+      "shiftsPerDay": 3,
+      "hoursPerShift": 8,
+      "workDaysPerWeek": 5,
+      "holidaysPerYear": 10,
+      "efficiency": 0.85,
+      "costPer8h": 100
+    }
+  ]
+}

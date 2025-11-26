@@ -151,6 +151,7 @@ export function SessionProvider({ children }) {
         globalSGA: '12',
         tabs: [],
         activeTab: 0,
+        pendingPool: [], // Pula oczekujących pozycji z CBD
         calculationMeta: {
           client: '',
           status: 'draft',

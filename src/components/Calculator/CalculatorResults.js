@@ -202,6 +202,7 @@ export function CalculatorResults({ tabs, currentTabId, globalSGA, calculationMe
       handlingCost: 'Obsługa',
       customProcessesCost: 'Procesy niestandardowe',
       customCurvesCost: 'Krzywe niestandardowe',
+      packagingCost: 'Pakowanie',
       // Heatshield
       prepCost: 'Przygotówka',
       laserCost: 'Cięcie laserowe',

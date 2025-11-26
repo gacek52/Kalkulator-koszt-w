@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote, LogOut, Upload, FileBarChart, ClipboardList, Wrench, Truck, Activity, CheckSquare, Square, UserCog, Shield, ArrowLeft } from 'lucide-react';
+import { FileText, ChevronDown, ChevronUp, Filter, Plus, Edit2, Trash2, Sun, Moon, Package, Layers, Users, Settings, Eye, Database, StickyNote, LogOut, Upload, FileBarChart, ClipboardList, Wrench, Truck, Activity, CheckSquare, Square, UserCog, Shield, ArrowLeft, GitCompare } from 'lucide-react';
 import { useCatalog, STATUS_LABELS, CALCULATION_STATUS } from '../../context/CatalogContext';
 import { useSession } from '../../context/SessionContext';
 import { useAuth } from '../../context/AuthContext';
@@ -10,8 +10,12 @@ import { usePackaging } from '../../context/PackagingContext';
 import { SessionRestoreDialog } from '../Session/SessionRestoreDialog';
 import { LocalStorageViewer } from '../DevTools/LocalStorageViewer';
 import { DeleteCalculationDialog } from './DeleteCalculationDialog';
+import { ComparisonView } from './ComparisonView';
 import { downloadQuotationPDF, downloadQuotationExcel } from '../../services/quotationGenerator';
-import { catalogApi } from '../../services/api';
+import { downloadDetailedQuotationPDF, downloadDetailedQuotationExcel } from '../../services/detailedQuotationGenerator';
+import { downloadInteractiveExcel } from '../../services/interactiveExcelGenerator';
+import { catalogApi, packagingTypesApi, packagingCompositionsApi } from '../../services/api';
+import { ResourcePermissionGate, PermissionGate } from '../Common/PermissionGate';
 
 /**
  * Komponent widoku katalogu kalkulacji
@@ -37,6 +41,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
   const [showFormsDropdown, setShowFormsDropdown] = useState(false);
   const [showGenerateDropdown, setShowGenerateDropdown] = useState(false);
   const [calculationToDelete, setCalculationToDelete] = useState(null);
+  const [showComparisonView, setShowComparisonView] = useState(false);
 
   // Sprawdź czy jest aktywna sesja przy pierwszym wejściu
   useEffect(() => {
@@ -273,6 +278,118 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     };
 
     downloadQuotationExcel(calculation, calculationMeta);
+  };
+
+  // Generowanie szczegółowej oferty PDF z zaznaczonych kalkulacji
+  const handleGenerateDetailedQuotationPDF = () => {
+    // Filtruj tylko zaznaczone kalkulacje (checkbox)
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę szczegółową.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować ofertę szczegółową tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calculation = selectedCalcs[0];
+    const calculationMeta = {
+      client: calculation.client || 'N/A',
+      status: calculation.status,
+      notes: calculation.notes
+    };
+
+    downloadDetailedQuotationPDF(calculation, calculationMeta);
+  };
+
+  // Generowanie szczegółowej oferty Excel z zaznaczonych kalkulacji
+  const handleGenerateDetailedQuotationExcel = () => {
+    // Filtruj tylko zaznaczone kalkulacje (checkbox)
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę szczegółową.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować ofertę szczegółową tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calculation = selectedCalcs[0];
+    const calculationMeta = {
+      client: calculation.client || 'N/A',
+      status: calculation.status,
+      notes: calculation.notes
+    };
+
+    downloadDetailedQuotationExcel(calculation, calculationMeta);
+  };
+
+  // Generowanie interaktywnego Excela z zaznaczonych kalkulacji
+  const handleGenerateInteractiveExcel = async () => {
+    // Filtruj tylko zaznaczone kalkulacje (checkbox)
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować interaktywny Excel.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować interaktywny Excel tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calc = selectedCalcs[0];
+
+    try {
+      // IMPORTANT: Pobierz pełną kalkulację z API (z tabs i wszystkimi danymi)
+      const response = await catalogApi.getById(calc.id);
+
+      if (response.success && response.data) {
+        const fullCalculation = response.data;
+
+        // IMPORTANT: Dodaj packagingTypes i compositions z osobnych API
+        // Te dane są potrzebne do obliczenia pełnych informacji o pakowaniu
+        const packagingTypesResponse = await packagingTypesApi.getAll();
+        const compositionsResponse = await packagingCompositionsApi.getAll();
+
+        fullCalculation.packagingTypes = packagingTypesResponse.success ? packagingTypesResponse.data : [];
+        fullCalculation.compositions = compositionsResponse.success ? compositionsResponse.data : [];
+
+        console.log('📦 Dodano dane pakowania:');
+        console.log('  packagingTypes:', fullCalculation.packagingTypes);
+        console.log('  compositions:', fullCalculation.compositions);
+
+        // Przekaż pełny calculationMeta (włącznie z ustawieniami transportu)
+        const calculationMeta = fullCalculation.calculationMeta || {
+          client: fullCalculation.client || 'N/A',
+          status: fullCalculation.status,
+          notes: fullCalculation.notes,
+          transport: {
+            enabled: false
+          }
+        };
+
+        downloadInteractiveExcel(fullCalculation, calculationMeta);
+      } else {
+        alert('Nie udało się wczytać pełnych danych kalkulacji');
+      }
+    } catch (error) {
+      console.error('Błąd wczytywania kalkulacji:', error);
+      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+    }
   };
 
   // Generowanie raportu z zaznaczonych kalkulacji
@@ -560,6 +677,37 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     </button>
                     <button
                       onClick={() => {
+                        handleGenerateDetailedQuotationPDF();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <FileText size={16} className="text-orange-600" />
+                      Oferta szczegółowa (PDF)
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleGenerateDetailedQuotationExcel();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                    >
+                      <FileText size={16} className="text-yellow-600" />
+                      Oferta szczegółowa (Excel)
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleGenerateInteractiveExcel();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                      title="Interaktywny Excel z formułami - każdy element = osobny arkusz"
+                    >
+                      <FileText size={16} className="text-purple-600" />
+                      Excel interaktywny
+                    </button>
+                    <button
+                      onClick={() => {
                         handleGenerateReport();
                         setShowGenerateDropdown(false);
                       }}
@@ -673,34 +821,60 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               </div>
 
               {/* Przycisk Prognozy */}
+              <PermissionGate permission="workstations_capacity_view">
+                <button
+                  onClick={() => {
+                    if (onOpenWorkstationCapacity) {
+                      onOpenWorkstationCapacity();
+                    }
+                  }}
+                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
+                  title="Dashboard prognoz produkcji i zajętości"
+                >
+                  <Activity size={16} />
+                  Prognozy
+                </button>
+              </PermissionGate>
+
+              {/* Przycisk Porównaj kalkulacje */}
               <button
-                onClick={() => {
-                  if (onOpenWorkstationCapacity) {
-                    onOpenWorkstationCapacity();
-                  }
-                }}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
-                title="Dashboard prognoz produkcji i zajętości"
+                onClick={() => setShowComparisonView(true)}
+                disabled={catalogState.comparisonSelectedIds.length < 2}
+                className={`px-4 py-2 rounded-lg font-medium flex items-center gap-2 relative ${
+                  catalogState.comparisonSelectedIds.length >= 2
+                    ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                    : 'bg-gray-400 cursor-not-allowed text-gray-600'
+                }`}
+                title={`Porównaj zaznaczone kalkulacje (${catalogState.comparisonSelectedIds.length}/4 zaznaczone)`}
               >
-                <Activity size={16} />
-                Prognozy
+                <GitCompare size={16} />
+                Porównaj ({catalogState.comparisonSelectedIds.length})
+                {catalogState.comparisonSelectedIds.length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                    {catalogState.comparisonSelectedIds.length}
+                  </span>
+                )}
               </button>
 
               <div className="flex">
-                <button
-                  onClick={onOpenClientManualSettings}
-                  className={`px-3 py-2 rounded-l-lg font-medium ${themeClasses.button.secondary} border-r ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
-                  title="Ustawienia Client Manual - edycja stawek i kosztów"
-                >
-                  <Settings size={16} />
-                </button>
-                <button
-                  onClick={onOpenClientManualPreview}
-                  className={`px-4 py-2 rounded-r-lg font-medium ${themeClasses.button.secondary}`}
-                  title="Podgląd Client Manual - tylko do odczytu"
-                >
-                  Client Manual
-                </button>
+                <PermissionGate permission="client_manual_edit">
+                  <button
+                    onClick={onOpenClientManualSettings}
+                    className={`px-3 py-2 rounded-l-lg font-medium ${themeClasses.button.secondary} border-r ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}
+                    title="Ustawienia Client Manual - edycja stawek i kosztów"
+                  >
+                    <Settings size={16} />
+                  </button>
+                </PermissionGate>
+                <PermissionGate permission="client_manual_view">
+                  <button
+                    onClick={onOpenClientManualPreview}
+                    className={`px-4 py-2 rounded-r-lg font-medium ${themeClasses.button.secondary}`}
+                    title="Podgląd Client Manual - tylko do odczytu"
+                  >
+                    Client Manual
+                  </button>
+                </PermissionGate>
               </div>
 
               <button
@@ -869,6 +1043,11 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               <thead className={`${themeClasses.background} border-b border-gray-200 dark:border-gray-600`}>
                 <tr>
                   <th className="px-4 py-3 text-center w-12">
+                    <span className={`text-xs font-medium ${themeClasses.text.secondary}`} title="Zaznacz do porównania">
+                      🔄
+                    </span>
+                  </th>
+                  <th className="px-4 py-3 text-center w-12">
                     <span className={`text-xs font-medium ${themeClasses.text.secondary}`} title="Zaznacz dla dashboardu zajętości">
                       📊
                     </span>
@@ -941,7 +1120,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               <tbody>
                 {filteredCalculations.length === 0 ? (
                   <tr>
-                    <td colSpan="10" className="px-4 py-8 text-center">
+                    <td colSpan="11" className="px-4 py-8 text-center">
                       <p className={themeClasses.text.secondary}>Brak kalkulacji do wyświetlenia</p>
                     </td>
                   </tr>
@@ -970,10 +1149,31 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     }, 0);
 
                     const isSelectedForCapacity = catalogState.capacityFilters?.customSelectedIds?.includes(calc.id) || false;
+                    const isSelectedForComparison = catalogState.comparisonSelectedIds.includes(calc.id);
 
                     return (
                     <React.Fragment key={calc.id}>
                       <tr className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-750">
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => catalogActions.toggleCalculationForComparison(calc.id)}
+                            disabled={!isSelectedForComparison && catalogState.comparisonSelectedIds.length >= 4}
+                            className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${
+                              isSelectedForComparison ? 'text-purple-600' :
+                              catalogState.comparisonSelectedIds.length >= 4 ? 'text-gray-400 cursor-not-allowed' :
+                              themeClasses.text.secondary
+                            }`}
+                            title={
+                              catalogState.comparisonSelectedIds.length >= 4 && !isSelectedForComparison
+                                ? 'Maksymalnie 4 kalkulacje do porównania'
+                                : isSelectedForComparison
+                                ? 'Odznacz z porównania'
+                                : 'Zaznacz do porównania'
+                            }
+                          >
+                            {isSelectedForComparison ? <CheckSquare size={18} /> : <Square size={18} />}
+                          </button>
+                        </td>
                         <td className="px-4 py-3 text-center">
                           <button
                             onClick={() => catalogActions.toggleCalculationForCapacity(calc.id)}
@@ -1040,20 +1240,24 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                             >
                               {expandedCalculations[calc.id] ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                             </button>
-                            <button
-                              onClick={() => handleEditCalculation(calc)}
-                              className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
-                              title="Wczytaj kalkulację"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteClick(calc)}
-                              className={`p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
-                              title="Usuń kalkulację"
-                            >
-                              <Trash2 size={16} />
-                            </button>
+                            <ResourcePermissionGate resource="catalog" ownerId={calc.ownerId || calc.userId} action="edit">
+                              <button
+                                onClick={() => handleEditCalculation(calc)}
+                                className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600`}
+                                title="Wczytaj kalkulację"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                            </ResourcePermissionGate>
+                            <ResourcePermissionGate resource="catalog" ownerId={calc.ownerId || calc.userId} action="delete">
+                              <button
+                                onClick={() => handleDeleteClick(calc)}
+                                className={`p-1 rounded hover:bg-red-100 dark:hover:bg-red-900 text-red-600`}
+                                title="Usuń kalkulację"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </ResourcePermissionGate>
                           </div>
                         </td>
                       </tr>
@@ -1061,7 +1265,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                       {/* Rozwinięte szczegóły */}
                       {expandedCalculations[calc.id] && (
                         <tr className={darkMode ? 'bg-gray-800' : 'bg-gray-50'}>
-                          <td colSpan="10" className="px-4 py-4">
+                          <td colSpan="11" className="px-4 py-4">
                             <div className="space-y-4">
                               {/* Notatki */}
                               {calc.notes && (
@@ -1201,6 +1405,9 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                                   })()}
                                 </div>
                               )}
+
+                              {/* Separator na końcu rozwiniętego widoku */}
+                              <div className={`mt-4 border-t ${darkMode ? 'border-gray-600' : 'border-gray-300'}`}></div>
                             </div>
                           </td>
                         </tr>
@@ -1299,6 +1506,17 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
             </div>
           </div>
         </div>
+      )}
+
+      {/* Comparison View Modal */}
+      {showComparisonView && (
+        <ComparisonView
+          darkMode={darkMode}
+          themeClasses={themeClasses}
+          selectedIds={catalogState.comparisonSelectedIds}
+          calculations={filteredCalculations}
+          onClose={() => setShowComparisonView(false)}
+        />
       )}
     </div>
   );

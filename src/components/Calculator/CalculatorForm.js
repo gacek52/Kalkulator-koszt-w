@@ -370,7 +370,10 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
       });
     }
 
-    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total + customCurvesCost + workstationsCost_total + customProcessesCost;
+    // Koszt pakowania
+    const packagingCost = calculatePackagingCost(item);
+
+    const totalCost = totalMaterialCost + bakingCost_total + cleaningCost_total + handlingCost_total + customCurvesCost + workstationsCost_total + customProcessesCost + packagingCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -398,6 +401,7 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
       customCurveCosts,
       layerCurveCosts, // Wyniki krzywych per-warstwa
       ...layerCosts, // Dodaj koszty poszczególnych warstw
+      packagingCost, // Koszt pakowania
       transportCost, // Koszt transportu
       totalCost,
       totalWithMargin,
@@ -547,7 +551,10 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
       });
     }
 
-    const totalCost = materialCost_total + workstationsCost_total + laserCost_total + bendingCost + joiningCost + gluingCost + customProcessesCost + customCurvesCost;
+    // Koszt pakowania
+    const packagingCost = calculatePackagingCost(item);
+
+    const totalCost = materialCost_total + workstationsCost_total + laserCost_total + bendingCost + joiningCost + gluingCost + customProcessesCost + customCurvesCost + packagingCost;
 
     // Oblicz cenę z marżą
     const margin = parseFloat(item.margin) || 0;
@@ -574,6 +581,7 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
       customProcessesCost, // Dodany koszt procesów niestandardowych
       customCurvesCost,
       customCurveCosts,
+      packagingCost, // Koszt pakowania
       transportCost, // Koszt transportu
       totalCost,
       totalWithMargin,
@@ -671,18 +679,6 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
       return 0;
     }
 
-    // Pobierz odległość
-    let distance = 0;
-    if (calculationMeta.transport.distanceSource === 'client') {
-      distance = parseFloat(calculationMeta.transport.clientDistance) || 0;
-    } else {
-      distance = parseFloat(calculationMeta.transport.manualDistance) || 0;
-    }
-
-    if (distance === 0) {
-      return 0;
-    }
-
     // Pobierz dane pakowania
     if (!item.packaging || !item.packaging.compositionId) {
       // Brak pakowania - nie można obliczyć kosztu transportu
@@ -703,9 +699,13 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
       return 0;
     }
 
-    // KROK 1: Oblicz koszt transportu na miejsce paletowe
-    const totalTransportCost = transportType.pricePerKm * distance;
-    const costPerSpace = totalTransportCost / transportType.palletSpaces;
+    // KROK 1: Pobierz koszt transportu na miejsce paletowe z zapisanego stanu
+    // Ten koszt jest obliczany i zapisywany przez TransportCalculation komponent
+    const costPerSpace = parseFloat(calculationMeta.transport.calculatedCostPerSpace) || 0;
+
+    if (costPerSpace === 0) {
+      return 0;
+    }
 
     // KROK 2: Oblicz ile detali mieści się w jednym miejscu paletowym
     const partsInBox = item.packaging.manualPartsInBox
@@ -1275,6 +1275,7 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
   // Dodawanie nowego elementu
   const handleAddItem = () => {
     // Dla trybu Heatshield: szukaj stanowiska "Gilotyna" i dodaj je automatycznie
+    // Dla wszystkich trybów: utwórz jedno puste stanowisko (dla materials forecast)
     let initialWorkstations = [];
     let nextWsId = 1;
 
@@ -1293,7 +1294,29 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
           manualCost: ''
         }];
         nextWsId = 2;
+      } else {
+        // Gilotyna nie znaleziona - utwórz puste stanowisko
+        initialWorkstations = [{
+          id: 1,
+          workstationId: null,
+          efficiency: '',
+          name: 'Stanowisko 1',
+          costMode: 'auto',
+          manualCost: ''
+        }];
+        nextWsId = 2;
       }
+    } else {
+      // Dla wszystkich innych trybów: ZAWSZE utwórz jedno puste stanowisko
+      initialWorkstations = [{
+        id: 1,
+        workstationId: null,
+        efficiency: '',
+        name: 'Stanowisko 1',
+        costMode: 'auto',
+        manualCost: ''
+      }];
+      nextWsId = 2;
     }
 
     const newItem = {
@@ -1636,7 +1659,7 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
           const isCollapsed = collapsedItems[item.id];
 
           return (
-          <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${darkMode ? 'border-gray-600' : 'border-gray-200'} ${index % 2 === 0 ? (darkMode ? 'bg-gray-800/50' : 'bg-gray-100') : (darkMode ? 'bg-gray-900/30' : 'bg-gray-50')}`}>
+          <div key={item.id} className={`border rounded-lg p-4 space-y-3 ${darkMode ? 'border-gray-600' : 'border-gray-200'} ${index % 2 === 0 ? (darkMode ? 'bg-gray-800/50' : 'bg-gray-100') : (darkMode ? 'bg-gray-900/50' : 'bg-gray-50')}`}>
             {/* ID części - zawsze widoczne z przyciskiem zwijania */}
             <div className="flex items-start gap-2">
               <button
@@ -1847,12 +1870,6 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
                       const transportType = transportState.types?.find(t => t.id == calculationMeta.transport.transportTypeId);
                       if (!transportType) return null;
 
-                      const distance = calculationMeta.transport.distanceSource === 'client'
-                        ? parseFloat(calculationMeta.transport.clientDistance) || 0
-                        : parseFloat(calculationMeta.transport.manualDistance) || 0;
-
-                      if (distance === 0) return null;
-
                       const composition = packagingState.compositions.find(
                         c => c.id == item.packaging?.compositionId
                       );
@@ -1865,8 +1882,10 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
                       const partsPerPallet = partsInBox * composition.packagesPerPallet;
                       const partsPerSpace = partsPerPallet * composition.palletsPerSpace;
 
-                      const totalTransportCost = transportType.pricePerKm * distance;
-                      const costPerSpace = totalTransportCost / transportType.palletSpaces;
+                      // Pobierz costPerSpace z zapisanego stanu (obliczany przez TransportCalculation)
+                      const costPerSpace = parseFloat(calculationMeta.transport.calculatedCostPerSpace) || 0;
+
+                      if (costPerSpace === 0) return null;
 
                       return (
                         <>

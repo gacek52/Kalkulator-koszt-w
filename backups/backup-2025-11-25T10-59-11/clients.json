@@ -1,0 +1,185 @@
+{
+  "collection": "clients",
+  "count": 9,
+  "documents": [
+    {
+      "id": "1mSmwyCxQcWRSIkc1du4",
+      "name": "Tenneco Zwickau",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Zwickau",
+      "distance": "500",
+      "country": "Niemcy",
+      "notes": "",
+      "createdAt": {
+        "_seconds": 1761915537,
+        "_nanoseconds": 851000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915537,
+        "_nanoseconds": 851000000
+      }
+    },
+    {
+      "id": "TMZPFIKPRYEWP2kie0Py",
+      "name": "Tenneco Edenkoben",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Edenkoben",
+      "distance": "900",
+      "country": "Niemcy",
+      "notes": "",
+      "createdAt": {
+        "_seconds": 1761915538,
+        "_nanoseconds": 925000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915538,
+        "_nanoseconds": 925000000
+      }
+    },
+    {
+      "id": "WS5ArIvyJCBgye4hNiB5",
+      "name": "Purem Tondela",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Tondela",
+      "distance": "2800",
+      "country": "Portugalia",
+      "notes": "",
+      "createdAt": {
+        "_seconds": 1761915540,
+        "_nanoseconds": 184000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915540,
+        "_nanoseconds": 184000000
+      }
+    },
+    {
+      "id": "YuWtYJ8IYXn1RuF7A8w3",
+      "name": "Nowy 1",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Włochy",
+      "country": "Włochy",
+      "notes": "transport do policzenia",
+      "createdAt": {
+        "_seconds": 1761915541,
+        "_nanoseconds": 258000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915541,
+        "_nanoseconds": 258000000
+      }
+    },
+    {
+      "id": "ZskxEDevNQcMNoYINbsO",
+      "name": "Tenneco Edenkoben Prototypy",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Edenkoben",
+      "distance": "900",
+      "country": "Niemcy",
+      "notes": "",
+      "createdAt": {
+        "_seconds": 1761915542,
+        "_nanoseconds": 486000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915542,
+        "_nanoseconds": 486000000
+      }
+    },
+    {
+      "id": "gVdcQODa8hWVlFiVNCcg",
+      "name": "Purem Neunkirchen",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Neunkirchen",
+      "country": "Niemcy",
+      "notes": "",
+      "distance": "950",
+      "createdAt": {
+        "_seconds": 1761915543,
+        "_nanoseconds": 773000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915543,
+        "_nanoseconds": 773000000
+      }
+    },
+    {
+      "id": "qs0ekZSwsaDdWgN2lvJk",
+      "name": "Matay",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "",
+      "distance": "",
+      "country": "Turcja",
+      "notes": "Turcy - odbiór osobisty",
+      "createdAt": {
+        "_seconds": 1761915544,
+        "_nanoseconds": 853000000
+      },
+      "updatedAt": {
+        "_seconds": 1761915544,
+        "_nanoseconds": 853000000
+      }
+    },
+    {
+      "id": "ss0csxbXmy6wn4qjwd5E",
+      "name": "Purem Wilsdruff",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Wilsdruff",
+      "distance": "250",
+      "country": "Niemcy",
+      "notes": "",
+      "createdAt": {
+        "_seconds": 1763019694,
+        "_nanoseconds": 954000000
+      },
+      "updatedAt": {
+        "_seconds": 1763019694,
+        "_nanoseconds": 954000000
+      }
+    },
+    {
+      "id": "t7CEdiRw3ZyZRMRNb61c",
+      "name": "Purem Oradea",
+      "code": "",
+      "nip": "",
+      "address": "",
+      "postalCode": "",
+      "city": "Oradea",
+      "distance": "165",
+      "country": "Polska",
+      "notes": "",
+      "createdAt": {
+        "_seconds": 1763977720,
+        "_nanoseconds": 731000000
+      },
+      "updatedAt": {
+        "_seconds": 1763977720,
+        "_nanoseconds": 731000000
+      }
+    }
+  ]
+}

@@ -1,4 +1,6 @@
-/* Tailwind CSS będzie ładowane z CDN, ale dodajemy własne style */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 body {
   margin: 0;

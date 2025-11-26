@@ -18,7 +18,8 @@ const { authenticate } = require('../middleware/auth');
  *   createdBy: string (uid),
  *   createdByName: string,
  *   createdAt: timestamp,
- *   isGlobal: boolean (tylko admin może tworzyć globalne)
+ *   isGlobal: boolean (tylko admin może tworzyć globalne),
+ *   isDefault: boolean (czy preset jest domyślny dla nowych kalkulacji)
  * }
  */
 
@@ -104,7 +105,7 @@ router.get('/:id', async (req, res, next) => {
 // POST /api/curve-presets - Utwórz nowy preset
 router.post('/', async (req, res, next) => {
   try {
-    const { name, description, curves, isGlobal } = req.body;
+    const { name, description, curves, isGlobal, isDefault } = req.body;
     const userId = req.user.uid;
     const userName = req.user.displayName || req.user.email || 'Unknown';
     const isAdmin = req.user.role === 'admin';
@@ -134,7 +135,8 @@ router.post('/', async (req, res, next) => {
       createdBy: userId,
       createdByName: userName,
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      isGlobal: makeGlobal
+      isGlobal: makeGlobal,
+      isDefault: isDefault || false // Domyślnie false
     };
 
     const docRef = await db.collection('curvePresets').add(newPreset);
@@ -155,7 +157,7 @@ router.post('/', async (req, res, next) => {
 router.put('/:id', async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, description, curves, isGlobal } = req.body;
+    const { name, description, curves, isGlobal, isDefault } = req.body;
     const userId = req.user.uid;
     const isAdmin = req.user.role === 'admin';
 
@@ -197,6 +199,29 @@ router.put('/:id', async (req, res, next) => {
     // Tylko admin może zmieniać isGlobal
     if (isAdmin && isGlobal !== undefined) {
       updates.isGlobal = isGlobal;
+    }
+
+    // Obsługa isDefault - jeśli ustawiamy na true, musimy wyłączyć dla innych presetów
+    if (isDefault !== undefined) {
+      updates.isDefault = isDefault;
+
+      // Jeśli ustawiamy isDefault na true, odznacz wszystkie inne presety użytkownika
+      if (isDefault === true) {
+        // Znajdź wszystkie presety użytkownika z isDefault: true
+        const userPresetsSnapshot = await db.collection('curvePresets')
+          .where('createdBy', '==', userId)
+          .where('isDefault', '==', true)
+          .get();
+
+        // Odznacz isDefault dla wszystkich innych presetów
+        const batch = db.batch();
+        userPresetsSnapshot.forEach(presetDoc => {
+          if (presetDoc.id !== id) {
+            batch.update(presetDoc.ref, { isDefault: false });
+          }
+        });
+        await batch.commit();
+      }
     }
 
     await db.collection('curvePresets').doc(id).update(updates);

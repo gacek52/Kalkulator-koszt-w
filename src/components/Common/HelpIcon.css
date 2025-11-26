@@ -1,0 +1,35 @@
+.help-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background-color: #2196f3;
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: help;
+  margin-left: 6px;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.help-icon:hover,
+.help-icon:focus {
+  background-color: #1976d2;
+  transform: scale(1.1);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+}
+
+.dark-mode .help-icon {
+  background-color: #64b5f6;
+  color: #1a1a1a;
+}
+
+.dark-mode .help-icon:hover,
+.dark-mode .help-icon:focus {
+  background-color: #42a5f5;
+  box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.2);
+}

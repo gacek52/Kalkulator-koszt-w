@@ -3,6 +3,7 @@ import { Layers, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Lo
 import { useMaterial, materialUtils } from '../../context/MaterialContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
+import { PermissionGate } from '../Common/PermissionGate';
 
 /**
  * Główny komponent zarządzania materiałami
@@ -381,24 +382,28 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
                 </button>
               )}
 
-              <button
-                onClick={handleExport}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
-              >
-                <Download size={16} />
-                Eksportuj JSON
-              </button>
+              <PermissionGate permission="materials_export">
+                <button
+                  onClick={handleExport}
+                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
+                >
+                  <Download size={16} />
+                  Eksportuj JSON
+                </button>
+              </PermissionGate>
 
-              <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
-                <Upload size={16} />
-                Importuj JSON
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </label>
+              <PermissionGate permission="materials_import">
+                <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
+                  <Upload size={16} />
+                  Importuj JSON
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={handleImport}
+                    className="hidden"
+                  />
+                </label>
+              </PermissionGate>
             </div>
           </div>
         </div>

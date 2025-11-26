@@ -1,0 +1,304 @@
+{
+  "collection": "users",
+  "count": 11,
+  "documents": [
+    {
+      "id": "2kXGVcZ1s2aVk8RKL7ZehpuiEAq2",
+      "uid": "2kXGVcZ1s2aVk8RKL7ZehpuiEAq2",
+      "displayName": "TEST",
+      "email": null,
+      "role": "user",
+      "isAnonymous": true,
+      "createdAt": "2025-10-10T06:54:06.615Z",
+      "lastLogin": "2025-10-10T06:54:06.615Z"
+    },
+    {
+      "id": "E7LlcMd52wSgYT4M1teQhrLe2vv1",
+      "uid": "E7LlcMd52wSgYT4M1teQhrLe2vv1",
+      "displayName": "p3",
+      "email": null,
+      "role": "guest",
+      "provider": "anonymous",
+      "isAnonymous": true,
+      "disabled": false,
+      "createdAt": "2025-11-06T07:46:02.992Z",
+      "lastLogin": "2025-11-06T07:46:02.992Z",
+      "loginHistory": [
+        {
+          "timestamp": "2025-11-06T07:46:02.992Z",
+          "method": "guest",
+          "success": true
+        }
+      ]
+    },
+    {
+      "id": "HR7tOiq5avSRVOyYB47UP5ZcqWa2",
+      "uid": "HR7tOiq5avSRVOyYB47UP5ZcqWa2",
+      "displayName": "p4",
+      "email": null,
+      "role": "guest",
+      "provider": "anonymous",
+      "isAnonymous": true,
+      "disabled": false,
+      "createdAt": "2025-11-05T14:28:16.708Z",
+      "lastLogin": "2025-11-05T14:28:16.708Z",
+      "loginHistory": [
+        {
+          "timestamp": "2025-11-05T14:28:16.708Z",
+          "method": "guest",
+          "success": true
+        }
+      ]
+    },
+    {
+      "id": "Nt77sjYyEsXqsbwCK4WzE4i8Sea2",
+      "uid": "Nt77sjYyEsXqsbwCK4WzE4i8Sea2",
+      "email": "ps@nbta.pl",
+      "role": "admin",
+      "provider": "email",
+      "disabled": false,
+      "createdAt": "2025-10-27T09:29:21.321Z",
+      "passwordChangedAt": "2025-10-27T09:30:17.605Z",
+      "requirePasswordChange": false,
+      "updatedBy": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "displayName": "Admin test",
+      "updatedAt": "2025-10-27T14:10:49.481Z",
+      "lastLogin": "2025-11-06T07:46:31.382Z",
+      "loginHistory": [
+        {
+          "success": true,
+          "timestamp": "2025-10-27T09:29:47.687Z",
+          "method": "email"
+        },
+        {
+          "method": "email",
+          "success": true,
+          "timestamp": "2025-10-27T13:05:11.155Z"
+        },
+        {
+          "method": "email",
+          "timestamp": "2025-10-30T10:45:12.802Z",
+          "success": true
+        },
+        {
+          "timestamp": "2025-11-06T07:46:31.382Z",
+          "method": "email",
+          "success": true
+        }
+      ]
+    },
+    {
+      "id": "QPq330jnZge37twhWeGYElTN1TT2",
+      "uid": "QPq330jnZge37twhWeGYElTN1TT2",
+      "displayName": "p5",
+      "email": null,
+      "role": "guest",
+      "provider": "anonymous",
+      "isAnonymous": true,
+      "createdAt": "2025-11-05T14:44:32.866Z",
+      "lastLogin": "2025-11-05T14:44:32.866Z",
+      "loginHistory": [
+        {
+          "timestamp": "2025-11-05T14:44:32.866Z",
+          "method": "guest",
+          "success": true
+        }
+      ],
+      "disabledBy": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "updatedBy": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "disabled": true,
+      "disabledAt": "2025-11-06T07:51:04.584Z",
+      "updatedAt": "2025-11-06T07:51:04.584Z"
+    },
+    {
+      "id": "T37NgkKM2pYzEmlU0D7wHjAkKfh1",
+      "uid": "T37NgkKM2pYzEmlU0D7wHjAkKfh1",
+      "displayName": "Bania",
+      "email": null,
+      "isAnonymous": true,
+      "createdAt": "2025-10-17T10:52:57.301Z",
+      "lastLogin": "2025-10-17T10:52:57.301Z",
+      "role": "guest",
+      "updatedBy": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "updatedAt": "2025-11-05T14:31:06.779Z"
+    },
+    {
+      "id": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "uid": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "displayName": "Patryk Spławski",
+      "email": "gacek52@gmail.com",
+      "photoURL": "https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR=s96-c",
+      "isAnonymous": false,
+      "createdAt": "2025-10-09T06:43:13.938Z",
+      "provider": "google",
+      "disabled": false,
+      "role": "super-admin",
+      "updatedAt": "2025-10-22T07:17:31.097Z",
+      "lastLogin": "2025-11-07T20:35:16.402Z",
+      "loginHistory": [
+        {
+          "success": true,
+          "timestamp": "2025-10-22T06:48:05.258Z",
+          "method": "google"
+        },
+        {
+          "timestamp": "2025-10-22T06:56:06.718Z",
+          "success": true,
+          "method": "google"
+        },
+        {
+          "timestamp": "2025-10-22T07:11:43.890Z",
+          "success": true,
+          "method": "google"
+        },
+        {
+          "success": true,
+          "timestamp": "2025-10-22T07:12:17.600Z",
+          "method": "google"
+        },
+        {
+          "method": "google",
+          "success": true,
+          "timestamp": "2025-10-22T07:14:46.428Z"
+        },
+        {
+          "timestamp": "2025-10-22T07:15:19.011Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "success": true,
+          "method": "google",
+          "timestamp": "2025-10-22T07:20:41.125Z"
+        },
+        {
+          "method": "google",
+          "success": true,
+          "timestamp": "2025-10-22T13:09:27.439Z"
+        },
+        {
+          "success": true,
+          "method": "google",
+          "timestamp": "2025-10-27T09:22:54.955Z"
+        },
+        {
+          "method": "google",
+          "timestamp": "2025-10-27T09:27:44.824Z",
+          "success": true
+        },
+        {
+          "timestamp": "2025-10-27T09:32:32.757Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "timestamp": "2025-10-27T13:49:28.443Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "method": "google",
+          "timestamp": "2025-10-28T11:32:39.931Z",
+          "success": true
+        },
+        {
+          "timestamp": "2025-10-28T22:03:41.500Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "method": "google",
+          "timestamp": "2025-10-30T11:29:29.231Z",
+          "success": true
+        },
+        {
+          "timestamp": "2025-11-05T14:12:25.443Z",
+          "success": true,
+          "method": "google"
+        },
+        {
+          "timestamp": "2025-11-05T14:29:57.871Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "success": true,
+          "method": "google",
+          "timestamp": "2025-11-05T14:47:44.220Z"
+        },
+        {
+          "timestamp": "2025-11-06T07:21:56.577Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "timestamp": "2025-11-06T07:46:20.652Z",
+          "method": "google",
+          "success": true
+        },
+        {
+          "success": true,
+          "method": "google",
+          "timestamp": "2025-11-06T07:47:16.258Z"
+        },
+        {
+          "success": true,
+          "timestamp": "2025-11-06T07:51:23.809Z",
+          "method": "google"
+        },
+        {
+          "timestamp": "2025-11-07T20:35:16.401Z",
+          "method": "google",
+          "success": true
+        }
+      ]
+    },
+    {
+      "id": "ex1oVNV6HeQA7HMyue5lHuNDojY2",
+      "uid": "ex1oVNV6HeQA7HMyue5lHuNDojY2",
+      "email": "PS1@nbta.pl",
+      "role": "user",
+      "provider": "email",
+      "disabled": false,
+      "requirePasswordChange": true,
+      "createdAt": "2025-10-27T09:20:30.414Z",
+      "loginHistory": [],
+      "updatedBy": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "displayName": "TEST PS",
+      "updatedAt": "2025-10-27T09:25:02.610Z"
+    },
+    {
+      "id": "ti8onVT7IOVY4vNdwGDdSFgItWp2",
+      "uid": "ti8onVT7IOVY4vNdwGDdSFgItWp2",
+      "email": "krzysztofbutkiewicz.kb@gmail.com",
+      "photoURL": "https://lh3.googleusercontent.com/a/ACg8ocJThvxcuSKM49q5pR-aJTwHTyo6gP0RdFgfPnDUc9YyUmeZUg=s96-c",
+      "isAnonymous": false,
+      "createdAt": "2025-10-13T06:39:26.695Z",
+      "lastLogin": "2025-10-13T06:39:26.695Z",
+      "updatedBy": "TzblRzKp5TTF77GLKAzOr2srvtF3",
+      "role": "user",
+      "displayName": "Krzysztof Butkiewicz",
+      "updatedAt": "2025-10-22T13:09:42.502Z"
+    },
+    {
+      "id": "uQeTkYwAf4POKKXHCCDVWkIi5d93",
+      "uid": "uQeTkYwAf4POKKXHCCDVWkIi5d93",
+      "displayName": "Lol",
+      "email": null,
+      "role": "user",
+      "isAnonymous": true,
+      "createdAt": "2025-10-09T13:16:16.858Z",
+      "lastLogin": "2025-10-09T13:16:16.858Z"
+    },
+    {
+      "id": "wMClJXvGWIhaqpoYVTQPwfQfbBF2",
+      "uid": "wMClJXvGWIhaqpoYVTQPwfQfbBF2",
+      "displayName": "p1",
+      "email": null,
+      "role": "user",
+      "isAnonymous": true,
+      "createdAt": "2025-10-09T08:11:49.145Z",
+      "lastLogin": "2025-10-09T08:11:49.145Z"
+    }
+  ]
+}

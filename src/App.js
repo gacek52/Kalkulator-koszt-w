@@ -23,6 +23,8 @@ import { TransportManager } from './components/Transport/TransportManager';
 import { UserManagementPanel } from './components/Admin/UserManagementPanel';
 import { RoleManagementPanel } from './components/Admin/RoleManagementPanel';
 import LoginScreen from './components/Auth/LoginScreen';
+import ToastProvider from './components/Common/ToastProvider';
+import ErrorBoundary from './components/Common/ErrorBoundary';
 
 function AppContent() {
   const [currentView, setCurrentView] = useState('catalog'); // 'catalog', 'calculator', 'packaging', 'materials', 'clients', 'transport', 'client-manual-settings', 'client-manual-preview', 'workstation-capacity', 'users', 'roles'
@@ -153,6 +155,10 @@ function AppContent() {
               <WorkstationProvider>
                 <CurvePresetProvider>
                   <CatalogProvider>
+              {/* Toast notifications */}
+              <ToastProvider />
+
+              <ErrorBoundary>
               <div className="min-h-screen flex flex-col">
                 {/* Main content */}
                 <div className="flex-1">
@@ -311,6 +317,7 @@ function AppContent() {
               </div>
             </div>
           )}
+              </ErrorBoundary>
                   </CatalogProvider>
                 </CurvePresetProvider>
               </WorkstationProvider>

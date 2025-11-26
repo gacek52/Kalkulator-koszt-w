@@ -3,6 +3,7 @@ import { Truck, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Clo
 import { useTransport } from '../../context/TransportContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
+import { PermissionGate } from '../Common/PermissionGate';
 
 /**
  * Główny komponent zarządzania transportem
@@ -156,13 +157,6 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
-                <button
-                  onClick={onBack}
-                  className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
-                  title="Powrót"
-                >
-                  <ArrowLeft size={20} />
-                </button>
                 <Truck size={32} className="text-blue-500" />
                 <div>
                   <h1 className={`text-2xl font-bold ${themeClasses.text.primary}`}>
@@ -174,48 +168,62 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 </div>
               </div>
 
-              <button
-                onClick={onToggleDarkMode}
-                className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
-                title={darkMode ? 'Tryb jasny' : 'Tryb ciemny'}
-              >
-                {darkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-
-              {hasPermission('transport_sync') && (
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={handlePushToFirestore}
-                  disabled={isPushing}
-                  className={`px-4 py-2 rounded-lg font-medium ${
-                    isPushing
-                      ? 'bg-gray-400 cursor-not-allowed text-white'
-                      : 'bg-purple-600 hover:bg-purple-700 text-white'
-                  } flex items-center gap-2`}
-                  title="Synchronizuj transport z bazą Firestore"
+                  onClick={onBack}
+                  className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2`}
                 >
-                  <Cloud size={16} />
-                  {isPushing ? 'Synchronizuję...' : 'Push to Database'}
+                  <ArrowLeft size={16} />
+                  Powrót
                 </button>
-              )}
 
-              <button
-                onClick={handleExport}
-                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
-              >
-                <Download size={16} />
-                Eksport JSON
-              </button>
+                <button
+                  onClick={onToggleDarkMode}
+                  className={`p-2 rounded-lg ${themeClasses.button.secondary}`}
+                  title={darkMode ? 'Tryb jasny' : 'Tryb ciemny'}
+                >
+                  {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+                </button>
 
-              <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
-                <Upload size={16} />
-                Import JSON
-                <input
-                  type="file"
-                  accept=".json"
-                  onChange={handleImport}
-                  className="hidden"
-                />
-              </label>
+                {hasPermission('transport_sync') && (
+                  <button
+                    onClick={handlePushToFirestore}
+                    disabled={isPushing}
+                    className={`px-4 py-2 rounded-lg font-medium ${
+                      isPushing
+                        ? 'bg-gray-400 cursor-not-allowed text-white'
+                        : 'bg-purple-600 hover:bg-purple-700 text-white'
+                    } flex items-center gap-2`}
+                    title="Synchronizuj transport z bazą Firestore"
+                  >
+                    <Cloud size={16} />
+                    {isPushing ? 'Synchronizuję...' : 'Push to Database'}
+                  </button>
+                )}
+
+                <PermissionGate permission="transport_export">
+                  <button
+                    onClick={handleExport}
+                    className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2`}
+                  >
+                    <Download size={16} />
+                    Eksport JSON
+                  </button>
+                </PermissionGate>
+
+                <PermissionGate permission="transport_import">
+                  <label className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 cursor-pointer`}>
+                    <Upload size={16} />
+                    Import JSON
+                    <input
+                      type="file"
+                      accept=".json"
+                      onChange={handleImport}
+                      className="hidden"
+                    />
+                  </label>
+                </PermissionGate>
+              </div>
             </div>
           </div>
 

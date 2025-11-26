@@ -1,0 +1,38 @@
+{
+  "collection": "transport",
+  "count": 4,
+  "documents": [
+    {
+      "id": 1,
+      "name": "FTL",
+      "pricePerKm": 2.3,
+      "maxLoadHeight": 2.7,
+      "palletSpaces": 33,
+      "loadCapacity": 24000
+    },
+    {
+      "id": 2,
+      "pricePerKm": 2.3,
+      "name": "Bus",
+      "palletSpaces": 10,
+      "loadCapacity": 1000,
+      "maxLoadHeight": 2.3
+    },
+    {
+      "id": 3,
+      "maxLoadHeight": 2.5,
+      "loadCapacity": 3000,
+      "name": "Solo maly",
+      "pricePerKm": 2.3,
+      "palletSpaces": 15
+    },
+    {
+      "id": 4,
+      "pricePerKm": 2.3,
+      "name": "Solo duży",
+      "palletSpaces": 19,
+      "loadCapacity": 7000,
+      "maxLoadHeight": 2.7
+    }
+  ]
+}

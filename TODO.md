@@ -20,19 +20,18 @@
 
 ## 📋 Do Zrobienia
 
-### Faza 1B - Porównywarka wariantów (priorytet: wysoki)
-- [ ] Checkboxy do zaznaczania kalkulacji w katalogu (max 3-4)
-- [ ] Przycisk "Porównaj zaznaczone"
-- [ ] Modal/strona z tabelą porównawczą:
+### Faza 1B - Porównywarka wariantów ✅ (zaimplementowane 2025-11-26)
+- ✅ Checkboxy do zaznaczania kalkulacji w katalogu (max 4)
+- ✅ Przycisk "Porównaj zaznaczone" (aktywny przy 2-4 zaznaczonych)
+- ✅ Modal z tabelą porównawczą:
   - Nazwa kalkulacji / ID
-  - Klient
-  - Materiały (z nazwami i kosztami)
-  - Procesy (pieczenie, czyszczenie, handling)
-  - Koszty jednostkowe
-  - Marże
-  - Ceny końcowe z SGA
-  - Różnice procentowe między wariantami
-- [ ] Możliwość eksportu porównania do PDF/Excel
+  - Klient, status, właściciel
+  - Data modyfikacji
+  - Podsumowanie finansowe (obrót EXW/DAP, marża)
+  - Różnice procentowe względem bazowej kalkulacji
+  - Notatki
+- ✅ Eksport porównania do PDF
+- ✅ Eksport porównania do Excel
 
 ### Faza 2 - Analityka i raporty (priorytet: średni)
 
@@ -97,5 +96,5 @@
 
 ---
 
-**Ostatnia aktualizacja:** 2025-10-08
-**Następny krok:** Porównywarka wariantów
+**Ostatnia aktualizacja:** 2025-11-26
+**Następny krok:** Faza 2 - Analityka i raporty

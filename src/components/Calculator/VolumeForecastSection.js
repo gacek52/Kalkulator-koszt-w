@@ -1,22 +1,21 @@
 import React, { useState } from 'react';
 import { Calendar, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useRole } from '../../context/RoleContext';
 
 /**
  * Komponent sekcji prognozy wolumenu produkcji w latach
  * Umożliwia definiowanie prognozowanych ilości produkcji dla każdego roku
  */
 export function VolumeForecastSection({ item, onUpdate, themeClasses, darkMode }) {
+  const { hasPermission } = useRole();
   const forecastEnabled = item.volumeForecast?.enabled || false;
   const forecastYears = item.volumeForecast?.years || {};
 
-  // Stan lokalny dla zakresu lat
-  const [yearRange, setYearRange] = useState(() => {
-    const years = Object.keys(forecastYears).map(y => parseInt(y));
-    const currentYear = new Date().getFullYear();
-    return {
-      from: years.length > 0 ? Math.min(...years) : currentYear,
-      to: years.length > 0 ? Math.max(...years) : currentYear + 10
-    };
+  // Stan lokalny dla zakresu lat - po prostu obecny rok + 5
+  const currentYear = new Date().getFullYear();
+  const [yearRange, setYearRange] = useState({
+    from: currentYear,
+    to: currentYear + 5
   });
 
   // Stan zwijania kalendarza (niezależny od checkbox)
@@ -24,24 +23,14 @@ export function VolumeForecastSection({ item, onUpdate, themeClasses, darkMode }
 
   const handleToggleForecast = () => {
     if (!forecastEnabled) {
-      // Włączanie - inicjalizuj z pustym obiektem lat
-      const currentYear = new Date().getFullYear();
-      const initialYears = {};
-      for (let year = currentYear; year <= currentYear + 10; year++) {
-        initialYears[year] = 0;
-      }
-
+      // Włączanie - inicjalizuj z pustym obiektem lat (zakres będzie ustawiony przez użytkownika)
       onUpdate({
         volumeForecast: {
           enabled: true,
-          years: initialYears
+          years: {}
         }
       });
-
-      setYearRange({
-        from: currentYear,
-        to: currentYear + 10
-      });
+      // NIE zmieniaj yearRange - użytkownik sam ustawi zakres lat
     } else {
       // Wyłączanie
       onUpdate({
@@ -119,6 +108,13 @@ export function VolumeForecastSection({ item, onUpdate, themeClasses, darkMode }
   const sortedYears = Object.keys(forecastYears)
     .map(y => parseInt(y))
     .sort((a, b) => a - b);
+
+  // Sprawdź uprawnienia - wymaga calculations_edit (własnych lub wszystkich)
+  const canEditCalculations = hasPermission('calculations_edit_own') || hasPermission('calculations_edit_all');
+
+  if (!canEditCalculations) {
+    return null; // Ukryj całą sekcję jeśli brak uprawnień do edycji
+  }
 
   return (
     <div className={`${themeClasses.card} rounded-lg border p-4 mb-4`}>

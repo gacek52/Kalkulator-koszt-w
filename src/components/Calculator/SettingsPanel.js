@@ -4,6 +4,7 @@ import { EditableCurve } from '../Graphs/EditableCurve';
 import { useCurvePresets } from '../../context/CurvePresetContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
+import { useDynamicCurves } from '../../hooks/useDynamicCurves';
 
 /**
  * Panel ustawień z edycją krzywych i procesów
@@ -11,100 +12,124 @@ import { useRole } from '../../context/RoleContext';
 export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onClose }) {
   const [activeSection, setActiveSection] = useState('curves'); // 'curves' | 'customCurves'
   const [showSavePresetModal, setShowSavePresetModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [presetName, setPresetName] = useState('');
   const [presetDescription, setPresetDescription] = useState('');
   const [makeGlobal, setMakeGlobal] = useState(false);
-  const [selectedPresetId, setSelectedPresetId] = useState('custom');
+  // Użyj curvePresetId z zakładki jako początkowej wartości
+  const [selectedPresetId, setSelectedPresetId] = useState(tab.curvePresetId || 'custom');
 
   const { presets, actions: presetActions, loading } = useCurvePresets();
   const { isAdminOrSuper } = useRole();
+
+  // DYNAMICZNE ŁADOWANIE KRZYWYCH z presetu
+  // Zamiast używać tab.editingCurves bezpośrednio, ładujemy krzywe z presetu
+  const { editingCurves, customCurves } = useDynamicCurves(
+    tab.curvePresetId,
+    tab.editingCurves, // fallback dla starych kalkulacji
+    tab.customCurves   // fallback dla starych kalkulacji
+  );
 
   // Funkcja porównująca krzywe (deep equality)
   const compareCurves = (curves1, curves2) => {
     return JSON.stringify(curves1) === JSON.stringify(curves2);
   };
 
-  // Znajdź preset pasujący do obecnych krzywych
-  const findMatchingPreset = () => {
-    if (!presets || presets.length === 0) return null;
-
-    for (const preset of presets) {
-      if (preset.curves) {
-        const editingCurvesMatch = compareCurves(
-          tab.editingCurves,
-          preset.curves.editingCurves
-        );
-        const customCurvesMatch = compareCurves(
-          tab.customCurves || [],
-          preset.curves.customCurves || []
-        );
-
-        if (editingCurvesMatch && customCurvesMatch) {
-          return preset.id;
-        }
-      }
-    }
-
-    return null;
-  };
-
-  // Automatyczne wykrywanie dopasowania do presetu
+  // Synchronizuj selectedPresetId ze stanem zakładki
   useEffect(() => {
-    const matchingPresetId = findMatchingPreset();
-
-    if (matchingPresetId) {
-      // Znaleziono preset pasujący do obecnych krzywych
-      if (selectedPresetId !== matchingPresetId) {
-        setSelectedPresetId(matchingPresetId);
-      }
-    } else {
-      // Brak dopasowania - ustaw "custom"
-      if (selectedPresetId !== 'custom') {
-        setSelectedPresetId('custom');
-      }
+    if (tab.curvePresetId !== selectedPresetId) {
+      setSelectedPresetId(tab.curvePresetId || 'custom');
     }
-  }, [tab.editingCurves, tab.customCurves, presets]);
+  }, [tab.curvePresetId]);
 
   // Obsługa aktualizacji krzywej pieczenia
-  const handleBakingCurveUpdate = (newCurveData) => {
-    const updates = {
-      editingCurves: {
-        ...tab.editingCurves,
-        baking: newCurveData.map(point => ({ x: point.x, y: point.y }))
-      }
-    };
+  const handleBakingCurveUpdate = async (newCurveData) => {
+    const newBakingCurve = newCurveData.map(point => ({ x: point.x, y: point.y }));
 
-    // Przelicz wszystkie elementy po zmianie krzywej
-    const updatedItems = tab.items.map(item => {
-      if (item.weight) {
-        const results = calculateItemCost(item, { ...tab, ...updates });
-        return { ...item, results };
+    // Jeśli mamy wybrany preset, aktualizuj go
+    if (tab.curvePresetId && tab.curvePresetId !== 'custom') {
+      try {
+        const preset = presetActions.getById(tab.curvePresetId);
+        if (preset) {
+          await presetActions.update(tab.curvePresetId, {
+            curves: {
+              ...preset.curves,
+              editingCurves: {
+                ...preset.curves.editingCurves,
+                baking: newBakingCurve
+              }
+            }
+          });
+          // Preset został zaktualizowany - useDynamicCurves automatycznie pobierze nowe dane
+        }
+      } catch (error) {
+        console.error('Error updating preset:', error);
+        alert('Błąd podczas aktualizacji presetu: ' + error.message);
       }
-      return item;
-    });
+    } else {
+      // Brak presetu - zaktualizuj lokalne krzywe (stary sposób, kompatybilność wsteczna)
+      const updates = {
+        editingCurves: {
+          ...editingCurves,
+          baking: newBakingCurve
+        }
+      };
 
-    actions.updateTab(tabId, { ...updates, items: updatedItems });
+      const updatedItems = tab.items.map(item => {
+        if (item.weight) {
+          const results = calculateItemCost(item, { ...tab, editingCurves: updates.editingCurves });
+          return { ...item, results };
+        }
+        return item;
+      });
+
+      actions.updateTab(tabId, { ...updates, items: updatedItems });
+    }
   };
 
   // Obsługa aktualizacji krzywej czyszczenia
-  const handleCleaningCurveUpdate = (newCurveData) => {
-    const updates = {
-      editingCurves: {
-        ...tab.editingCurves,
-        cleaning: newCurveData.map(point => ({ x: point.x, y: point.y }))
-      }
-    };
+  const handleCleaningCurveUpdate = async (newCurveData) => {
+    const newCleaningCurve = newCurveData.map(point => ({ x: point.x, y: point.y }));
 
-    // Przelicz wszystkie elementy po zmianie krzywej
-    const updatedItems = tab.items.map(item => {
-      if (item.weight) {
-        const results = calculateItemCost(item, { ...tab, ...updates });
-        return { ...item, results };
+    // Jeśli mamy wybrany preset, aktualizuj go
+    if (tab.curvePresetId && tab.curvePresetId !== 'custom') {
+      try {
+        const preset = presetActions.getById(tab.curvePresetId);
+        if (preset) {
+          await presetActions.update(tab.curvePresetId, {
+            curves: {
+              ...preset.curves,
+              editingCurves: {
+                ...preset.curves.editingCurves,
+                cleaning: newCleaningCurve
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error updating preset:', error);
+        alert('Błąd podczas aktualizacji presetu: ' + error.message);
       }
-      return item;
-    });
+    } else {
+      // Brak presetu - zaktualizuj lokalne krzywe
+      const updates = {
+        editingCurves: {
+          ...editingCurves,
+          cleaning: newCleaningCurve
+        }
+      };
 
-    actions.updateTab(tabId, { ...updates, items: updatedItems });
+      const updatedItems = tab.items.map(item => {
+        if (item.weight) {
+          const results = calculateItemCost(item, { ...tab, editingCurves: updates.editingCurves });
+          return { ...item, results };
+        }
+        return item;
+      });
+
+      actions.updateTab(tabId, { ...updates, items: updatedItems });
+    }
   };
 
   // Funkcja kalkulacji kosztów (uproszczona wersja)
@@ -202,29 +227,21 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
   // Handler do wczytania presetu
   const handleLoadPreset = async (presetId) => {
     if (presetId === 'custom') {
+      // Wyłącz preset - ustaw curvePresetId na null
+      actions.updateTab(tabId, { curvePresetId: null });
       setSelectedPresetId('custom');
       return;
     }
 
     const preset = presetActions.getById(presetId);
-    if (!preset || !preset.curves) return;
+    if (!preset || !preset.curves) {
+      alert('Nie znaleziono presetu lub preset nie zawiera krzywych');
+      return;
+    }
 
-    // Zastosuj krzywe z presetu
-    const updates = {
-      editingCurves: preset.curves.editingCurves || tab.editingCurves,
-      customCurves: preset.curves.customCurves || tab.customCurves
-    };
-
-    // Przelicz wszystkie elementy po zmianie krzywych
-    const updatedItems = tab.items.map(item => {
-      if (item.weight) {
-        const results = calculateItemCost(item, { ...tab, ...updates });
-        return { ...item, results };
-      }
-      return item;
-    });
-
-    actions.updateTab(tabId, { ...updates, items: updatedItems });
+    // KLUCZOWA ZMIANA: Ustaw curvePresetId zamiast kopiować krzywe
+    // useDynamicCurves hook automatycznie załaduje krzywe z presetu
+    actions.updateTab(tabId, { curvePresetId: presetId });
     setSelectedPresetId(presetId);
   };
 
@@ -245,14 +262,19 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
         name: presetName.trim(),
         description: presetDescription.trim(),
         curves: {
-          editingCurves: tab.editingCurves,
-          customCurves: tab.customCurves
+          editingCurves: editingCurves, // Użyj dynamicznie załadowanych krzywych
+          customCurves: customCurves
         },
-        isGlobal: makeGlobal && isAdminOrSuper()
+        isGlobal: makeGlobal && isAdminOrSuper(),
+        isDefault: false // Nowe presety nie są domyślne
       };
 
       const savedPreset = await presetActions.create(presetData);
+
+      // Po zapisaniu nowego presetu, ustaw go jako aktywny dla tej zakładki
+      actions.updateTab(tabId, { curvePresetId: savedPreset.id });
       setSelectedPresetId(savedPreset.id);
+
       setShowSavePresetModal(false);
       setPresetName('');
       setPresetDescription('');
@@ -260,6 +282,102 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
     } catch (error) {
       console.error('Error saving preset:', error);
       alert('Błąd podczas zapisywania presetu: ' + error.message);
+    }
+  };
+
+  // Handler do edycji presetu (nadpisanie)
+  const handleEditPreset = async () => {
+    if (selectedPresetId === 'custom') {
+      alert('Wybierz preset do edycji');
+      return;
+    }
+
+    const currentPreset = presetActions.getById(selectedPresetId);
+    if (!currentPreset) {
+      alert('Nie znaleziono presetu');
+      return;
+    }
+
+    const confirmEdit = window.confirm(`Czy na pewno chcesz nadpisać preset "${currentPreset.name}"?\n\nUWAGA: To zaktualizuje preset dla WSZYSTKICH kalkulacji, które go używają.`);
+    if (!confirmEdit) return;
+
+    try {
+      const updates = {
+        curves: {
+          editingCurves: editingCurves, // Użyj dynamicznie załadowanych krzywych
+          customCurves: customCurves
+        }
+      };
+
+      await presetActions.update(selectedPresetId, updates);
+      alert('Preset został zaktualizowany. Wszystkie kalkulacje używające tego presetu zostaną automatycznie zaktualizowane.');
+    } catch (error) {
+      console.error('Error updating preset:', error);
+      alert('Błąd podczas aktualizacji presetu: ' + error.message);
+    }
+  };
+
+  // Handler do usuwania presetu
+  const handleDeletePreset = () => {
+    if (selectedPresetId === 'custom') {
+      alert('Wybierz preset do usunięcia');
+      return;
+    }
+
+    setShowDeleteModal(true);
+    setDeleteConfirmText('');
+  };
+
+  // Handler do potwierdzenia usunięcia presetu
+  const handleDeletePresetConfirm = async () => {
+    if (deleteConfirmText !== 'TAK') {
+      alert('Wpisz "TAK" aby potwierdzić usunięcie');
+      return;
+    }
+
+    try {
+      await presetActions.delete(selectedPresetId);
+      setSelectedPresetId('custom');
+      setShowDeleteModal(false);
+      setDeleteConfirmText('');
+      alert('Preset został usunięty');
+    } catch (error) {
+      console.error('Error deleting preset:', error);
+      alert('Błąd podczas usuwania presetu: ' + error.message);
+    }
+  };
+
+  // Handler do ustawiania presetu jako domyślny
+  const handleSetDefault = async () => {
+    if (selectedPresetId === 'custom') {
+      alert('Wybierz preset aby ustawić go jako domyślny');
+      return;
+    }
+
+    const currentPreset = presetActions.getById(selectedPresetId);
+    if (!currentPreset) {
+      alert('Nie znaleziono presetu');
+      return;
+    }
+
+    try {
+      // Odznacz isDefault dla wszystkich innych presetów NAJPIERW
+      for (const preset of presets) {
+        if (preset.id !== selectedPresetId && preset.isDefault) {
+          await presetActions.update(preset.id, { isDefault: false });
+        }
+      }
+
+      // Ustaw wybrany preset jako domyślny
+      await presetActions.update(selectedPresetId, { isDefault: true });
+
+      // Odśwież listę presetów, aby zobaczyć zmiany
+      await presetActions.refresh();
+
+      alert(`Preset "${currentPreset.name}" został ustawiony jako domyślny`);
+    } catch (error) {
+      console.error('Error setting default preset:', error);
+      alert('Błąd podczas ustawiania domyślnego presetu: ' + error.message);
     }
   };
 
@@ -283,31 +401,68 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
         </div>
 
         {/* Preset selector */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-600">
-          <label className={`text-sm font-medium ${themeClasses.text.secondary} whitespace-nowrap`}>
-            Preset krzywych:
-          </label>
-          <select
-            value={selectedPresetId}
-            onChange={(e) => handleLoadPreset(e.target.value)}
-            className={`flex-1 px-3 py-2 text-sm border rounded-lg ${themeClasses.input}`}
-            disabled={loading}
-          >
-            <option value="custom">(Niestandardowy)</option>
-            {presets && presets.map(preset => (
-              <option key={preset.id} value={preset.id}>
-                {preset.name} {preset.isGlobal ? '(Globalny)' : ''}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={handleSavePreset}
-            className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2 whitespace-nowrap`}
-            disabled={loading}
-          >
-            <Save size={16} />
-            Zapisz preset
-          </button>
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-600 space-y-3">
+          {/* Pierwszy wiersz: label, select i przycisk Zapisz */}
+          <div className="flex items-center gap-3">
+            <label className={`text-sm font-medium ${themeClasses.text.secondary} whitespace-nowrap`}>
+              Preset krzywych:
+            </label>
+            <select
+              value={selectedPresetId}
+              onChange={(e) => handleLoadPreset(e.target.value)}
+              className={`flex-1 px-3 py-2 text-sm border rounded-lg ${themeClasses.input}`}
+              disabled={loading}
+            >
+              <option value="custom">(Niestandardowy)</option>
+              {presets && presets.map(preset => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.isDefault ? '⭐ ' : ''}{preset.name} {preset.isGlobal ? '(Globalny)' : ''}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={handleSavePreset}
+              className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2 whitespace-nowrap`}
+              disabled={loading}
+              title="Zapisz obecne krzywe jako nowy preset"
+            >
+              <Save size={16} />
+              Zapisz preset
+            </button>
+          </div>
+
+          {/* Drugi wiersz: przyciski akcji dla wybranego presetu */}
+          {selectedPresetId !== 'custom' && (
+            <div className="flex items-center gap-2 pl-32">
+              <button
+                onClick={handleEditPreset}
+                className={`px-3 py-1.5 text-sm rounded-lg font-medium ${themeClasses.button.secondary} flex items-center gap-2 whitespace-nowrap`}
+                disabled={loading}
+                title="Nadpisz wybrany preset obecnymi krzywymi"
+              >
+                <Save size={14} />
+                Nadpisz
+              </button>
+              <button
+                onClick={handleSetDefault}
+                className={`px-3 py-1.5 text-sm rounded-lg font-medium ${themeClasses.button.primary} flex items-center gap-2 whitespace-nowrap`}
+                disabled={loading}
+                title="Ustaw ten preset jako domyślny dla nowych kalkulacji"
+              >
+                ⭐
+                Ustaw jako domyślny
+              </button>
+              <button
+                onClick={handleDeletePreset}
+                className={`px-3 py-1.5 text-sm rounded-lg font-medium ${themeClasses.button.danger} text-white flex items-center gap-2 whitespace-nowrap`}
+                disabled={loading}
+                title="Usuń wybrany preset"
+              >
+                <Trash2 size={14} />
+                Usuń
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tabs */}
@@ -343,7 +498,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                 <>
                   {/* Krzywa pieczenia */}
                   <EditableCurve
-                    curveData={tab.editingCurves.baking.map(point => ({ x: point.x, y: point.y }))}
+                    curveData={editingCurves.baking.map(point => ({ x: point.x, y: point.y }))}
                     onUpdateCurve={handleBakingCurveUpdate}
                     title="🔥 Krzywa pieczenia"
                     color="#EF4444"
@@ -356,7 +511,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
 
                   {/* Krzywa czyszczenia */}
                   <EditableCurve
-                    curveData={tab.editingCurves.cleaning.map(point => ({ x: point.x, y: point.y }))}
+                    curveData={editingCurves.cleaning.map(point => ({ x: point.x, y: point.y }))}
                     onUpdateCurve={handleCleaningCurveUpdate}
                     title="🧽 Krzywa czyszczenia"
                     color="#10B981"
@@ -372,22 +527,46 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
               {/* Krzywa wagi brutto - tylko dla trybów podstawowych */}
               {tab.calculationType !== 'heatshield' && tab.calculationType !== 'multilayer' && (
                 <EditableCurve
-                  curveData={tab.editingCurves.bruttoWeight.map(point => ({ x: point.x, y: point.y }))}
-                  onUpdateCurve={(newCurveData) => {
-                    const updates = {
-                      editingCurves: {
-                        ...tab.editingCurves,
-                        bruttoWeight: newCurveData.map(point => ({ x: point.x, y: point.y }))
+                  curveData={editingCurves.bruttoWeight.map(point => ({ x: point.x, y: point.y }))}
+                  onUpdateCurve={async (newCurveData) => {
+                    const newBruttoCurve = newCurveData.map(point => ({ x: point.x, y: point.y }));
+
+                    // Jeśli mamy wybrany preset, aktualizuj go
+                    if (tab.curvePresetId && tab.curvePresetId !== 'custom') {
+                      try {
+                        const preset = presetActions.getById(tab.curvePresetId);
+                        if (preset) {
+                          await presetActions.update(tab.curvePresetId, {
+                            curves: {
+                              ...preset.curves,
+                              editingCurves: {
+                                ...preset.curves.editingCurves,
+                                bruttoWeight: newBruttoCurve
+                              }
+                            }
+                          });
+                        }
+                      } catch (error) {
+                        console.error('Error updating preset:', error);
+                        alert('Błąd podczas aktualizacji presetu: ' + error.message);
                       }
-                    };
-                    const updatedItems = tab.items.map(item => {
-                      if (item.weight) {
-                        const results = calculateItemCost(item, { ...tab, ...updates });
-                        return { ...item, results };
-                      }
-                      return item;
-                    });
-                    actions.updateTab(tabId, { ...updates, items: updatedItems });
+                    } else {
+                      // Brak presetu - zaktualizuj lokalne krzywe
+                      const updates = {
+                        editingCurves: {
+                          ...editingCurves,
+                          bruttoWeight: newBruttoCurve
+                        }
+                      };
+                      const updatedItems = tab.items.map(item => {
+                        if (item.weight) {
+                          const results = calculateItemCost(item, { ...tab, editingCurves: updates.editingCurves });
+                          return { ...item, results };
+                        }
+                        return item;
+                      });
+                      actions.updateTab(tabId, { ...updates, items: updatedItems });
+                    }
                   }}
                   title="⚖️ Krzywa wagi brutto"
                   color="#F59E0B"
@@ -403,15 +582,37 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
               {tab.calculationType === 'heatshield' && (
                 <>
                   <EditableCurve
-                    curveData={(tab.editingCurves.heatshieldPrep || []).map(point => ({ x: point.x, y: point.y }))}
-                    onUpdateCurve={(newCurveData) => {
-                      const updates = {
-                        editingCurves: {
-                          ...tab.editingCurves,
-                          heatshieldPrep: newCurveData.map(point => ({ x: point.x, y: point.y }))
+                    curveData={(editingCurves.heatshieldPrep || []).map(point => ({ x: point.x, y: point.y }))}
+                    onUpdateCurve={async (newCurveData) => {
+                      const newPrepCurve = newCurveData.map(point => ({ x: point.x, y: point.y }));
+
+                      if (tab.curvePresetId && tab.curvePresetId !== 'custom') {
+                        try {
+                          const preset = presetActions.getById(tab.curvePresetId);
+                          if (preset) {
+                            await presetActions.update(tab.curvePresetId, {
+                              curves: {
+                                ...preset.curves,
+                                editingCurves: {
+                                  ...preset.curves.editingCurves,
+                                  heatshieldPrep: newPrepCurve
+                                }
+                              }
+                            });
+                          }
+                        } catch (error) {
+                          console.error('Error updating preset:', error);
+                          alert('Błąd podczas aktualizacji presetu: ' + error.message);
                         }
-                      };
-                      actions.updateTab(tabId, updates);
+                      } else {
+                        const updates = {
+                          editingCurves: {
+                            ...editingCurves,
+                            heatshieldPrep: newPrepCurve
+                          }
+                        };
+                        actions.updateTab(tabId, updates);
+                      }
                     }}
                     title="🔧 Krzywa przygotówki"
                     color="#F59E0B"
@@ -423,15 +624,37 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                   />
 
                   <EditableCurve
-                    curveData={(tab.editingCurves.heatshieldLaser || []).map(point => ({ x: point.x, y: point.y }))}
-                    onUpdateCurve={(newCurveData) => {
-                      const updates = {
-                        editingCurves: {
-                          ...tab.editingCurves,
-                          heatshieldLaser: newCurveData.map(point => ({ x: point.x, y: point.y }))
+                    curveData={(editingCurves.heatshieldLaser || []).map(point => ({ x: point.x, y: point.y }))}
+                    onUpdateCurve={async (newCurveData) => {
+                      const newLaserCurve = newCurveData.map(point => ({ x: point.x, y: point.y }));
+
+                      if (tab.curvePresetId && tab.curvePresetId !== 'custom') {
+                        try {
+                          const preset = presetActions.getById(tab.curvePresetId);
+                          if (preset) {
+                            await presetActions.update(tab.curvePresetId, {
+                              curves: {
+                                ...preset.curves,
+                                editingCurves: {
+                                  ...preset.curves.editingCurves,
+                                  heatshieldLaser: newLaserCurve
+                                }
+                              }
+                            });
+                          }
+                        } catch (error) {
+                          console.error('Error updating preset:', error);
+                          alert('Błąd podczas aktualizacji presetu: ' + error.message);
                         }
-                      };
-                      actions.updateTab(tabId, updates);
+                      } else {
+                        const updates = {
+                          editingCurves: {
+                            ...editingCurves,
+                            heatshieldLaser: newLaserCurve
+                          }
+                        };
+                        actions.updateTab(tabId, updates);
+                      }
                     }}
                     title="⚡ Krzywa cięcia laserowego"
                     color="#8B5CF6"
@@ -482,9 +705,9 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                 </button>
               </div>
 
-              {tab.customCurves && tab.customCurves.length > 0 ? (
+              {customCurves && customCurves.length > 0 ? (
                 <div className="space-y-6">
-                  {tab.customCurves.map((curve) => (
+                  {customCurves.map((curve) => (
                     <div key={curve.id} className={`border rounded-lg p-4 ${darkMode ? 'border-gray-600' : 'border-gray-200'}`}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 space-y-2">
@@ -755,6 +978,60 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                 disabled={!presetName.trim()}
               >
                 Zapisz
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal usuwania presetu */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className={`${themeClasses.card} rounded-lg border max-w-md w-full mx-4`}>
+            <div className="p-6 border-b border-gray-200 dark:border-gray-600">
+              <h3 className={`text-lg font-semibold text-red-600`}>
+                Usuń preset krzywych
+              </h3>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <p className={`text-sm ${themeClasses.text.primary}`}>
+                Czy na pewno chcesz usunąć preset <strong>{presetActions.getById(selectedPresetId)?.name}</strong>?
+              </p>
+              <p className={`text-sm ${themeClasses.text.secondary}`}>
+                Ta operacja jest nieodwracalna.
+              </p>
+              <div>
+                <label className={`block text-sm font-medium mb-2 ${themeClasses.text.secondary}`}>
+                  Wpisz <strong>TAK</strong> aby potwierdzić usunięcie:
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="TAK"
+                  className={`w-full px-3 py-2 border rounded-lg ${themeClasses.input}`}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 p-6 border-t border-gray-200 dark:border-gray-600">
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setDeleteConfirmText('');
+                }}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary}`}
+              >
+                Anuluj
+              </button>
+              <button
+                onClick={handleDeletePresetConfirm}
+                className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.danger} text-white`}
+                disabled={deleteConfirmText !== 'TAK'}
+              >
+                Usuń preset
               </button>
             </div>
           </div>

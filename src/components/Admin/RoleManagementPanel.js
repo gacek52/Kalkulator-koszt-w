@@ -12,7 +12,8 @@ export function RoleManagementPanel({ darkMode, onBack }) {
   const [formData, setFormData] = useState({
     id: '',
     name: '',
-    permissions: {}
+    permissions: {},
+    assignableByAdmin: false
   });
 
   const themeClasses = darkMode ? {
@@ -108,6 +109,10 @@ export function RoleManagementPanel({ darkMode, onBack }) {
     'Raporty': [
       { key: 'reports_view', label: 'Podgląd raportów' },
       { key: 'reports_export', label: 'Eksport raportów' }
+    ],
+    'Client Manual': [
+      { key: 'client_manual_view', label: 'Podgląd Client Manual' },
+      { key: 'client_manual_edit', label: 'Edycja Client Manual' }
     ]
   };
 
@@ -139,7 +144,8 @@ export function RoleManagementPanel({ darkMode, onBack }) {
     setFormData({
       id: role.id,
       name: role.name,
-      permissions: { ...role.permissions }
+      permissions: { ...role.permissions },
+      assignableByAdmin: role.assignableByAdmin || false
     });
   };
 
@@ -148,7 +154,8 @@ export function RoleManagementPanel({ darkMode, onBack }) {
     setFormData({
       id: '',
       name: '',
-      permissions: {}
+      permissions: {},
+      assignableByAdmin: false
     });
   };
 
@@ -157,14 +164,16 @@ export function RoleManagementPanel({ darkMode, onBack }) {
       if (editingRole) {
         await updateRole(editingRole, {
           name: formData.name,
-          permissions: formData.permissions
+          permissions: formData.permissions,
+          assignableByAdmin: formData.assignableByAdmin
         });
         alert('Rola została zaktualizowana');
       } else {
         await createRole({
           id: formData.id,
           name: formData.name,
-          permissions: formData.permissions
+          permissions: formData.permissions,
+          assignableByAdmin: formData.assignableByAdmin
         });
         alert('Rola została utworzona');
       }
@@ -325,6 +334,27 @@ export function RoleManagementPanel({ darkMode, onBack }) {
                     placeholder="np. Moderator"
                   />
                 </div>
+              </div>
+
+              {/* Admin Assignment */}
+              <div className={`${darkMode ? 'bg-gray-700' : 'bg-blue-50'} rounded-lg p-4`}>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.assignableByAdmin}
+                    onChange={(e) => setFormData({ ...formData, assignableByAdmin: e.target.checked })}
+                    className="w-5 h-5 mt-0.5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <div>
+                    <span className={`text-sm font-medium ${themeClasses.text.primary}`}>
+                      Może być nadawana przez Administratorów
+                    </span>
+                    <p className={`text-xs ${themeClasses.text.secondary} mt-1`}>
+                      Jeśli zaznaczone, administratorzy (nie tylko super-admin) będą mogli przypisywać tę rolę użytkownikom.
+                      Jeśli odznaczone, tylko Super Administrator będzie mógł nadać tę rolę.
+                    </p>
+                  </div>
+                </label>
               </div>
 
               {/* Permissions */}

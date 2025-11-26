@@ -4,6 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 import { useWorkstation } from '../../context/WorkstationContext';
 import { useCatalog, STATUS_LABELS } from '../../context/CatalogContext';
 import { useMaterial } from '../../context/MaterialContext';
+import { usePackaging } from '../../context/PackagingContext';
 import {
   calculateWorkstationUtilization,
   filterUtilizationData,
@@ -35,15 +36,16 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
   const { state: workstationState } = useWorkstation();
   const { state: catalogState, utils: catalogUtils, actions: catalogActions } = useCatalog();
   const { state: materialState, utils: materialUtils } = useMaterial();
+  const { state: packagingState } = usePackaging();
 
   // Stan aktywnej zakładki
-  const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'timeline' | 'materials'
+  const [activeTab, setActiveTab] = useState('simple'); // 'simple' | 'timeline' | 'materials' | 'logistics'
 
   // Stan zakresu lat dla timeline
   const currentYear = new Date().getFullYear();
   const [timelineYearRange, setTimelineYearRange] = useState({
-    from: currentYear,
-    to: currentYear + 10
+    start: currentYear,
+    end: currentYear + 5
   });
 
   // Stan filtrów
@@ -386,7 +388,7 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
 
       // Generuj lata w zakresie
       const years = [];
-      for (let year = timelineYearRange.from; year <= timelineYearRange.to; year++) {
+      for (let year = timelineYearRange.start; year <= timelineYearRange.end; year++) {
         years.push(year);
       }
 
@@ -544,30 +546,30 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
     }
   }, [assignments, assignmentsLoading, catalogState, workstationState, timelineYearRange]);
 
-  // Oblicz zapotrzebowanie materiałowe (agregacja z assignments + volumeForecast)
+  // Oblicz zapotrzebowanie materiałowe (z wszystkich items z volumeForecast)
   const materialConsumptionData = useMemo(() => {
     try {
-      if (assignmentsLoading || !assignments || assignments.length === 0) {
+      console.log('🧱 [MATERIALS] useMemo triggered', { calculationsCount: catalogState.calculations?.length });
+
+      if (!catalogState.calculations || catalogState.calculations.length === 0) {
+        console.log('🧱 [MATERIALS] Brak calculations - return empty');
         return { materials: {}, years: [] };
       }
 
       console.log('🧱 [MATERIALS] Start - obliczam zapotrzebowanie materiałowe');
+      console.log('🧱 [MATERIALS] catalogState.calculations:', catalogState.calculations.length);
 
-      // Filtruj assignments tak samo jak w Timeline (używamy tych samych filtrów)
-      const filteredAssignments = assignments.filter(assignment => {
-        const filters = catalogState.capacityFilters;
-
-        if (!assignment.calculationId) return false;
-
-        const calculation = catalogState.calculations.find(c => c.id === assignment.calculationId);
-        if (!calculation) return false;
-
+      // Filtruj kalkulacje używając capacity filters
+      const filters = catalogState.capacityFilters;
+      const filteredCalculations = catalogState.calculations.filter(calculation => {
+        // Sprawdź czy jest w customSelectedIds
         const isCustomSelected = filters.customSelectedIds &&
                                  filters.customSelectedIds.length > 0 &&
-                                 filters.customSelectedIds.includes(assignment.calculationId);
+                                 filters.customSelectedIds.includes(calculation.catalogId);
 
         if (isCustomSelected) return true;
 
+        // Sprawdź statusy
         if (!filters.includeDraft && calculation.status === 'draft') return false;
         if (!filters.includeInProgress && calculation.status === 'in_progress') return false;
         if (!filters.includeSent && calculation.status === 'sent') return false;
@@ -577,11 +579,11 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
         return true;
       });
 
-      console.log(`🧱 [MATERIALS] Przetwarzam ${filteredAssignments.length} assignments`);
+      console.log(`🧱 [MATERIALS] Przefiltrowano ${filteredCalculations.length}/${catalogState.calculations.length} kalkulacji`);
 
       // Generuj lata w zakresie
       const years = [];
-      for (let year = timelineYearRange.from; year <= timelineYearRange.to; year++) {
+      for (let year = timelineYearRange.start; year <= timelineYearRange.end; year++) {
         years.push(year);
       }
 
@@ -589,69 +591,103 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
       const materials = {};
 
       /**
-       * Funkcja pomocnicza do identyfikacji materiału na podstawie item i mode
+       * Funkcja pomocnicza do identyfikacji materiału na podstawie item
        * Zwraca tablicę materiałów (bo może być wiele warstw w multilayer)
+       * UWAGA: mode nie jest zapisywane w bazie - wykrywamy tryb po wypełnionych polach!
        */
       const identifyMaterials = (item) => {
-        const mode = item.mode;
         const materialsFound = [];
 
-        if (mode === 'surface') {
-          // SURFACE mode: tabName jako nazwa materiału
-          const tabName = item.tabName || 'Unknown';
+        // Wykryj tryb na podstawie wypełnionych pól
+        // MULTILAYER: musi mieć przynajmniej jedną warstwę z danymi (selectedMaterialCompositionId LUB thickness+density)
+        const hasMultilayer = item.multilayer && item.multilayer.layers && item.multilayer.layers.length > 0 &&
+          item.multilayer.layers.some(layer =>
+            layer.selectedMaterialCompositionId || (layer.thickness && layer.density)
+          );
+        const hasHeatshield = item.heatshield && (item.heatshield.surfaceNetto || item.heatshield.sheetMaterial);
+        const hasSurfaceData = item.surfaceArea && item.surfaceBrutto && item.tabName;
 
-          // Próbujemy znaleźć composition po nazwie tabName (sprawdzamy czy tabName to displayName kompozycji)
-          const allCompositions = materialUtils.getAllCompositionsWithDetails(materialState);
-          const matchingComp = allCompositions.find(comp => comp.displayName === tabName);
+        console.log(`🧱 [MATERIALS] Item ${item.partId} - detected modes:`, {
+          hasMultilayer,
+          hasHeatshield,
+          hasSurfaceData,
+          tabName: item.tabName,
+          weight: item.weight,
+          volume: item.volume,
+          density: item.density
+        });
 
-          if (matchingComp) {
-            // Znaleziono composition - używamy dokładnych danych
-            const materialKey = `${matchingComp.materialType.name}-${matchingComp.thickness}mm-${Math.round(matchingComp.surfaceWeight)}g/m²`;
-            materialsFound.push({
-              key: materialKey,
-              displayName: materialKey,
-              materialType: matchingComp.materialType.name,
-              thickness: matchingComp.thickness,
-              surfaceWeight: matchingComp.surfaceWeight, // g/m²
-              color: matchingComp.materialType.color || '#808080',
-              // Dane do obliczenia zużycia
-              surfaceNetto: parseFloat(item.surfaceNetto) || 0, // m²
-              surfaceBrutto: parseFloat(item.surfaceBrutto) || 0 // m²
-            });
-          } else {
-            // Nie znaleziono composition - używamy tabName jako fallback
-            console.warn(`⚠️ [MATERIALS] Nie znaleziono composition dla tabName="${tabName}" - pomijam`);
-            // Nie dodajemy materiału jeśli nie znamy jego parametrów
-          }
-
-        } else if (mode === 'multilayer' && item.multilayer && item.multilayer.layers) {
+        if (hasMultilayer) {
           // MULTILAYER mode: każda warstwa osobno
           item.multilayer.layers.forEach((layer, layerIdx) => {
-            if (!layer.materialType || !layer.thickness || !layer.surfaceWeight) {
-              console.warn(`⚠️ [MATERIALS] Warstwa ${layerIdx + 1} w multilayer nie ma wymaganych danych - pomijam`);
-              return;
-            }
-
-            const materialKey = `${layer.materialType}-${layer.thickness}mm-${Math.round(layer.surfaceWeight)}g/m²`;
-
-            // Znajdź kolor z materialState
-            const materialType = materialState.materialTypes.find(mt => mt.name === layer.materialType);
-            const color = materialType?.color || '#808080';
-
-            materialsFound.push({
-              key: materialKey,
-              displayName: materialKey,
-              materialType: layer.materialType,
-              thickness: parseFloat(layer.thickness),
-              surfaceWeight: parseFloat(layer.surfaceWeight), // g/m²
-              color: color,
-              // Dane do obliczenia zużycia
-              surfaceNetto: parseFloat(layer.surfaceNetto) || 0,
-              surfaceBrutto: parseFloat(layer.surfaceBrutto) || 0
+            console.log(`  🔍 [MATERIALS][Layer ${layerIdx + 1}] Sprawdzam warstwę:`, {
+              id: layer.id,
+              name: layer.name,
+              selectedMaterialCompositionId: layer.selectedMaterialCompositionId,
+              thickness: layer.thickness,
+              density: layer.density,
+              surfaceNetto: layer.surfaceNetto,
+              surfaceBrutto: layer.surfaceBrutto
             });
+
+            // Warstwa może mieć selectedMaterialCompositionId LUB ręczne thickness + density
+            if (layer.selectedMaterialCompositionId) {
+              // Pobierz pełne dane kompozycji z MaterialContext
+              const composition = materialUtils.getCompositionWithDetails(materialState, parseInt(layer.selectedMaterialCompositionId));
+
+              if (!composition) {
+                console.warn(`  ⚠️ [MATERIALS] Warstwa ${layerIdx + 1} - nie znaleziono kompozycji o ID ${layer.selectedMaterialCompositionId}`);
+                return;
+              }
+
+              console.log(`  ✅ [MATERIALS][Layer ${layerIdx + 1}] Znaleziono kompozycję:`, {
+                materialTypeName: composition.materialType.name,
+                thickness: composition.thickness,
+                density: composition.density,
+                surfaceWeight: composition.surfaceWeight,
+                color: composition.color
+              });
+
+              const materialKey = `${composition.materialType.name}-${composition.thickness}mm-${Math.round(composition.surfaceWeight)}g/m²`;
+
+              materialsFound.push({
+                key: materialKey,
+                displayName: materialKey,
+                materialType: composition.materialType.name,
+                thickness: parseFloat(composition.thickness),
+                surfaceWeight: parseFloat(composition.surfaceWeight), // g/m²
+                color: composition.color,
+                // Dane do obliczenia zużycia
+                surfaceNetto: parseFloat(layer.surfaceNetto) || 0,
+                surfaceBrutto: parseFloat(layer.surfaceBrutto) || 0
+              });
+
+            } else if (layer.thickness && layer.density) {
+              // Ręczne parametry - użyj nazwy warstwy jako nazwy materiału
+              const surfaceWeight = materialUtils.calculateSurfaceWeight(parseFloat(layer.density), parseFloat(layer.thickness));
+              const layerName = layer.name || `Warstwa ${layerIdx + 1}`;
+              const materialKey = `${layerName}-${layer.thickness}mm-${Math.round(surfaceWeight)}g/m²`;
+
+              console.log(`  ✅ [MATERIALS][Layer ${layerIdx + 1}] Ręczne parametry - nazwa="${layerName}", surfaceWeight=${surfaceWeight}`);
+
+              materialsFound.push({
+                key: materialKey,
+                displayName: materialKey,
+                materialType: layerName,
+                thickness: parseFloat(layer.thickness),
+                surfaceWeight: surfaceWeight, // g/m²
+                color: '#FF8C00', // Pomarańczowy dla niestandardowych materiałów
+                // Dane do obliczenia zużycia
+                surfaceNetto: parseFloat(layer.surfaceNetto) || 0,
+                surfaceBrutto: parseFloat(layer.surfaceBrutto) || 0
+              });
+
+            } else {
+              console.warn(`  ⚠️ [MATERIALS] Warstwa ${layerIdx + 1} nie ma ani selectedMaterialCompositionId ani thickness+density - pomijam`);
+            }
           });
 
-        } else if (mode === 'heatshield' && item.heatshield) {
+        } else if (hasHeatshield) {
           // HEATSHIELD mode: blacha + mata osobno
           const hs = item.heatshield;
 
@@ -688,34 +724,113 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
               surfaceBrutto: parseFloat(hs.surfaceBrutto) || 0
             });
           }
+        } else if (hasSurfaceData) {
+          // SURFACE mode: tabName jako nazwa materiału
+          const tabName = item.tabName || 'Unknown';
+
+          // Próbujemy znaleźć composition po nazwie tabName (sprawdzamy czy tabName to displayName kompozycji)
+          const allCompositions = materialUtils.getAllCompositionsWithDetails(materialState);
+          const matchingComp = allCompositions.find(comp => comp.displayName === tabName);
+
+          if (matchingComp) {
+            // Znaleziono composition - używamy dokładnych danych
+            const materialKey = `${matchingComp.materialType.name}-${matchingComp.thickness}mm-${Math.round(matchingComp.surfaceWeight)}g/m²`;
+            materialsFound.push({
+              key: materialKey,
+              displayName: materialKey,
+              materialType: matchingComp.materialType.name,
+              thickness: matchingComp.thickness,
+              surfaceWeight: matchingComp.surfaceWeight, // g/m²
+              color: matchingComp.materialType.color || '#808080',
+              // Dane do obliczenia zużycia
+              surfaceNetto: parseFloat(item.surfaceArea) || 0, // m² - w SURFACE mode to jest surfaceArea, nie surfaceNetto
+              surfaceBrutto: parseFloat(item.surfaceBrutto) || 0 // m²
+            });
+          } else {
+            // Nie znaleziono composition - używamy tabName jako fallback
+            console.warn(`⚠️ [MATERIALS] Nie znaleziono composition dla tabName="${tabName}" - pomijam`);
+            // Nie dodajemy materiału jeśli nie znamy jego parametrów
+          }
         }
-        // Mode 'weight' i 'volume' - pomijamy (brak danych materiałowych)
+
+        // Wykryj tryb WEIGHT lub VOLUME
+        const hasWeight = item.weight && !hasMultilayer && !hasHeatshield && !hasSurfaceData;
+        const hasVolume = item.volume && item.density && !hasMultilayer && !hasHeatshield && !hasSurfaceData;
+
+        if (hasWeight || hasVolume) {
+          // WEIGHT/VOLUME mode: używamy tabName jako nazwy materiału + waga
+          const materialName = item.tabName || item.partId || 'Materiał nieznany';
+          const density = parseFloat(item.density) || null;
+          const weightNetto = parseFloat(item.weight) || 0; // w gramach
+          const weightBrutto = parseFloat(item.bruttoWeight) || weightNetto;
+
+          // Klucz materiału: nazwa + gęstość (jeśli jest)
+          const materialKey = density
+            ? `${materialName} (ρ=${density} kg/m³)`
+            : materialName;
+
+          console.log(`🧱 [MATERIALS] Item ${item.partId} - tryb WEIGHT/VOLUME:`, {
+            materialName,
+            density,
+            weightNetto,
+            weightBrutto,
+            materialKey
+          });
+
+          materialsFound.push({
+            key: materialKey,
+            displayName: materialKey,
+            materialType: materialName,
+            thickness: null, // brak grubości w trybie weight/volume
+            surfaceWeight: null, // brak ciężaru powierzchniowego
+            density: density,
+            color: '#9370DB', // Fioletowy dla trybów weight/volume
+            // Dane do obliczenia zużycia - w trybie weight/volume liczymy bezpośrednio wagę
+            weightNetto: weightNetto, // w gramach
+            weightBrutto: weightBrutto, // w gramach
+            isWeightMode: true // flaga że to tryb weight/volume
+          });
+        }
 
         return materialsFound;
       };
 
-      // Przetwórz assignments i wyciągnij materiały + volumeForecast
-      filteredAssignments.forEach(assignment => {
-        const calculation = catalogState.calculations.find(c => c.id === assignment.calculationId);
-        if (!calculation) return;
-
-        const item = calculation.items?.find(i => i.id === assignment.itemId);
-        if (!item) return;
-
-        // Sprawdź czy item ma volumeForecast
-        if (!item.volumeForecast?.enabled || !item.volumeForecast?.years) {
-          return; // Pomijamy items bez volumeForecast (tak samo jak w Timeline)
-        }
-
-        const forecastYears = item.volumeForecast.years;
-
-        // Identyfikuj materiały w tym item
-        const itemMaterials = identifyMaterials(item);
-
-        if (itemMaterials.length === 0) {
-          console.log(`⚠️ [MATERIALS] Brak materiałów w item ${item.partId} (mode: ${item.mode})`);
+      // Przetwórz kalkulacje i wyciągnij materiały z items z volumeForecast
+      let itemIdx = 0;
+      filteredCalculations.forEach((calculation) => {
+        if (!calculation.items || calculation.items.length === 0) {
           return;
         }
+
+        calculation.items.forEach((item) => {
+          // Sprawdź czy item ma volumeForecast
+          if (!item.volumeForecast?.enabled || !item.volumeForecast?.years) {
+            return; // Pomijamy items bez volumeForecast
+          }
+
+          console.log(`🧱 [MATERIALS][${itemIdx}] Item found:`, item);
+          console.log(`🧱 [MATERIALS][${itemIdx}] Item keys:`, Object.keys(item));
+          console.log(`🧱 [MATERIALS][${itemIdx}] Calculation: ${calculation.catalogId}, Item: ${item.partId}`);
+
+          const forecastYears = item.volumeForecast.years;
+
+          // Identyfikuj materiały w tym item
+          const itemMaterials = identifyMaterials(item);
+
+          console.log(`🧱 [MATERIALS][${itemIdx}] Identified materials for ${item.partId}:`, itemMaterials.length, itemMaterials.map(m => m.key));
+
+          if (itemMaterials.length === 0) {
+            const detectedMode =
+              (item.multilayer && item.multilayer.layers && item.multilayer.layers.length > 0) ? 'multilayer' :
+              (item.heatshield && (item.heatshield.surfaceNetto || item.heatshield.sheetMaterial)) ? 'heatshield' :
+              (item.surfaceArea && item.surfaceBrutto && item.tabName) ? 'surface' :
+              (item.weight && item.weight !== '') ? 'weight' :
+              (item.volume && item.volume !== '') ? 'volume' : 'unknown';
+
+            console.log(`⚠️ [MATERIALS][${itemIdx}] Brak materiałów w item ${item.partId} (detectedMode: ${detectedMode})`);
+            itemIdx++;
+            return;
+          }
 
         // Dla każdego materiału
         itemMaterials.forEach(mat => {
@@ -745,13 +860,22 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
             const volume = parseFloat(forecastYears[year]) || 0;
             if (volume <= 0) return;
 
-            // Oblicz zużycie materiału
-            // Używamy surfaceBrutto (faktyczne zużycie z odpaddami)
-            const surfaceBrutto = mat.surfaceBrutto; // m² per szt
-            const totalSurfaceM2 = surfaceBrutto * volume; // m² rocznie
+            let totalWeightKg = 0;
+            let totalSurfaceM2 = 0;
 
-            // Przelicz na kg: kg = m² * (g/m² / 1000)
-            const totalWeightKg = totalSurfaceM2 * (mat.surfaceWeight / 1000);
+            if (mat.isWeightMode) {
+              // Tryb WEIGHT/VOLUME: liczymy bezpośrednio z wagi
+              const weightBruttoPerPiece = mat.weightBrutto / 1000; // g -> kg
+              totalWeightKg = weightBruttoPerPiece * volume; // kg rocznie
+              totalSurfaceM2 = 0; // brak danych o powierzchni w tym trybie
+            } else {
+              // Tryby SURFACE/HEATSHIELD/MULTILAYER: liczymy z powierzchni i ciężaru powierzchniowego
+              const surfaceBrutto = mat.surfaceBrutto; // m² per szt
+              totalSurfaceM2 = surfaceBrutto * volume; // m² rocznie
+
+              // Przelicz na kg: kg = m² * (g/m² / 1000)
+              totalWeightKg = totalSurfaceM2 * (mat.surfaceWeight / 1000);
+            }
 
             // Dodaj do roku
             materials[mat.key].years[year].total += totalWeightKg;
@@ -765,8 +889,12 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
             materials[mat.key].years[year].Q4 += quarterWeight;
           });
         });
-      });
 
+        itemIdx++; // Zwiększ licznik itemów
+      });
+    });
+
+      console.log(`🧱 [MATERIALS] Przetworzono ${itemIdx} items z volumeForecast`);
       console.log(`🧱 [MATERIALS] Znaleziono ${Object.keys(materials).length} unikalnych materiałów`);
       console.log(`🧱 [MATERIALS] Materiały:`, Object.keys(materials));
 
@@ -775,7 +903,138 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
       console.error('Error calculating material consumption:', error);
       return { materials: {}, years: [] };
     }
-  }, [assignments, assignmentsLoading, catalogState, materialState, timelineYearRange, materialUtils]);
+  }, [catalogState, materialState, timelineYearRange, materialUtils]);
+
+  // 📦 LOGISTICS DATA - prognoza logistyki (kartony, palety) per klient
+  const logisticsData = useMemo(() => {
+    try {
+      console.log('📦 [LOGISTICS] useMemo triggered', { calculationsCount: catalogState.calculations?.length });
+
+      if (!catalogState.calculations || catalogState.calculations.length === 0) {
+        console.log('📦 [LOGISTICS] Brak calculations - return empty');
+        return { clients: {}, years: [] };
+      }
+
+      // Filtruj kalkulacje używając capacity filters
+      const filters = catalogState.capacityFilters;
+      const filteredCalculations = catalogState.calculations.filter(calculation => {
+        const isCustomSelected = filters.customSelectedIds &&
+                                 filters.customSelectedIds.length > 0 &&
+                                 filters.customSelectedIds.includes(calculation.catalogId);
+        if (isCustomSelected) return true;
+
+        if (!filters.includeDraft && calculation.status === 'draft') return false;
+        if (!filters.includeInProgress && calculation.status === 'in_progress') return false;
+        if (!filters.includeSent && calculation.status === 'sent') return false;
+        if (!filters.includeNominated && calculation.status === 'nominated') return false;
+        if (!filters.includeNotNominated && calculation.status === 'not_nominated') return false;
+
+        return true;
+      });
+
+      console.log(`📦 [LOGISTICS] Przefiltrowano ${filteredCalculations.length}/${catalogState.calculations.length} kalkulacji`);
+
+      // Zbierz lata z timelineYearRange
+      const years = [];
+      for (let year = timelineYearRange.start; year <= timelineYearRange.end; year++) {
+        years.push(year);
+      }
+
+      // Struktura: clients[clientKey] = { client, clientCity, packaging: { [compositionId]: { composition, years: { 2025: { boxes, pallets, spaces }, ... } } } }
+      const clients = {};
+
+      // Przetwórz kalkulacje
+      let itemIdx = 0;
+      filteredCalculations.forEach((calculation) => {
+        if (!calculation.items || calculation.items.length === 0) return;
+
+        calculation.items.forEach((item) => {
+          // Tylko itemy z volumeForecast enabled
+          if (!item.volumeForecast?.enabled || !item.volumeForecast?.years) return;
+
+          // Tylko itemy z packaging
+          if (!item.packaging || !item.packaging.compositionId || item.packaging.compositionId === 'custom') {
+            console.log(`📦 [LOGISTICS] Item ${item.partId} - brak packaging lub custom, pomijam`);
+            return;
+          }
+
+          // Pobierz kompozycję pakowania
+          const composition = packagingState.compositions.find(c => c.id == item.packaging.compositionId);
+          if (!composition) {
+            console.warn(`⚠️ [LOGISTICS] Nie znaleziono kompozycji o ID ${item.packaging.compositionId}`);
+            return;
+          }
+
+          // Oblicz partsInBox (jak w CalculatorResults.js)
+          const partsInBox = item.packaging.manualPartsInBox
+            ? parseFloat(item.packaging.partsInBox) || 0
+            : (parseFloat(item.packaging.partsPerLayer) || 0) * (parseFloat(item.packaging.layers) || 0);
+
+          if (partsInBox === 0) {
+            console.log(`📦 [LOGISTICS] Item ${item.partId} - partsInBox = 0, pomijam`);
+            return;
+          }
+
+          // Klucz klienta: client + clientCity
+          const clientKey = `${calculation.client || 'Nieznany'}_${calculation.clientCity || ''}`;
+
+          // Inicjalizuj klienta jeśli nie istnieje
+          if (!clients[clientKey]) {
+            clients[clientKey] = {
+              client: calculation.client || 'Nieznany',
+              clientCity: calculation.clientCity || '',
+              packaging: {}
+            };
+          }
+
+          // Inicjalizuj kompozycję jeśli nie istnieje
+          if (!clients[clientKey].packaging[composition.id]) {
+            clients[clientKey].packaging[composition.id] = {
+              composition,
+              years: {}
+            };
+          }
+
+          // Przetwórz lata z volumeForecast
+          years.forEach(year => {
+            const yearlyVolume = item.volumeForecast.years[year] || 0;
+            if (yearlyVolume === 0) return;
+
+            // Oblicz logistykę
+            const boxesNeeded = yearlyVolume / partsInBox;
+            const palletsNeeded = boxesNeeded / composition.packagesPerPallet;
+            const spacesNeeded = palletsNeeded / composition.palletsPerSpace;
+
+            // Inicjalizuj rok jeśli nie istnieje
+            if (!clients[clientKey].packaging[composition.id].years[year]) {
+              clients[clientKey].packaging[composition.id].years[year] = {
+                totalDemand: 0,
+                boxes: 0,
+                pallets: 0,
+                spaces: 0
+              };
+            }
+
+            // Agreguj
+            clients[clientKey].packaging[composition.id].years[year].totalDemand += yearlyVolume;
+            clients[clientKey].packaging[composition.id].years[year].boxes += boxesNeeded;
+            clients[clientKey].packaging[composition.id].years[year].pallets += palletsNeeded;
+            clients[clientKey].packaging[composition.id].years[year].spaces += spacesNeeded;
+          });
+
+          itemIdx++;
+        });
+      });
+
+      console.log(`📦 [LOGISTICS] Przetworzono ${itemIdx} items z volumeForecast`);
+      console.log(`📦 [LOGISTICS] Znaleziono ${Object.keys(clients).length} klientów:`, Object.keys(clients));
+
+      return { clients, years };
+    } catch (error) {
+      console.error('Error calculating logistics data:', error);
+      return { clients: {}, years: [] };
+    }
+  }, [catalogState, packagingState, timelineYearRange]);
 
   // Przygotuj dane dla wykresu Recharts + inicjalizuj widoczność stanowisk
   const chartData = useMemo(() => {
@@ -945,6 +1204,16 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
               }`}
             >
               🧱 Materiały
+            </button>
+            <button
+              onClick={() => setActiveTab('logistics')}
+              className={`px-4 py-2 rounded-lg font-medium transition-all flex items-center gap-2 ${
+                activeTab === 'logistics'
+                  ? 'bg-blue-600 text-white shadow-md'
+                  : themeClasses.button.secondary
+              }`}
+            >
+              📦 Logistyka
             </button>
           </div>
         </div>
@@ -1355,8 +1624,8 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                   <label className={`text-sm ${themeClasses.text.secondary}`}>Od:</label>
                   <input
                     type="number"
-                    value={timelineYearRange.from}
-                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, from: parseInt(e.target.value) || prev.from }))}
+                    value={timelineYearRange.start}
+                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, start: parseInt(e.target.value) || prev.start }))}
                     className={`w-24 px-3 py-2 border rounded-lg ${themeClasses.input}`}
                     min="2020"
                     max="2100"
@@ -1366,15 +1635,15 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                   <label className={`text-sm ${themeClasses.text.secondary}`}>Do:</label>
                   <input
                     type="number"
-                    value={timelineYearRange.to}
-                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, to: parseInt(e.target.value) || prev.to }))}
+                    value={timelineYearRange.end}
+                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, end: parseInt(e.target.value) || prev.end }))}
                     className={`w-24 px-3 py-2 border rounded-lg ${themeClasses.input}`}
                     min="2020"
                     max="2100"
                   />
                 </div>
                 <div className={`text-sm ${themeClasses.text.secondary}`}>
-                  ({timelineYearRange.to - timelineYearRange.from + 1} lat)
+                  ({timelineYearRange.end - timelineYearRange.start + 1} lat)
                 </div>
               </div>
             </div>
@@ -1410,7 +1679,7 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                               €{totalRevenue.toLocaleString('pl-PL', { maximumFractionDigits: 0 })}
                             </p>
                             <p className={`text-xs ${themeClasses.text.secondary} mt-1`}>
-                              Suma lat {timelineYearRange.from}-{timelineYearRange.to}
+                              Suma lat {timelineYearRange.start}-{timelineYearRange.end}
                             </p>
                           </div>
                         </div>
@@ -1424,7 +1693,7 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                               €{totalRevenueDAP.toLocaleString('pl-PL', { maximumFractionDigits: 0 })}
                             </p>
                             <p className={`text-xs ${themeClasses.text.secondary} mt-1`}>
-                              Suma lat {timelineYearRange.from}-{timelineYearRange.to}
+                              Suma lat {timelineYearRange.start}-{timelineYearRange.end}
                             </p>
                           </div>
                         </div>
@@ -1438,7 +1707,7 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                               €{totalProfit.toLocaleString('pl-PL', { maximumFractionDigits: 0 })}
                             </p>
                             <p className={`text-xs ${themeClasses.text.secondary} mt-1`}>
-                              Suma lat {timelineYearRange.from}-{timelineYearRange.to}
+                              Suma lat {timelineYearRange.start}-{timelineYearRange.end}
                             </p>
                           </div>
                         </div>
@@ -1770,8 +2039,8 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                   <label className={`text-sm ${themeClasses.text.secondary}`}>Od:</label>
                   <input
                     type="number"
-                    value={timelineYearRange.from}
-                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, from: parseInt(e.target.value) || prev.from }))}
+                    value={timelineYearRange.start}
+                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, start: parseInt(e.target.value) || prev.start }))}
                     className={`w-24 px-3 py-2 border rounded-lg ${themeClasses.input}`}
                     min="2020"
                     max="2100"
@@ -1781,15 +2050,15 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                   <label className={`text-sm ${themeClasses.text.secondary}`}>Do:</label>
                   <input
                     type="number"
-                    value={timelineYearRange.to}
-                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, to: parseInt(e.target.value) || prev.to }))}
+                    value={timelineYearRange.end}
+                    onChange={(e) => setTimelineYearRange(prev => ({ ...prev, end: parseInt(e.target.value) || prev.end }))}
                     className={`w-24 px-3 py-2 border rounded-lg ${themeClasses.input}`}
                     min="2020"
                     max="2100"
                   />
                 </div>
                 <div className={`text-sm ${themeClasses.text.secondary}`}>
-                  ({timelineYearRange.to - timelineYearRange.from + 1} lat)
+                  ({timelineYearRange.end - timelineYearRange.start + 1} lat)
                 </div>
               </div>
             </div>
@@ -1845,7 +2114,7 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                             {sortedMaterials.length}
                           </p>
                           <p className={`text-xs ${themeClasses.text.secondary} mt-1`}>
-                            Dla zakresu lat {timelineYearRange.from}-{timelineYearRange.to}
+                            Dla zakresu lat {timelineYearRange.start}-{timelineYearRange.end}
                           </p>
                         </div>
                       </div>
@@ -1859,11 +2128,77 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                             {Math.round(grandTotals.kg).toLocaleString('pl-PL')} kg
                           </p>
                           <p className={`text-xs ${themeClasses.text.secondary} mt-1`}>
-                            ({Math.round(grandTotals.m2).toLocaleString('pl-PL')} m²) - lata {timelineYearRange.from}-{timelineYearRange.to}
+                            ({Math.round(grandTotals.m2).toLocaleString('pl-PL')} m²) - lata {timelineYearRange.start}-{timelineYearRange.end}
                           </p>
                         </div>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Materials Chart - Bar Chart */}
+                  <div className={`${themeClasses.card} rounded-lg border p-6 mb-6`}>
+                    <h3 className={`text-lg font-semibold ${themeClasses.text.primary} mb-4`}>
+                      📊 Zużycie materiałów (kg)
+                    </h3>
+
+                    {(() => {
+                      // Przygotuj dane do wykresu - sortuj materiały według sumy kg (malejąco)
+                      const chartData = sortedMaterials.map(([key, mat]) => {
+                        let totalKg = 0;
+                        materialConsumptionData.years.forEach(year => {
+                          totalKg += mat.years[year]?.total || 0;
+                        });
+                        return {
+                          key,
+                          material: mat,
+                          totalKg
+                        };
+                      }).sort((a, b) => b.totalKg - a.totalKg); // Sortuj malejąco
+
+                      const maxKg = Math.max(...chartData.map(d => d.totalKg));
+
+                      return (
+                        <div className="space-y-3">
+                          {chartData.map(({ key, material, totalKg }) => {
+                            const percentage = maxKg > 0 ? (totalKg / maxKg) * 100 : 0;
+
+                            return (
+                              <div key={key} className="space-y-1">
+                                <div className="flex items-center justify-between text-xs">
+                                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                                    <div
+                                      className="w-3 h-3 rounded flex-shrink-0"
+                                      style={{ backgroundColor: material.color }}
+                                    />
+                                    <span className={`${themeClasses.text.primary} truncate`} title={material.displayName}>
+                                      {material.displayName}
+                                    </span>
+                                  </div>
+                                  <span className={`font-mono font-semibold ${themeClasses.text.primary} ml-2`}>
+                                    {Math.round(totalKg).toLocaleString('pl-PL')} kg
+                                  </span>
+                                </div>
+                                <div className={`relative h-6 rounded ${darkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+                                  <div
+                                    className="absolute inset-y-0 left-0 rounded transition-all duration-500"
+                                    style={{
+                                      width: `${percentage}%`,
+                                      backgroundColor: material.color,
+                                      opacity: 0.8
+                                    }}
+                                  />
+                                  <div className="absolute inset-0 flex items-center px-2">
+                                    <span className={`text-xs font-medium ${percentage > 40 ? 'text-white' : themeClasses.text.secondary}`}>
+                                      {percentage.toFixed(1)}%
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Materials Table */}
@@ -1970,6 +2305,355 @@ export function WorkstationCapacityDashboard({ darkMode, onToggleDarkMode, onBac
                     </div>
                   </div>
                 </>
+              );
+            })()}
+          </>
+        ) : activeTab === 'logistics' ? (
+          <>
+            {/* Year Range Selector - używamy tego samego state co Timeline i Materials */}
+            <div className={`${themeClasses.card} rounded-lg border p-4 mb-6`}>
+              <h3 className={`font-semibold ${themeClasses.text.primary} mb-3`}>Zakres lat</h3>
+              <div className="flex items-center gap-4">
+                <div>
+                  <label className={`block text-sm ${themeClasses.text.secondary} mb-1`}>Od:</label>
+                  <input
+                    type="number"
+                    value={timelineYearRange.start}
+                    onChange={(e) => setTimelineYearRange({ ...timelineYearRange, start: parseInt(e.target.value) })}
+                    className={`w-24 px-3 py-2 rounded-lg border ${themeClasses.input}`}
+                    min="2020"
+                    max="2050"
+                  />
+                </div>
+                <div>
+                  <label className={`block text-sm ${themeClasses.text.secondary} mb-1`}>Do:</label>
+                  <input
+                    type="number"
+                    value={timelineYearRange.end}
+                    onChange={(e) => setTimelineYearRange({ ...timelineYearRange, end: parseInt(e.target.value) })}
+                    className={`w-24 px-3 py-2 rounded-lg border ${themeClasses.input}`}
+                    min="2020"
+                    max="2050"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Logistics Data */}
+            {(() => {
+              const clientsArray = Object.values(logisticsData.clients);
+
+              if (clientsArray.length === 0) {
+                return (
+                  <div className={`${themeClasses.card} rounded-lg border p-6 text-center`}>
+                    <p className={themeClasses.text.secondary}>
+                      Brak danych logistycznych. Upewnij się, że kalkulacje mają włączoną prognozę wolumenu i przypisane opakowania.
+                    </p>
+                  </div>
+                );
+              }
+
+              // Sortuj klientów alfabetycznie po nazwie klienta
+              const sortedClients = clientsArray.sort((a, b) => {
+                const nameA = `${a.client} ${a.clientCity}`.toLowerCase();
+                const nameB = `${b.client} ${b.clientCity}`.toLowerCase();
+                return nameA.localeCompare(nameB);
+              });
+
+              return (
+                <div className="space-y-6">
+                  {sortedClients.map((clientData) => {
+                    const clientKey = `${clientData.client}_${clientData.clientCity}`;
+                    const packagingArray = Object.values(clientData.packaging);
+
+                    return (
+                      <div key={clientKey} className={`${themeClasses.card} rounded-lg border p-6`}>
+                        {/* Nagłówek klienta */}
+                        <h3 className={`text-lg font-semibold ${themeClasses.text.primary} mb-4`}>
+                          📍 {clientData.client}
+                          {clientData.clientCity && (
+                            <span className={`ml-2 text-sm font-normal ${themeClasses.text.secondary}`}>
+                              ({clientData.clientCity})
+                            </span>
+                          )}
+                        </h3>
+
+                        {/* Tabela per kompozycja */}
+                        {packagingArray.map((packData) => {
+                          const composition = packData.composition;
+
+                          return (
+                            <div key={composition.id} className="mb-6 last:mb-0">
+                              {/* Nagłówek kompozycji */}
+                              <div className={`mb-3 p-3 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className={`font-semibold ${themeClasses.text.primary}`}>
+                                    📦 {composition.name}
+                                  </h4>
+                                  <div className={`text-xs ${themeClasses.text.secondary} flex items-center gap-4`}>
+                                    <span>
+                                      Kartonów na palecie: <span className={`font-semibold ${themeClasses.text.primary}`}>{composition.packagesPerPallet}</span>
+                                    </span>
+                                    <span>|</span>
+                                    <span>
+                                      Palet na miejsce: <span className={`font-semibold ${themeClasses.text.primary}`}>{composition.palletsPerSpace}</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Tabela roczna */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm">
+                                  <thead className={`${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                    <tr>
+                                      <th className={`text-left py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Rok</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Detali</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Kartony</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Palety</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Miejsca pal.</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Miesięcznie</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Co 2 tyg.</th>
+                                      <th className={`text-right py-3 px-2 ${themeClasses.text.primary} font-semibold`}>Tydzień</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {logisticsData.years.map((year) => {
+                                      const yearData = packData.years[year];
+                                      if (!yearData) return null;
+
+                                      // Oblicz przedziały czasowe
+                                      const monthly = yearData.spaces / 12;
+                                      const biweekly = yearData.spaces / 26;
+                                      const weekly = yearData.spaces / 52;
+
+                                      return (
+                                        <tr key={year} className={`border-b ${darkMode ? 'border-gray-800 hover:bg-gray-800/50' : 'border-gray-200 hover:bg-gray-50'}`}>
+                                          <td className={`py-3 px-2 font-semibold ${themeClasses.text.primary}`}>{year}</td>
+                                          <td className={`text-right py-3 px-2 font-mono ${themeClasses.text.secondary}`}>
+                                            {Math.round(yearData.totalDemand).toLocaleString('pl-PL')} szt
+                                          </td>
+                                          <td className={`text-right py-3 px-2 font-mono font-semibold ${themeClasses.text.primary}`}>
+                                            {Math.ceil(yearData.boxes).toLocaleString('pl-PL')} szt
+                                          </td>
+                                          <td className={`text-right py-3 px-2 font-mono font-semibold ${themeClasses.text.primary}`}>
+                                            {Math.ceil(yearData.pallets).toLocaleString('pl-PL')} szt
+                                          </td>
+                                          <td className={`text-right py-3 px-2 font-mono font-semibold ${themeClasses.text.primary}`}>
+                                            {Math.ceil(yearData.spaces).toLocaleString('pl-PL')} mp
+                                          </td>
+                                          <td className={`text-right py-3 px-2 font-mono ${themeClasses.text.secondary}`}>
+                                            ~{Math.ceil(monthly).toLocaleString('pl-PL')} mp
+                                          </td>
+                                          <td className={`text-right py-3 px-2 font-mono ${themeClasses.text.secondary}`}>
+                                            ~{Math.ceil(biweekly).toLocaleString('pl-PL')} mp
+                                          </td>
+                                          <td className={`text-right py-3 px-2 font-mono ${themeClasses.text.secondary}`}>
+                                            ~{Math.ceil(weekly).toLocaleString('pl-PL')} mp
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                  </tbody>
+                                </table>
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        {/* Wykres miesięczny FTL - agregacja wszystkich kompozycji dla klienta */}
+                        <div className={`mt-6 p-4 rounded-lg border ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                          <h4 className={`text-sm font-semibold ${themeClasses.text.primary} mb-4`}>
+                            📊 Miesięczne zapotrzebowanie na transport FTL (33 mp = 1 FTL)
+                          </h4>
+
+                          {(() => {
+                            // Przygotuj dane miesięczne PER ROK - każdy miesiąc ma słupki dla każdego roku
+                            const months = ['Sty', 'Lut', 'Mar', 'Kwi', 'Maj', 'Cze', 'Lip', 'Sie', 'Wrz', 'Paź', 'Lis', 'Gru'];
+
+                            // monthlyData[month][year] = mp
+                            const monthlyData = months.map(() => {
+                              const monthObj = {};
+                              logisticsData.years.forEach(year => {
+                                monthObj[year] = 0;
+                              });
+                              return monthObj;
+                            });
+
+                            // Agreguj mp z wszystkich kompozycji dla tego klienta
+                            packagingArray.forEach(packData => {
+                              logisticsData.years.forEach(year => {
+                                const yearData = packData.years[year];
+                                if (yearData) {
+                                  const monthlySpaces = yearData.spaces / 12;
+                                  for (let m = 0; m < 12; m++) {
+                                    monthlyData[m][year] += monthlySpaces;
+                                  }
+                                }
+                              });
+                            });
+
+                            // Znajdź max dla skali wykresu (największa wartość wśród wszystkich miesięcy i lat)
+                            let maxSpaces = 0;
+                            monthlyData.forEach(monthObj => {
+                              logisticsData.years.forEach(year => {
+                                if (monthObj[year] > maxSpaces) {
+                                  maxSpaces = monthObj[year];
+                                }
+                              });
+                            });
+                            const maxFTL = Math.ceil(maxSpaces / 33);
+                            const chartHeight = 400; // Stała wysokość - słupki skalują się względem maxSpaces
+                            const yAxisMax = maxFTL * 33; // Zaokrąglone do pełnego FTL dla osi Y
+
+                            // Kolory dla lat (gradacja niebieskiego)
+                            const yearColors = logisticsData.years.map((_, idx) => {
+                              const hue = 210; // niebieski
+                              const saturation = 70;
+                              const lightness = 40 + (idx * 10); // od ciemniejszego do jaśniejszego
+                              return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+                            });
+
+                            return (
+                              <div>
+                                {/* Wykres słupkowy */}
+                                <div className="mb-4">
+                                  {/* Etykiety lat nad wykresem */}
+                                  <div className="flex items-center justify-center gap-4 mb-3 text-xs">
+                                    {logisticsData.years.map((year, idx) => (
+                                      <div key={year} className="flex items-center gap-1">
+                                        <div
+                                          className="w-3 h-3 rounded"
+                                          style={{ backgroundColor: yearColors[idx] }}
+                                        />
+                                        <span className={themeClasses.text.secondary}>{year}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+
+                                  {/* Kontener z wykresem + oś Y */}
+                                  <div className="flex gap-4">
+                                    {/* Oś Y (pionowa) */}
+                                    <div className="flex flex-col justify-between py-2" style={{ height: `${chartHeight}px`, width: '50px' }}>
+                                      {(() => {
+                                        const yAxisSteps = maxFTL + 1; // +1 żeby zawrzeć 0
+                                        const yAxisLabels = [];
+                                        for (let i = 0; i < yAxisSteps; i++) {
+                                          yAxisLabels.push((maxFTL - i) * 33); // od góry do dołu
+                                        }
+
+                                        return yAxisLabels.map((value, idx) => (
+                                          <div key={idx} className={`text-xs text-right ${themeClasses.text.secondary}`}>
+                                            {value} mp
+                                          </div>
+                                        ));
+                                      })()}
+                                    </div>
+
+                                    {/* Kontener z wykresem */}
+                                    <div className="flex-1 flex justify-between gap-1" style={{ height: `${chartHeight}px` }}>
+                                      {monthlyData.map((monthData, monthIdx) => (
+                                        <div key={monthIdx} className="flex-1 flex flex-col items-center gap-2">
+                                          {/* Grupa słupków dla jednego miesiąca */}
+                                          <div className="flex-1 w-full flex items-end justify-center gap-1">
+                                            {logisticsData.years.map((year, yearIdx) => {
+                                              const spaces = monthData[year];
+                                              if (spaces === 0) return null;
+
+                                              const fullFTL = Math.floor(spaces / 33);
+                                              const remaining = spaces % 33;
+                                              const heightPx = (spaces / yAxisMax) * chartHeight;
+
+                                              return (
+                                                <div
+                                                  key={year}
+                                                  className="flex-1 relative rounded-t overflow-hidden"
+                                                  style={{
+                                                    height: `${heightPx}px`,
+                                                    minHeight: spaces > 0 ? '20px' : '0',
+                                                    backgroundColor: yearColors[yearIdx]
+                                                  }}
+                                                  title={`${year}: ${Math.round(spaces)} mp (${fullFTL} FTL ${remaining > 0 ? `+ ${Math.round(remaining)} mp` : ''})`}
+                                                >
+                                                  {/* Segmenty FTL */}
+                                                  {Array.from({ length: fullFTL }, (_, i) => (
+                                                    <div
+                                                      key={i}
+                                                      className="absolute left-0 right-0 border-t border-white/50"
+                                                      style={{
+                                                        bottom: `${((i + 1) * 33 / spaces) * 100}%`
+                                                      }}
+                                                    />
+                                                  ))}
+                                                </div>
+                                              );
+                                            })}
+                                          </div>
+
+                                          {/* Nazwa miesiąca */}
+                                          <div className={`text-xs font-semibold ${themeClasses.text.secondary}`}>
+                                            {months[monthIdx]}
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Podsumowanie per rok */}
+                                <div className={`text-xs ${themeClasses.text.secondary} space-y-2`}>
+                                  <div className="mt-3 pt-3 border-t">
+                                    <div className="space-y-2">
+                                      {logisticsData.years.map((year, yearIdx) => {
+                                        // Sumuj wszystkie miesiące dla tego roku
+                                        let yearTotal = 0;
+                                        monthlyData.forEach(monthObj => {
+                                          yearTotal += monthObj[year] || 0;
+                                        });
+
+                                        const yearlyFTL = Math.floor(yearTotal / 33);
+                                        const yearlyRemaining = yearTotal % 33;
+
+                                        return (
+                                          <div key={year} className="flex items-center gap-4">
+                                            <div className="flex items-center gap-2 w-20">
+                                              <div
+                                                className="w-3 h-3 rounded"
+                                                style={{ backgroundColor: yearColors[yearIdx] }}
+                                              />
+                                              <span className={`font-semibold ${themeClasses.text.primary}`}>{year}:</span>
+                                            </div>
+                                            <div className={themeClasses.text.secondary}>
+                                              <span className={`font-semibold ${themeClasses.text.primary}`}>
+                                                {Math.round(yearTotal)} mp
+                                              </span>
+                                              {' = '}
+                                              <span className={`font-semibold ${themeClasses.text.primary}`}>
+                                                {yearlyFTL} FTL
+                                              </span>
+                                              {yearlyRemaining > 0 && (
+                                                <span> + {Math.round(yearlyRemaining)} mp</span>
+                                              )}
+                                              {' (śr. '}
+                                              <span className={`font-semibold ${themeClasses.text.primary}`}>
+                                                {Math.round(yearTotal / 12)} mp
+                                              </span>
+                                              /miesiąc)
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               );
             })()}
           </>

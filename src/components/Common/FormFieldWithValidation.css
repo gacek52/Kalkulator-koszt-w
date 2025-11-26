@@ -1,0 +1,137 @@
+.form-field-with-validation {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 1rem;
+  width: 100%;
+}
+
+.field-label {
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.dark-mode .field-label {
+  color: #e0e0e0;
+}
+
+.required-indicator {
+  color: #d32f2f;
+  font-weight: bold;
+}
+
+.field-input {
+  padding: 0.75rem;
+  border: 2px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+  background-color: #fff;
+  color: #333;
+}
+
+.dark-mode .field-input {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+.field-input:focus {
+  outline: none;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
+.dark-mode .field-input:focus {
+  border-color: #64b5f6;
+  box-shadow: 0 0 0 3px rgba(100, 181, 246, 0.1);
+}
+
+/* Error state */
+.has-error .field-input {
+  border-color: #d32f2f;
+  background-color: #ffebee;
+}
+
+.dark-mode .has-error .field-input {
+  border-color: #f44336;
+  background-color: #3d1f1f;
+}
+
+.has-error .field-input:focus {
+  border-color: #d32f2f;
+  box-shadow: 0 0 0 3px rgba(211, 47, 47, 0.1);
+}
+
+/* Warning state */
+.has-warning .field-input {
+  border-color: #f57c00;
+  background-color: #fff3e0;
+}
+
+.dark-mode .has-warning .field-input {
+  border-color: #ff9800;
+  background-color: #3d2f1f;
+}
+
+.has-warning .field-input:focus {
+  border-color: #f57c00;
+  box-shadow: 0 0 0 3px rgba(245, 124, 0, 0.1);
+}
+
+/* Validation messages */
+.validation-message {
+  display: flex;
+  align-items: center;
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.message-icon {
+  margin-right: 0.5rem;
+  font-size: 1rem;
+  flex-shrink: 0;
+}
+
+.message-text {
+  flex: 1;
+}
+
+.error-message {
+  background-color: #ffebee;
+  color: #c62828;
+  border-left: 3px solid #d32f2f;
+}
+
+.dark-mode .error-message {
+  background-color: #3d1f1f;
+  color: #ef5350;
+  border-left-color: #f44336;
+}
+
+.warning-message {
+  background-color: #fff3e0;
+  color: #e65100;
+  border-left: 3px solid #f57c00;
+}
+
+.dark-mode .warning-message {
+  background-color: #3d2f1f;
+  color: #ffb74d;
+  border-left-color: #ff9800;
+}

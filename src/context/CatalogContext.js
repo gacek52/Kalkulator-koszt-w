@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { catalogApi } from '../services/api';
 import { useAuth } from './AuthContext';
+import { useRole } from './RoleContext';
 
 // Akcje dla reducer'a
 const CATALOG_ACTIONS = {
@@ -11,6 +12,8 @@ const CATALOG_ACTIONS = {
   SET_SORT: 'SET_SORT',
   SET_CAPACITY_FILTERS: 'SET_CAPACITY_FILTERS',
   TOGGLE_CALCULATION_FOR_CAPACITY: 'TOGGLE_CALCULATION_FOR_CAPACITY',
+  TOGGLE_CALCULATION_FOR_COMPARISON: 'TOGGLE_CALCULATION_FOR_COMPARISON',
+  CLEAR_COMPARISON_SELECTION: 'CLEAR_COMPARISON_SELECTION',
   LOAD_CATALOG_DATA: 'LOAD_CATALOG_DATA',
   RESET_CATALOG_STATE: 'RESET_CATALOG_STATE'
 };
@@ -55,7 +58,8 @@ const initialCatalogState = {
     includeNominated: true, // Domyślnie włączone
     includeNotNominated: false,
     customSelectedIds: [] // Ręcznie zaznaczone kalkulacje
-  }
+  },
+  comparisonSelectedIds: [] // IDs selected for comparison (max 3-4)
 };
 
 // Reducer dla zarządzania stanem katalogu
@@ -117,6 +121,34 @@ function catalogReducer(state, action) {
         }
       };
 
+    case CATALOG_ACTIONS.TOGGLE_CALCULATION_FOR_COMPARISON:
+      const comparisonId = action.payload;
+      const currentComparisonIds = state.comparisonSelectedIds;
+      const isSelectedForComparison = currentComparisonIds.includes(comparisonId);
+
+      if (isSelectedForComparison) {
+        // Odznacz
+        return {
+          ...state,
+          comparisonSelectedIds: currentComparisonIds.filter(id => id !== comparisonId)
+        };
+      } else {
+        // Zaznacz (max 4 kalkulacje)
+        if (currentComparisonIds.length >= 4) {
+          return state; // Nie pozwalaj na więcej niż 4
+        }
+        return {
+          ...state,
+          comparisonSelectedIds: [...currentComparisonIds, comparisonId]
+        };
+      }
+
+    case CATALOG_ACTIONS.CLEAR_COMPARISON_SELECTION:
+      return {
+        ...state,
+        comparisonSelectedIds: []
+      };
+
     case CATALOG_ACTIONS.LOAD_CATALOG_DATA:
       // Merguj z initialState żeby mieć pewność że capacityFilters istnieje
       return {
@@ -154,8 +186,14 @@ export const catalogUtils = {
   },
 
   // Filtrowanie kalkulacji
-  filterCalculations: (calculations, filters, currentUserId = null) => {
+  filterCalculations: (calculations, filters, currentUserId = null, canViewAll = false) => {
     return calculations.filter(calc => {
+      // UPRAWNIENIA: Sprawdź czy użytkownik może widzieć tę kalkulację
+      if (!canViewAll && calc.ownerId && calc.ownerId !== currentUserId) {
+        // Nie ma uprawnień do wszystkich I to nie jest jego kalkulacja - ukryj
+        return false;
+      }
+
       if (filters.calculationId && !calc.id?.toString().toLowerCase().includes(filters.calculationId.toLowerCase())) {
         return false;
       }
@@ -190,7 +228,7 @@ export const catalogUtils = {
           return false;
         }
       }
-      // Filtrowanie - tylko moje kalkulacje
+      // Filtrowanie - tylko moje kalkulacje (dodatkowy filtr UI, ale uprawnienia są wymuszane wyżej)
       if (filters.showOnlyMine && currentUserId) {
         if (calc.ownerId !== currentUserId) {
           return false;
@@ -275,6 +313,7 @@ const CatalogContext = createContext();
 // Provider component
 export function CatalogProvider({ children }) {
   const { currentUser } = useAuth();
+  const { hasPermission, canViewResource, canEditResource, canDeleteResource } = useRole();
   const [state, dispatch] = useReducer(catalogReducer, initialCatalogState);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -438,6 +477,15 @@ export function CatalogProvider({ children }) {
       payload: calcId
     }),
 
+    toggleCalculationForComparison: (calcId) => dispatch({
+      type: CATALOG_ACTIONS.TOGGLE_CALCULATION_FOR_COMPARISON,
+      payload: calcId
+    }),
+
+    clearComparisonSelection: () => dispatch({
+      type: CATALOG_ACTIONS.CLEAR_COMPARISON_SELECTION
+    }),
+
     loadCatalogData: (data) => dispatch({
       type: CATALOG_ACTIONS.LOAD_CATALOG_DATA,
       payload: data
@@ -448,11 +496,15 @@ export function CatalogProvider({ children }) {
     })
   };
 
-  // Oblicz filtrowane i posortowane kalkulacje (z uwzględnieniem currentUser)
+  // Sprawdź czy użytkownik może widzieć wszystkie kalkulacje (lub tylko katalog)
+  const canViewAllCalculations = hasPermission('calculations_view_all') || hasPermission('catalog_view_all');
+
+  // Oblicz filtrowane i posortowane kalkulacje (z uwzględnieniem uprawnień)
   const filteredCalculations = catalogUtils.filterCalculations(
     state.calculations,
     state.filters,
-    currentUser?.uid
+    currentUser?.uid,
+    canViewAllCalculations
   );
   const sortedCalculations = catalogUtils.sortCalculations(filteredCalculations, state.sortBy, state.sortOrder);
 
@@ -482,7 +534,14 @@ export function CatalogProvider({ children }) {
       filteredCalculations: sortedCalculations,
       summary,
       loading,
-      error
+      error,
+      // Dodaj funkcje uprawnień do kontekstu
+      permissions: {
+        canViewResource,
+        canEditResource,
+        canDeleteResource,
+        hasPermission
+      }
     }}>
       {children}
     </CatalogContext.Provider>

@@ -71,7 +71,11 @@ const DEFAULT_ROLES = {
 
       // Raporty
       reports_view: true,
-      reports_export: true
+      reports_export: true,
+
+      // Client Manual
+      client_manual_view: true,
+      client_manual_edit: true
     }
   },
   'admin': {
@@ -137,13 +141,18 @@ const DEFAULT_ROLES = {
 
       // Raporty
       reports_view: true,
-      reports_export: true
+      reports_export: true,
+
+      // Client Manual
+      client_manual_view: true,
+      client_manual_edit: true
     }
   },
   'user': {
     id: 'user',
     name: 'Użytkownik',
     protected: false,
+    assignableByAdmin: true,
     permissions: {
       // Użytkownicy - NIE MA DOSTĘPU
       users_view: false,
@@ -203,13 +212,18 @@ const DEFAULT_ROLES = {
 
       // Raporty - TYLKO WŁASNE
       reports_view: true,
-      reports_export: false
+      reports_export: false,
+
+      // Client Manual - TYLKO ODCZYT
+      client_manual_view: true,
+      client_manual_edit: false
     }
   },
   'guest': {
     id: 'guest',
     name: 'Gość',
     protected: false,
+    assignableByAdmin: true,
     permissions: {
       // Użytkownicy - NIE MA DOSTĘPU
       users_view: false,
@@ -269,7 +283,11 @@ const DEFAULT_ROLES = {
 
       // Raporty - NIE MA DOSTĘPU
       reports_view: false,
-      reports_export: false
+      reports_export: false,
+
+      // Client Manual - TYLKO ODCZYT (podstawowy dostęp dla gości)
+      client_manual_view: true,
+      client_manual_edit: false
     }
   }
 };
@@ -411,7 +429,7 @@ export function RoleProvider({ children }) {
     await deleteDoc(doc(db, 'roles', roleId));
   };
 
-  // Pobierz listę ról (bez super-admin dla zwykłych adminów)
+  // Pobierz listę ról (bez super-admin i admin dla zwykłych adminów)
   const getAvailableRoles = () => {
     const roleList = Object.values(roles);
 
@@ -419,8 +437,77 @@ export function RoleProvider({ children }) {
       return roleList; // Super-admin widzi wszystkie role
     }
 
-    // Admin nie widzi super-admin
-    return roleList.filter(role => role.id !== 'super-admin');
+    // Admin nie widzi super-admin ani admin (nie może tworzyć innych adminów)
+    // Dodatkowo widzi tylko role z assignableByAdmin=true
+    return roleList.filter(role =>
+      role.id !== 'super-admin' &&
+      role.id !== 'admin' &&
+      (role.assignableByAdmin === true)
+    );
+  };
+
+  // Sprawdź czy użytkownik może zobaczyć zasób (na podstawie ownership)
+  const canViewResource = (resource, ownerId) => {
+    const viewAllPermission = `${resource}_view_all`;
+    const viewOwnPermission = `${resource}_view_own`;
+
+    // Jeśli ma uprawnienie do wszystkich - pokaż
+    if (hasPermission(viewAllPermission)) {
+      return true;
+    }
+
+    // Jeśli ma uprawnienie do własnych I jest właścicielem - pokaż
+    if (hasPermission(viewOwnPermission) && currentUser?.uid === ownerId) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Sprawdź czy użytkownik może edytować zasób
+  const canEditResource = (resource, ownerId) => {
+    const editAllPermission = `${resource}_edit_all`;
+    const editOwnPermission = `${resource}_edit_own`;
+
+    // Jeśli ma uprawnienie do edycji wszystkich - pozwól
+    if (hasPermission(editAllPermission)) {
+      return true;
+    }
+
+    // Jeśli ma uprawnienie do edycji własnych I jest właścicielem - pozwól
+    if (hasPermission(editOwnPermission) && currentUser?.uid === ownerId) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Sprawdź czy użytkownik może usunąć zasób
+  const canDeleteResource = (resource, ownerId) => {
+    const deleteAllPermission = `${resource}_delete_all`;
+    const deleteOwnPermission = `${resource}_delete_own`;
+
+    // Jeśli ma uprawnienie do usuwania wszystkich - pozwól
+    if (hasPermission(deleteAllPermission)) {
+      return true;
+    }
+
+    // Jeśli ma uprawnienie do usuwania własnych I jest właścicielem - pozwól
+    if (hasPermission(deleteOwnPermission) && currentUser?.uid === ownerId) {
+      return true;
+    }
+
+    return false;
+  };
+
+  // Filtruj listę zasobów na podstawie uprawnień
+  const filterResourcesByPermission = (resources, resourceType, ownerIdField = 'userId') => {
+    if (!resources || !Array.isArray(resources)) return [];
+
+    return resources.filter(resource => {
+      const ownerId = resource[ownerIdField];
+      return canViewResource(resourceType, ownerId);
+    });
   };
 
   const value = {
@@ -433,6 +520,10 @@ export function RoleProvider({ children }) {
     updateRole,
     deleteRole,
     getAvailableRoles,
+    canViewResource,
+    canEditResource,
+    canDeleteResource,
+    filterResourcesByPermission,
     DEFAULT_ROLES
   };
 
