@@ -21,8 +21,10 @@ export const FEATURE_FLAGS = {
    * Użyj nowego itemFactory do tworzenia items/tabs
    * Gdy false: Używa starego inline kodu (100+ linii)
    * Gdy true: Używa createDefaultItem() / createDefaultTab()
+   *
+   * STATUS: ✅ ENABLED for testing (2025-11-26)
    */
-  USE_NEW_ITEM_FACTORY: false,
+  USE_NEW_ITEM_FACTORY: true,
 
   /**
    * Użyj nowych walidatorów
