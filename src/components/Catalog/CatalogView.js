@@ -17,6 +17,7 @@ import { downloadInteractiveExcel } from '../../services/interactiveExcelGenerat
 import { downloadPrototypePricingPDF, downloadPrototypePricingExcel } from '../../services/prototypePricingGenerator';
 import { catalogApi, packagingTypesApi, packagingCompositionsApi } from '../../services/api';
 import { ResourcePermissionGate, PermissionGate } from '../Common/PermissionGate';
+import { notify } from '../../utils/notifications';
 
 /**
  * Komponent widoku katalogu kalkulacji
@@ -100,7 +101,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
   // Obsługa pushowania danych do Firestore (tylko admin)
   const handlePushToFirestore = async () => {
     if (!isAdminOrSuper()) {
-      alert('Tylko administrator może synchronizować dane z bazą.');
+      notify.error('Tylko administrator może synchronizować dane z bazą.');
       return;
     }
 
@@ -137,10 +138,10 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
       }
 
       // Pokaż podsumowanie
-      alert('Synchronizacja zakończona:\n\n' + results.join('\n'));
+      notify.success('Synchronizacja zakończona:\n\n' + results.join('\n'), { duration: 5000 });
     } catch (error) {
       console.error('Błąd podczas synchronizacji:', error);
-      alert('Wystąpił nieoczekiwany błąd podczas synchronizacji danych.');
+      notify.error('Wystąpił nieoczekiwany błąd podczas synchronizacji danych.');
     } finally {
       setIsPushing(false);
     }
@@ -175,11 +176,11 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
         // Wczytaj pełną kalkulację do edytora
         onLoadCalculation(restructuredCalculation);
       } else {
-        alert('Nie udało się wczytać kalkulacji');
+        notify.error('Nie udało się wczytać kalkulacji');
       }
     } catch (error) {
       console.error('Błąd wczytywania kalkulacji:', error);
-      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+      notify.error('Wystąpił błąd podczas wczytywania kalkulacji');
     }
   };
 
@@ -235,12 +236,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę.');
+      notify.warning('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować ofertę tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować ofertę tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -262,12 +263,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę.');
+      notify.warning('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować ofertę tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować ofertę tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -289,12 +290,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę szczegółową.');
+      notify.warning('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę szczegółową.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować ofertę szczegółową tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować ofertę szczegółową tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -316,12 +317,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę szczegółową.');
+      notify.warning('Brak zaznaczonych kalkulacji do oferty. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować ofertę szczegółową.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować ofertę szczegółową tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować ofertę szczegółową tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -343,12 +344,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować interaktywny Excel.');
+      notify.warning('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować interaktywny Excel.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować interaktywny Excel tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować interaktywny Excel tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -385,11 +386,11 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
 
         downloadInteractiveExcel(fullCalculation, calculationMeta);
       } else {
-        alert('Nie udało się wczytać pełnych danych kalkulacji');
+        notify.error('Nie udało się wczytać pełnych danych kalkulacji');
       }
     } catch (error) {
       console.error('Błąd wczytywania kalkulacji:', error);
-      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+      notify.error('Wystąpił błąd podczas wczytywania kalkulacji');
     }
   };
 
@@ -400,12 +401,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować cennik prototypów.');
+      notify.warning('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować cennik prototypów.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować cennik prototypów tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować cennik prototypów tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -425,11 +426,11 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
 
         downloadPrototypePricingPDF(fullCalculation, calculationMeta);
       } else {
-        alert('Nie udało się wczytać pełnych danych kalkulacji');
+        notify.error('Nie udało się wczytać pełnych danych kalkulacji');
       }
     } catch (error) {
       console.error('Błąd wczytywania kalkulacji:', error);
-      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+      notify.error('Wystąpił błąd podczas wczytywania kalkulacji');
     }
   };
 
@@ -440,12 +441,12 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować cennik prototypów.');
+      notify.warning('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować cennik prototypów.');
       return;
     }
 
     if (selectedCalcs.length > 1) {
-      alert('Obecnie można generować cennik prototypów tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      notify.warning('Obecnie można generować cennik prototypów tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
       return;
     }
 
@@ -465,11 +466,11 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
 
         downloadPrototypePricingExcel(fullCalculation, calculationMeta);
       } else {
-        alert('Nie udało się wczytać pełnych danych kalkulacji');
+        notify.error('Nie udało się wczytać pełnych danych kalkulacji');
       }
     } catch (error) {
       console.error('Błąd wczytywania kalkulacji:', error);
-      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+      notify.error('Wystąpił błąd podczas wczytywania kalkulacji');
     }
   };
 
@@ -481,7 +482,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     );
 
     if (selectedCalcs.length === 0) {
-      alert('Brak zaznaczonych kalkulacji do raportu. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować raport.');
+      notify.warning('Brak zaznaczonych kalkulacji do raportu. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować raport.');
       return;
     }
 
@@ -1586,7 +1587,7 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(reportContent);
-                  alert('Raport skopiowany do schowka!');
+                  notify.success('Raport skopiowany do schowka!');
                 }}
                 className={`px-4 py-2 rounded-lg font-medium ${themeClasses.button.secondary}`}
               >

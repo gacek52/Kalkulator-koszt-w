@@ -5,6 +5,7 @@ import { useCurvePresets } from '../../context/CurvePresetContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
 import { useDynamicCurves } from '../../hooks/useDynamicCurves';
+import { notify } from '../../utils/notifications';
 
 /**
  * Panel ustawień z edycją krzywych i procesów
@@ -65,7 +66,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
         }
       } catch (error) {
         console.error('Error updating preset:', error);
-        alert('Błąd podczas aktualizacji presetu: ' + error.message);
+        notify.error('Błąd podczas aktualizacji presetu: ' + error.message);
       }
     } else {
       // Brak presetu - zaktualizuj lokalne krzywe (stary sposób, kompatybilność wsteczna)
@@ -109,7 +110,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
         }
       } catch (error) {
         console.error('Error updating preset:', error);
-        alert('Błąd podczas aktualizacji presetu: ' + error.message);
+        notify.error('Błąd podczas aktualizacji presetu: ' + error.message);
       }
     } else {
       // Brak presetu - zaktualizuj lokalne krzywe
@@ -235,7 +236,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
 
     const preset = presetActions.getById(presetId);
     if (!preset || !preset.curves) {
-      alert('Nie znaleziono presetu lub preset nie zawiera krzywych');
+      notify.error('Nie znaleziono presetu lub preset nie zawiera krzywych');
       return;
     }
 
@@ -253,7 +254,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
   // Handler do potwierdzenia zapisu presetu
   const handleSavePresetConfirm = async () => {
     if (!presetName.trim()) {
-      alert('Wprowadź nazwę presetu');
+      notify.warning('Wprowadź nazwę presetu');
       return;
     }
 
@@ -281,20 +282,20 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
       setMakeGlobal(false);
     } catch (error) {
       console.error('Error saving preset:', error);
-      alert('Błąd podczas zapisywania presetu: ' + error.message);
+      notify.error('Błąd podczas zapisywania presetu: ' + error.message);
     }
   };
 
   // Handler do edycji presetu (nadpisanie)
   const handleEditPreset = async () => {
     if (selectedPresetId === 'custom') {
-      alert('Wybierz preset do edycji');
+      notify.warning('Wybierz preset do edycji');
       return;
     }
 
     const currentPreset = presetActions.getById(selectedPresetId);
     if (!currentPreset) {
-      alert('Nie znaleziono presetu');
+      notify.error('Nie znaleziono presetu');
       return;
     }
 
@@ -310,17 +311,17 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
       };
 
       await presetActions.update(selectedPresetId, updates);
-      alert('Preset został zaktualizowany. Wszystkie kalkulacje używające tego presetu zostaną automatycznie zaktualizowane.');
+      notify.success('Preset został zaktualizowany. Wszystkie kalkulacje używające tego presetu zostaną automatycznie zaktualizowane.');
     } catch (error) {
       console.error('Error updating preset:', error);
-      alert('Błąd podczas aktualizacji presetu: ' + error.message);
+      notify.error('Błąd podczas aktualizacji presetu: ' + error.message);
     }
   };
 
   // Handler do usuwania presetu
   const handleDeletePreset = () => {
     if (selectedPresetId === 'custom') {
-      alert('Wybierz preset do usunięcia');
+      notify.warning('Wybierz preset do usunięcia');
       return;
     }
 
@@ -331,7 +332,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
   // Handler do potwierdzenia usunięcia presetu
   const handleDeletePresetConfirm = async () => {
     if (deleteConfirmText !== 'TAK') {
-      alert('Wpisz "TAK" aby potwierdzić usunięcie');
+      notify.warning('Wpisz "TAK" aby potwierdzić usunięcie');
       return;
     }
 
@@ -340,23 +341,23 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
       setSelectedPresetId('custom');
       setShowDeleteModal(false);
       setDeleteConfirmText('');
-      alert('Preset został usunięty');
+      notify.success('Preset został usunięty');
     } catch (error) {
       console.error('Error deleting preset:', error);
-      alert('Błąd podczas usuwania presetu: ' + error.message);
+      notify.error('Błąd podczas usuwania presetu: ' + error.message);
     }
   };
 
   // Handler do ustawiania presetu jako domyślny
   const handleSetDefault = async () => {
     if (selectedPresetId === 'custom') {
-      alert('Wybierz preset aby ustawić go jako domyślny');
+      notify.warning('Wybierz preset aby ustawić go jako domyślny');
       return;
     }
 
     const currentPreset = presetActions.getById(selectedPresetId);
     if (!currentPreset) {
-      alert('Nie znaleziono presetu');
+      notify.error('Nie znaleziono presetu');
       return;
     }
 
@@ -374,10 +375,10 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
       // Odśwież listę presetów, aby zobaczyć zmiany
       await presetActions.refresh();
 
-      alert(`Preset "${currentPreset.name}" został ustawiony jako domyślny`);
+      notify.success(`Preset "${currentPreset.name}" został ustawiony jako domyślny`);
     } catch (error) {
       console.error('Error setting default preset:', error);
-      alert('Błąd podczas ustawiania domyślnego presetu: ' + error.message);
+      notify.error('Błąd podczas ustawiania domyślnego presetu: ' + error.message);
     }
   };
 
@@ -548,7 +549,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                         }
                       } catch (error) {
                         console.error('Error updating preset:', error);
-                        alert('Błąd podczas aktualizacji presetu: ' + error.message);
+                        notify.error('Błąd podczas aktualizacji presetu: ' + error.message);
                       }
                     } else {
                       // Brak presetu - zaktualizuj lokalne krzywe
@@ -602,7 +603,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                           }
                         } catch (error) {
                           console.error('Error updating preset:', error);
-                          alert('Błąd podczas aktualizacji presetu: ' + error.message);
+                          notify.error('Błąd podczas aktualizacji presetu: ' + error.message);
                         }
                       } else {
                         const updates = {
@@ -644,7 +645,7 @@ export function SettingsPanel({ tab, tabId, themeClasses, darkMode, actions, onC
                           }
                         } catch (error) {
                           console.error('Error updating preset:', error);
-                          alert('Błąd podczas aktualizacji presetu: ' + error.message);
+                          notify.error('Błąd podczas aktualizacji presetu: ' + error.message);
                         }
                       } else {
                         const updates = {
