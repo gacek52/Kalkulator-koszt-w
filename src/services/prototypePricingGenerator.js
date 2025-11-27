@@ -16,49 +16,49 @@ const BATCH_SIZES = [1, 10, 25, 30, 40, 50, 75, 100, 150, 200, 500, 750, 1000];
  * Formuła odwrotna - od największego batcha (1000) do najmniejszego (1)
  *
  * @param {number} basePrice - Cena bazowa EXW (dla batch 1000)
- * @returns {Object} - Obiekt z cenami dla każdego batcha
+ * @returns {Object} - Obiekt z cenami dla każdego batcha (zaokrąglone do 2 miejsc)
  */
 export const calculateBatchPrices = (basePrice) => {
   const prices = {};
 
   // Batch 1000 = cena bazowa
-  prices[1000] = basePrice;
+  prices[1000] = parseFloat(basePrice.toFixed(2));
 
   // Batch 750 = batch 1000 + 5%
-  prices[750] = prices[1000] + (prices[1000] * 0.05);
+  prices[750] = parseFloat((prices[1000] + (prices[1000] * 0.05)).toFixed(2));
 
   // Batch 500 = batch 750 + 5% od bazowej
-  prices[500] = prices[750] + (prices[1000] * 0.05);
+  prices[500] = parseFloat((prices[750] + (prices[1000] * 0.05)).toFixed(2));
 
   // Batch 200 = batch 500 + 10% od bazowej
-  prices[200] = prices[500] + (prices[1000] * 0.1);
+  prices[200] = parseFloat((prices[500] + (prices[1000] * 0.1)).toFixed(2));
 
   // Batch 150 = batch 200 + 10% od bazowej
-  prices[150] = prices[200] + (prices[1000] * 0.1);
+  prices[150] = parseFloat((prices[200] + (prices[1000] * 0.1)).toFixed(2));
 
   // Batch 100 = batch 150 + 10% od bazowej
-  prices[100] = prices[150] + (prices[1000] * 0.1);
+  prices[100] = parseFloat((prices[150] + (prices[1000] * 0.1)).toFixed(2));
 
   // Batch 75 = batch 100 + 10% od batch 150
-  prices[75] = prices[100] + (prices[150] * 0.1);
+  prices[75] = parseFloat((prices[100] + (prices[150] * 0.1)).toFixed(2));
 
   // Batch 50 = batch 75 + 10% od batch 100
-  prices[50] = prices[75] + (prices[100] * 0.1);
+  prices[50] = parseFloat((prices[75] + (prices[100] * 0.1)).toFixed(2));
 
   // Batch 40 = batch 50 + 10% od batch 75
-  prices[40] = prices[50] + (prices[75] * 0.1);
+  prices[40] = parseFloat((prices[50] + (prices[75] * 0.1)).toFixed(2));
 
   // Batch 30 = batch 40 + 10% od batch 50
-  prices[30] = prices[40] + (prices[50] * 0.1);
+  prices[30] = parseFloat((prices[40] + (prices[50] * 0.1)).toFixed(2));
 
   // Batch 25 = batch 30 + 10% od batch 40
-  prices[25] = prices[30] + (prices[40] * 0.1);
+  prices[25] = parseFloat((prices[30] + (prices[40] * 0.1)).toFixed(2));
 
   // Batch 10 = batch 25 + 10% od batch 30
-  prices[10] = prices[25] + (prices[30] * 0.1);
+  prices[10] = parseFloat((prices[25] + (prices[30] * 0.1)).toFixed(2));
 
   // Batch 1 = batch 10 + 10% od batch 25
-  prices[1] = prices[10] + (prices[25] * 0.1);
+  prices[1] = parseFloat((prices[10] + (prices[25] * 0.1)).toFixed(2));
 
   return prices;
 };
