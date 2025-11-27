@@ -14,6 +14,7 @@ import { ComparisonView } from './ComparisonView';
 import { downloadQuotationPDF, downloadQuotationExcel } from '../../services/quotationGenerator';
 import { downloadDetailedQuotationPDF, downloadDetailedQuotationExcel } from '../../services/detailedQuotationGenerator';
 import { downloadInteractiveExcel } from '../../services/interactiveExcelGenerator';
+import { downloadPrototypePricingPDF, downloadPrototypePricingExcel } from '../../services/prototypePricingGenerator';
 import { catalogApi, packagingTypesApi, packagingCompositionsApi } from '../../services/api';
 import { ResourcePermissionGate, PermissionGate } from '../Common/PermissionGate';
 
@@ -392,6 +393,86 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
     }
   };
 
+  // Generowanie cennika prototypów PDF z zaznaczonych kalkulacji
+  const handleGeneratePrototypePricingPDF = async () => {
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować cennik prototypów.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować cennik prototypów tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calc = selectedCalcs[0];
+
+    try {
+      const response = await catalogApi.getById(calc.id);
+
+      if (response.success && response.data) {
+        const fullCalculation = response.data;
+
+        const calculationMeta = {
+          client: fullCalculation.client || 'N/A',
+          status: fullCalculation.status,
+          notes: fullCalculation.notes
+        };
+
+        downloadPrototypePricingPDF(fullCalculation, calculationMeta);
+      } else {
+        alert('Nie udało się wczytać pełnych danych kalkulacji');
+      }
+    } catch (error) {
+      console.error('Błąd wczytywania kalkulacji:', error);
+      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+    }
+  };
+
+  // Generowanie cennika prototypów Excel z zaznaczonych kalkulacji
+  const handleGeneratePrototypePricingExcel = async () => {
+    const selectedCalcs = filteredCalculations.filter(calc =>
+      catalogState.capacityFilters?.customSelectedIds?.includes(calc.id)
+    );
+
+    if (selectedCalcs.length === 0) {
+      alert('Brak zaznaczonych kalkulacji. Zaznacz przynajmniej jedną kalkulację (checkbox) aby wygenerować cennik prototypów.');
+      return;
+    }
+
+    if (selectedCalcs.length > 1) {
+      alert('Obecnie można generować cennik prototypów tylko dla jednej kalkulacji naraz. Proszę zaznaczyć tylko jedną kalkulację.');
+      return;
+    }
+
+    const calc = selectedCalcs[0];
+
+    try {
+      const response = await catalogApi.getById(calc.id);
+
+      if (response.success && response.data) {
+        const fullCalculation = response.data;
+
+        const calculationMeta = {
+          client: fullCalculation.client || 'N/A',
+          status: fullCalculation.status,
+          notes: fullCalculation.notes
+        };
+
+        downloadPrototypePricingExcel(fullCalculation, calculationMeta);
+      } else {
+        alert('Nie udało się wczytać pełnych danych kalkulacji');
+      }
+    } catch (error) {
+      console.error('Błąd wczytywania kalkulacji:', error);
+      alert('Wystąpił błąd podczas wczytywania kalkulacji');
+    }
+  };
+
   // Generowanie raportu z zaznaczonych kalkulacji
   const handleGenerateReport = () => {
     // Filtruj tylko zaznaczone kalkulacje (checkbox)
@@ -705,6 +786,28 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                     >
                       <FileText size={16} className="text-purple-600" />
                       Excel interaktywny
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleGeneratePrototypePricingPDF();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                      title="Cennik prototypów z batches (1, 10, 25, ... 1000)"
+                    >
+                      <FileText size={16} className="text-pink-600" />
+                      Cennik prototypów (PDF)
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleGeneratePrototypePricingExcel();
+                        setShowGenerateDropdown(false);
+                      }}
+                      className={`w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 ${themeClasses.text.primary} flex items-center gap-2`}
+                      title="Cennik prototypów z batches (1, 10, 25, ... 1000)"
+                    >
+                      <FileText size={16} className="text-teal-600" />
+                      Cennik prototypów (Excel)
                     </button>
                     <button
                       onClick={() => {
