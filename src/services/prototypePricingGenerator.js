@@ -126,7 +126,7 @@ export const generatePrototypePricingExcel = (calculation, calculationMeta) => {
   wsData.push([]);
 
   // === NAGŁÓWKI KOLUMN ===
-  const headers = ['SAP', 'Title', 'Supplier', 'Material', ...BATCH_SIZES.map(b => `Batch ${b}`)];
+  const headers = ['SAP', 'Material', ...BATCH_SIZES.map(b => `Batch ${b}`)];
   wsData.push(headers);
 
   // === DANE DLA KAŻDEGO ELEMENTU ===
@@ -144,8 +144,6 @@ export const generatePrototypePricingExcel = (calculation, calculationMeta) => {
 
     const row = [
       item.partId || 'N/A',
-      item.title || '-',
-      calculationMeta.client || 'N/A',
       materialName,
       ...BATCH_SIZES.map(batchSize => batchPrices[batchSize])
     ];
@@ -159,9 +157,7 @@ export const generatePrototypePricingExcel = (calculation, calculationMeta) => {
   // Stylizacja szerokości kolumn
   const colWidths = [
     { wch: 15 }, // SAP
-    { wch: 30 }, // Title
-    { wch: 20 }, // Supplier
-    { wch: 20 }, // Material
+    { wch: 25 }, // Material
     ...BATCH_SIZES.map(() => ({ wch: 12 })) // Batch columns
   ];
   ws['!cols'] = colWidths;
@@ -220,11 +216,9 @@ export const generatePrototypePricingPDF = (calculation, calculationMeta) => {
 
   // Szerokości kolumn (w mm)
   const colWidths = {
-    sap: 25,
-    title: 35,
-    supplier: 25,
-    material: 25,
-    batch: 12 // każdy batch
+    sap: 30,
+    material: 35,
+    batch: 14 // każdy batch - zwiększone bo mamy więcej miejsca
   };
 
   // Nagłówki
@@ -239,14 +233,6 @@ export const generatePrototypePricingPDF = (calculation, calculationMeta) => {
   doc.rect(xPos, yPos, colWidths.sap, rowHeight, 'F');
   doc.text('SAP', xPos + 2, yPos + 4);
   xPos += colWidths.sap;
-
-  doc.rect(xPos, yPos, colWidths.title, rowHeight, 'F');
-  doc.text('Title', xPos + 2, yPos + 4);
-  xPos += colWidths.title;
-
-  doc.rect(xPos, yPos, colWidths.supplier, rowHeight, 'F');
-  doc.text('Supplier', xPos + 2, yPos + 4);
-  xPos += colWidths.supplier;
 
   doc.rect(xPos, yPos, colWidths.material, rowHeight, 'F');
   doc.text('Material', xPos + 2, yPos + 4);
@@ -290,20 +276,9 @@ export const generatePrototypePricingPDF = (calculation, calculationMeta) => {
     doc.text(fixPolishChars(item.partId || 'N/A'), xPos + 2, yPos + 4);
     xPos += colWidths.sap;
 
-    // Title
-    doc.rect(xPos, yPos, colWidths.title, rowHeight, 'S');
-    const title = fixPolishChars(item.title || '-');
-    doc.text(title.substring(0, 25), xPos + 2, yPos + 4);
-    xPos += colWidths.title;
-
-    // Supplier
-    doc.rect(xPos, yPos, colWidths.supplier, rowHeight, 'S');
-    doc.text(fixPolishChars(calculationMeta.client || 'N/A'), xPos + 2, yPos + 4);
-    xPos += colWidths.supplier;
-
     // Material
     doc.rect(xPos, yPos, colWidths.material, rowHeight, 'S');
-    doc.text(fixPolishChars(materialName.substring(0, 18)), xPos + 2, yPos + 4);
+    doc.text(fixPolishChars(materialName.substring(0, 25)), xPos + 2, yPos + 4);
     xPos += colWidths.material;
 
     // Batch prices
