@@ -4,6 +4,7 @@ import { useMaterial, materialUtils } from '../../context/MaterialContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
 import { PermissionGate } from '../Common/PermissionGate';
+import { notify } from '../../utils/notifications';
 
 /**
  * Główny komponent zarządzania materiałami
@@ -43,12 +44,12 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
   // Dodaj/edytuj typ materiału
   const handleSaveType = () => {
     if (!hasPermission('materials_edit')) {
-      alert('Nie masz uprawnień do edycji materiałów');
+      notify.error('Nie masz uprawnień do edycji materiałów');
       return;
     }
 
     if (!typeForm.name || !typeForm.pricePerKg) {
-      alert('Wypełnij wszystkie pola');
+      notify.warning('Wypełnij wszystkie pola');
       return;
     }
 
@@ -95,7 +96,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
   // Dodaj/edytuj kompozycję
   const handleSaveComposition = () => {
     if (!compositionForm.materialTypeId || !compositionForm.thickness || !compositionForm.density) {
-      alert('Wypełnij wszystkie wymagane pola (typ materiału, grubość, gęstość)');
+      notify.warning('Wypełnij wszystkie wymagane pola (typ materiału, grubość, gęstość)');
       return;
     }
 
@@ -144,7 +145,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
   // Masowe tworzenie kombinacji
   const handleBulkCreate = () => {
     if (!bulkForm.materialTypeId || !bulkForm.thicknesses || !bulkForm.densities) {
-      alert('Wypełnij wszystkie pola (typ materiału, grubości, gęstości)');
+      notify.warning('Wypełnij wszystkie pola (typ materiału, grubości, gęstości)');
       return;
     }
 
@@ -153,7 +154,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
     const densities = bulkForm.densities.split(',').map(d => parseFloat(d.trim())).filter(d => !isNaN(d));
 
     if (thicknesses.length === 0 || densities.length === 0) {
-      alert('Nieprawidłowy format grubości lub gęstości. Użyj formatu: 6, 10, 13');
+      notify.warning('Nieprawidłowy format grubości lub gęstości. Użyj formatu: 6, 10, 13');
       return;
     }
 
@@ -192,7 +193,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
     const message = updatedCount > 0
       ? `Utworzono ${createdCount} kombinacji (${updatedCount} nadpisano duplikaty)`
       : `Utworzono ${createdCount} kombinacji`;
-    alert(message);
+    notify.success(message);
 
     // NIE resetuj thicknesses i densities, tylko wyczyść materialTypeId
     setBulkForm({ ...bulkForm, materialTypeId: '' });
@@ -232,7 +233,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
         const importedData = JSON.parse(e.target.result);
 
         if (!importedData.materialTypes || !importedData.materialCompositions) {
-          alert('Nieprawidłowy format pliku JSON. Plik musi zawierać materialTypes i materialCompositions.');
+          notify.error('Nieprawidłowy format pliku JSON. Plik musi zawierać materialTypes i materialCompositions.');
           return;
         }
 
@@ -250,7 +251,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
             nextCompositionId: Math.max(...importedData.materialCompositions.map(c => c.id), 0) + 1
           };
           actions.loadMaterialData(newState);
-          alert('Dane zostały zastąpione zaimportowanymi danymi!');
+          notify.success('Dane zostały zastąpione zaimportowanymi danymi!');
         } else {
           // Dodaj do istniejących
           let addedTypes = 0;
@@ -295,14 +296,14 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
             }
           });
 
-          alert(`Import zakończony!\nDodano:\n- ${addedTypes} nowych typów materiałów\n- ${addedCompositions} nowych kombinacji\n\n(Pominięto duplikaty)`);
+          notify.success(`Import zakończony!\nDodano:\n- ${addedTypes} nowych typów materiałów\n- ${addedCompositions} nowych kombinacji\n\n(Pominięto duplikaty)`);
         }
 
         // Reset input file
         event.target.value = '';
       } catch (error) {
         console.error('Błąd importu:', error);
-        alert(`Błąd importu: ${error.message}`);
+        notify.error(`Błąd importu: ${error.message}`);
       }
     };
     reader.readAsText(file);
@@ -311,7 +312,7 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
   // Push do Firestore
   const handlePushToFirestore = async () => {
     if (!hasPermission('materials_sync')) {
-      alert('Nie masz uprawnień do synchronizacji materiałów z bazą.');
+      notify.error('Nie masz uprawnień do synchronizacji materiałów z bazą.');
       return;
     }
 
@@ -322,10 +323,10 @@ export function MaterialManager({ darkMode, onToggleDarkMode, onBack, themeClass
     setIsPushing(true);
     try {
       const result = await actions.pushToFirestore();
-      alert(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
+      notify.success(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
     } catch (error) {
       console.error('Błąd podczas synchronizacji:', error);
-      alert(`Błąd synchronizacji: ${error.message}`);
+      notify.error(`Błąd synchronizacji: ${error.message}`);
     } finally {
       setIsPushing(false);
     }

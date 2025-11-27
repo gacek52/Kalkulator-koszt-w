@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
 import { Users, UserPlus, Edit, Trash2, Eye, EyeOff, History } from 'lucide-react';
 import { CreateUserForm } from './CreateUserForm';
+import { notify } from '../../utils/notifications';
 
 export function UserManagementPanel({ darkMode, onBack }) {
   const [users, setUsers] = useState([]);
@@ -79,7 +80,7 @@ export function UserManagementPanel({ darkMode, onBack }) {
       setUsers(usersList);
     } catch (error) {
       console.error('Error loading users:', error);
-      alert('Błąd podczas ładowania użytkowników');
+      notify.error('Błąd podczas ładowania użytkowników');
     } finally {
       setLoading(false);
     }
@@ -123,7 +124,7 @@ export function UserManagementPanel({ darkMode, onBack }) {
     const VERIFICATION_PASSWORD = 'admin2024'; // Zmień to na bezpieczniejsze hasło lub mechanizm
 
     if (verificationPassword !== VERIFICATION_PASSWORD) {
-      alert('Nieprawidłowe hasło weryfikacyjne!');
+      notify.error('Nieprawidłowe hasło weryfikacyjne!');
       return;
     }
 
@@ -135,13 +136,13 @@ export function UserManagementPanel({ darkMode, onBack }) {
       });
 
       await loadUsers();
-      alert('Rola została zmieniona');
+      notify.success('Rola została zmieniona');
       setShowPasswordConfirm(false);
       setPendingRoleChange(null);
       setVerificationPassword('');
     } catch (error) {
       console.error('Error changing role:', error);
-      alert('Błąd podczas zmiany roli');
+      notify.error('Błąd podczas zmiany roli');
     }
   };
 
@@ -159,10 +160,10 @@ export function UserManagementPanel({ darkMode, onBack }) {
       });
 
       await loadUsers();
-      alert(newDisabledState ? 'Konto zostało wyłączone' : 'Konto zostało aktywowane');
+      notify.success(newDisabledState ? 'Konto zostało wyłączone' : 'Konto zostało aktywowane');
     } catch (error) {
       console.error('Error toggling disabled state:', error);
-      alert('Błąd podczas zmiany stanu konta');
+      notify.error('Błąd podczas zmiany stanu konta');
     }
   };
 
@@ -186,10 +187,10 @@ export function UserManagementPanel({ darkMode, onBack }) {
       await loadUsers();
       setEditingUser(null);
       setEditDisplayName('');
-      alert('Nazwa wyświetlania została zmieniona');
+      notify.success('Nazwa wyświetlania została zmieniona');
     } catch (error) {
       console.error('Error updating displayName:', error);
-      alert('Błąd podczas zmiany nazwy');
+      notify.error('Błąd podczas zmiany nazwy');
     }
   };
 
@@ -206,20 +207,20 @@ export function UserManagementPanel({ darkMode, onBack }) {
 
     // Sprawdź czy wpisano "TAK"
     if (deleteConfirmText !== 'TAK') {
-      alert('Musisz wpisać "TAK" aby potwierdzić usunięcie!');
+      notify.warning('Musisz wpisać "TAK" aby potwierdzić usunięcie!');
       return;
     }
 
     try {
       await deleteDoc(doc(db, 'users', pendingDelete.id));
       await loadUsers();
-      alert('Użytkownik został usunięty');
+      notify.success('Użytkownik został usunięty');
       setShowDeleteConfirm(false);
       setPendingDelete(null);
       setDeleteConfirmText('');
     } catch (error) {
       console.error('Error deleting user:', error);
-      alert('Błąd podczas usuwania użytkownika');
+      notify.error('Błąd podczas usuwania użytkownika');
     }
   };
 
