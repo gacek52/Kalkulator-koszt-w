@@ -1158,20 +1158,22 @@ export function CatalogView({ themeClasses, darkMode, onToggleDarkMode, onNewCal
                           <button
                             onClick={() => catalogActions.toggleCalculationForComparison(calc.id)}
                             disabled={!isSelectedForComparison && catalogState.comparisonSelectedIds.length >= 4}
-                            className={`p-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 ${
-                              isSelectedForComparison ? 'text-purple-600' :
-                              catalogState.comparisonSelectedIds.length >= 4 ? 'text-gray-400 cursor-not-allowed' :
-                              themeClasses.text.secondary
+                            className={`p-1 rounded transition-colors ${
+                              isSelectedForComparison
+                                ? 'text-purple-600 hover:text-purple-700 hover:bg-purple-50 dark:hover:bg-purple-900'
+                                : catalogState.comparisonSelectedIds.length >= 4
+                                ? 'text-gray-400 cursor-not-allowed'
+                                : 'text-gray-400 hover:text-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900'
                             }`}
                             title={
                               catalogState.comparisonSelectedIds.length >= 4 && !isSelectedForComparison
                                 ? 'Maksymalnie 4 kalkulacje do porównania'
                                 : isSelectedForComparison
-                                ? 'Odznacz z porównania'
-                                : 'Zaznacz do porównania'
+                                ? 'Usuń z porównania'
+                                : 'Dodaj do porównania'
                             }
                           >
-                            {isSelectedForComparison ? <CheckSquare size={18} /> : <Square size={18} />}
+                            <GitCompare size={18} />
                           </button>
                         </td>
                         <td className="px-4 py-3 text-center">
