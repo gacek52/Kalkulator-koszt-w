@@ -64,14 +64,15 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
         oldResults.totalCost !== newResults.totalCost ||
         oldResults.materialCost !== newResults.materialCost ||
         oldResults.bakingCost !== newResults.bakingCost ||
-        oldResults.cleaningCost !== newResults.cleaningCost
+        oldResults.cleaningCost !== newResults.cleaningCost ||
+        oldResults.transportCost !== newResults.transportCost
       );
     });
 
     if (hasChanges) {
       actions.updateTab(tab.id, { items: updatedItems });
     }
-  }, [globalSGA, tab.materialCost, tab.bakingCost, tab.cleaningCost, tab.handlingCost, tab.prepCost]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [globalSGA, tab.materialCost, tab.bakingCost, tab.cleaningCost, tab.handlingCost, tab.prepCost, calculationMeta.transport?.calculatedCostPerSpace]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Interpolacja liniowa z krzywej (X→Y) z ekstrapolacją
   const interpolateFromCurve = (x, curve) => {
