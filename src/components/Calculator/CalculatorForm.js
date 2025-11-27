@@ -36,42 +36,50 @@ export function CalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationMeta
     ? materialUtils.getCompositionsByType(materialState, parseInt(selectedMaterialTypeId))
     : [];
 
-  // Przelicz wszystkie items gdy zmienia się globalSGA lub parametry zakładki
+  // Przelicz wszystkie items gdy zmienia się globalSGA, parametry zakładki, lub TRANSPORT
   useEffect(() => {
-    const updatedItems = tab.items.map(item => {
-      // Przelicz jeśli item ma dane wejściowe w zależności od trybu
-      const hasInputData = tab.calculationType === 'heatshield'
-        ? (item.heatshield?.surfaceNetto)
-        : tab.calculationType === 'multilayer'
-        ? (item.multilayer?.layers?.length > 0)
-        : item.weight;
+    // Iteruj po WSZYSTKICH zakładkach (nie tylko aktualnej) żeby transport zaktualizował wszystkie naraz
+    const updatedTabsData = tabs.map(currentTab => {
+      const updatedItems = currentTab.items.map(item => {
+        // Przelicz jeśli item ma dane wejściowe w zależności od trybu
+        const hasInputData = currentTab.calculationType === 'heatshield'
+          ? (item.heatshield?.surfaceNetto)
+          : currentTab.calculationType === 'multilayer'
+          ? (item.multilayer?.layers?.length > 0)
+          : item.weight;
 
-      if (hasInputData && item.results) {
-        const results = calculateItemCost(item, tab, globalSGA);
-        return { ...item, results };
+        if (hasInputData && item.results) {
+          const results = calculateItemCost(item, currentTab, globalSGA);
+          return { ...item, results };
+        }
+        return item;
+      });
+
+      // Sprawdź czy coś się zmieniło w tej zakładce
+      const hasChanges = updatedItems.some((item, idx) => {
+        const oldResults = currentTab.items[idx]?.results;
+        const newResults = item.results;
+        if (!oldResults || !newResults) return false;
+
+        return (
+          oldResults.totalWithSGA !== newResults.totalWithSGA ||
+          oldResults.totalCost !== newResults.totalCost ||
+          oldResults.materialCost !== newResults.materialCost ||
+          oldResults.bakingCost !== newResults.bakingCost ||
+          oldResults.cleaningCost !== newResults.cleaningCost ||
+          oldResults.transportCost !== newResults.transportCost
+        );
+      });
+
+      return { tabId: currentTab.id, updatedItems, hasChanges };
+    });
+
+    // Aktualizuj tylko te zakładki które się zmieniły
+    updatedTabsData.forEach(({ tabId, updatedItems, hasChanges }) => {
+      if (hasChanges) {
+        actions.updateTab(tabId, { items: updatedItems });
       }
-      return item;
     });
-
-    // Sprawdź czy coś się zmieniło (żeby uniknąć nieskończonej pętli)
-    const hasChanges = updatedItems.some((item, idx) => {
-      const oldResults = tab.items[idx]?.results;
-      const newResults = item.results;
-      if (!oldResults || !newResults) return false;
-
-      return (
-        oldResults.totalWithSGA !== newResults.totalWithSGA ||
-        oldResults.totalCost !== newResults.totalCost ||
-        oldResults.materialCost !== newResults.materialCost ||
-        oldResults.bakingCost !== newResults.bakingCost ||
-        oldResults.cleaningCost !== newResults.cleaningCost ||
-        oldResults.transportCost !== newResults.transportCost
-      );
-    });
-
-    if (hasChanges) {
-      actions.updateTab(tab.id, { items: updatedItems });
-    }
   }, [globalSGA, tab.materialCost, tab.bakingCost, tab.cleaningCost, tab.handlingCost, tab.prepCost, calculationMeta.transport?.calculatedCostPerSpace]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Interpolacja liniowa z krzywej (X→Y) z ekstrapolacją
