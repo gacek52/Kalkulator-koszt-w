@@ -3,6 +3,7 @@ import { Wrench, Plus, Edit2, Trash2, Download, Upload, Sun, Moon, ArrowLeft, Co
 import { useWorkstation } from '../../context/WorkstationContext';
 import { useRole } from '../../context/RoleContext';
 import { PermissionGate } from '../Common/PermissionGate';
+import { notify } from '../../utils/notifications';
 
 /**
  * Główny komponent zarządzania stanowiskami produkcyjnymi
@@ -27,7 +28,7 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
   // Dodaj/edytuj stanowisko
   const handleSaveWorkstation = () => {
     if (!workstationForm.name || !workstationForm.type) {
-      alert('Wypełnij przynajmniej nazwę i typ stanowiska');
+      notify.warning('Wypełnij przynajmniej nazwę i typ stanowiska');
       return;
     }
 
@@ -132,7 +133,7 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
         const importedData = JSON.parse(e.target.result);
 
         if (!importedData.workstations) {
-          alert('Nieprawidłowy format pliku JSON.');
+          notify.error('Nieprawidłowy format pliku JSON.');
           return;
         }
 
@@ -146,7 +147,7 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
             nextWorkstationId: Math.max(...importedData.workstations.map(w => w.id), 0) + 1
           };
           actions.loadWorkstationData(newState);
-          alert('Dane zostały zastąpione!');
+          notify.success('Dane zostały zastąpione!');
         } else {
           let addedCount = 0;
           importedData.workstations.forEach(ws => {
@@ -164,13 +165,13 @@ export function WorkstationManager({ darkMode, onToggleDarkMode, onBack, themeCl
               addedCount++;
             }
           });
-          alert(`Dodano ${addedCount} nowych stanowisk (pominięto duplikaty).`);
+          notify.success(`Dodano ${addedCount} nowych stanowisk (pominięto duplikaty).`);
         }
 
         event.target.value = '';
       } catch (error) {
         console.error('Błąd importu:', error);
-        alert(`Błąd importu: ${error.message}`);
+        notify.error(`Błąd importu: ${error.message}`);
       }
     };
     reader.readAsText(file);
