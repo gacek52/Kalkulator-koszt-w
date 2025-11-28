@@ -129,3 +129,133 @@
   width: 0;
   height: 0;
 }
+
+/* Tooltip Variants */
+.tooltip-info {
+  background-color: #1976d2;
+  border-color: #1976d2;
+}
+
+.tooltip-info .tooltip-arrow-top {
+  border-top-color: #1976d2;
+}
+
+.tooltip-info .tooltip-arrow-bottom {
+  border-bottom-color: #1976d2;
+}
+
+.tooltip-info .tooltip-arrow-left {
+  border-left-color: #1976d2;
+}
+
+.tooltip-info .tooltip-arrow-right {
+  border-right-color: #1976d2;
+}
+
+.tooltip-warning {
+  background-color: #f57c00;
+  border-color: #f57c00;
+}
+
+.tooltip-warning .tooltip-arrow-top {
+  border-top-color: #f57c00;
+}
+
+.tooltip-warning .tooltip-arrow-bottom {
+  border-bottom-color: #f57c00;
+}
+
+.tooltip-warning .tooltip-arrow-left {
+  border-left-color: #f57c00;
+}
+
+.tooltip-warning .tooltip-arrow-right {
+  border-right-color: #f57c00;
+}
+
+.tooltip-success {
+  background-color: #388e3c;
+  border-color: #388e3c;
+}
+
+.tooltip-success .tooltip-arrow-top {
+  border-top-color: #388e3c;
+}
+
+.tooltip-success .tooltip-arrow-bottom {
+  border-bottom-color: #388e3c;
+}
+
+.tooltip-success .tooltip-arrow-left {
+  border-left-color: #388e3c;
+}
+
+.tooltip-success .tooltip-arrow-right {
+  border-right-color: #388e3c;
+}
+
+/* Tooltip Icons */
+.tooltip-icon-help,
+.tooltip-icon-info,
+.tooltip-icon-warning {
+  display: inline-flex;
+  align-items: center;
+  cursor: help;
+  color: #757575;
+  transition: color 0.2s ease;
+}
+
+.tooltip-icon-help:hover,
+.tooltip-icon-help:focus {
+  color: #1976d2;
+}
+
+.tooltip-icon-info:hover,
+.tooltip-icon-info:focus {
+  color: #1976d2;
+}
+
+.tooltip-icon-warning:hover,
+.tooltip-icon-warning:focus {
+  color: #f57c00;
+}
+
+.dark-mode .tooltip-icon-help,
+.dark-mode .tooltip-icon-info,
+.dark-mode .tooltip-icon-warning {
+  color: #9e9e9e;
+}
+
+.dark-mode .tooltip-icon-help:hover,
+.dark-mode .tooltip-icon-help:focus {
+  color: #64b5f6;
+}
+
+.dark-mode .tooltip-icon-info:hover,
+.dark-mode .tooltip-icon-info:focus {
+  color: #64b5f6;
+}
+
+.dark-mode .tooltip-icon-warning:hover,
+.dark-mode .tooltip-icon-warning:focus {
+  color: #ffb74d;
+}
+
+/* Inline Tooltip Text */
+.inline-tooltip-text {
+  border-bottom: 1px dotted #757575;
+  cursor: help;
+  transition: border-color 0.2s ease;
+}
+
+.inline-tooltip-text:hover {
+  border-bottom-color: #1976d2;
+}
+
+.dark-mode .inline-tooltip-text {
+  border-bottom-color: #9e9e9e;
+}
+
+.dark-mode .inline-tooltip-text:hover {
+  border-bottom-color: #64b5f6;
+}
