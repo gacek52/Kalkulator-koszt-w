@@ -4,6 +4,7 @@ import { useTransport } from '../../context/TransportContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
 import { PermissionGate } from '../Common/PermissionGate';
+import { notify } from '../../utils/notifications';
 
 /**
  * Główny komponent zarządzania transportem
@@ -27,13 +28,13 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
   // Dodaj/edytuj typ transportu
   const handleSaveType = () => {
     if (!hasPermission('transport_edit')) {
-      alert('Nie masz uprawnień do edycji transportu');
+      notify.error('Nie masz uprawnień do edycji transportu');
       return;
     }
 
     if (!typeForm.name || !typeForm.loadCapacity || !typeForm.palletSpaces ||
         !typeForm.maxLoadHeight || !typeForm.pricePerKm) {
-      alert('Wypełnij wszystkie pola');
+      notify.warning('Wypełnij wszystkie pola');
       return;
     }
 
@@ -114,10 +115,10 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
           importData.transportTypes.forEach(type => {
             actions.addTransportType(type);
           });
-          alert('Import zakończony pomyślnie!');
+          notify.success('Import zakończony pomyślnie!');
         }
       } catch (error) {
-        alert('Błąd podczas importu: ' + error.message);
+        notify.error('Błąd podczas importu: ' + error.message);
       }
     };
     reader.readAsText(file);
@@ -126,7 +127,7 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
   // Push do Firestore
   const handlePushToFirestore = async () => {
     if (!hasPermission('transport_sync')) {
-      alert('Nie masz uprawnień do synchronizacji transportu z bazą.');
+      notify.error('Nie masz uprawnień do synchronizacji transportu z bazą.');
       return;
     }
 
@@ -138,12 +139,12 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
     try {
       const success = await actions.syncToFirestore();
       if (success) {
-        alert('Transport zsynchronizowany z Firestore!');
+        notify.success('Transport zsynchronizowany z Firestore!');
       } else {
-        alert('Wystąpił błąd podczas synchronizacji.');
+        notify.error('Wystąpił błąd podczas synchronizacji.');
       }
     } catch (error) {
-      alert('Błąd: ' + error.message);
+      notify.error('Błąd: ' + error.message);
     } finally {
       setIsPushing(false);
     }

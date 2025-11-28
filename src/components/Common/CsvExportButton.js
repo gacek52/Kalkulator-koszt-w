@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText } from 'lucide-react';
+import { notify } from '../../utils/notifications';
 
 /**
  * Komponent do eksportu danych do CSV
@@ -16,7 +17,7 @@ export function CsvExportButton({
   const handleExport = () => {
     try {
       if (!data || data.length === 0) {
-        alert('Brak danych do eksportu');
+        notify.warning('Brak danych do eksportu');
         return;
       }
 
@@ -58,7 +59,7 @@ export function CsvExportButton({
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Błąd eksportu CSV:', error);
-      alert('Wystąpił błąd podczas eksportu danych.');
+      notify.error('Wystąpił błąd podczas eksportu danych.');
     }
   };
 

@@ -4,6 +4,7 @@ import { usePackaging } from '../../context/PackagingContext';
 import { useAuth } from '../../context/AuthContext';
 import { useRole } from '../../context/RoleContext';
 import { PermissionGate } from '../Common/PermissionGate';
+import { notify } from '../../utils/notifications';
 
 /**
  * Główny komponent zarządzania pakowaniem
@@ -42,7 +43,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
   // Dodaj/edytuj typ opakowania
   const handleSaveType = () => {
     if (!typeForm.name || !typeForm.length || !typeForm.width || !typeForm.height || !typeForm.weight || !typeForm.cost) {
-      alert('Wypełnij wszystkie pola');
+      notify.warning('Wypełnij wszystkie pola');
       return;
     }
 
@@ -100,14 +101,14 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
         !compositionForm.packagesPerPallet || !compositionForm.palletsPerSpace ||
         !compositionForm.palletCost || !compositionForm.standardPalletWeight ||
         !compositionForm.standardPalletHeight || !compositionForm.layers) {
-      alert('Wypełnij wszystkie pola');
+      notify.warning('Wypełnij wszystkie pola');
       return;
     }
 
     // Use loose equality to handle both string and number IDs
     const packagingType = state.packagingTypes.find(t => t.id == compositionForm.packagingTypeId);
     if (!packagingType) {
-      alert('Nie znaleziono wybranego typu opakowania');
+      notify.error('Nie znaleziono wybranego typu opakowania');
       return;
     }
 
@@ -236,7 +237,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
         const importedData = JSON.parse(e.target.result);
 
         if (!importedData.packagingTypes || !importedData.compositions) {
-          alert('Nieprawidłowy format pliku JSON. Plik musi zawierać packagingTypes i compositions.');
+          notify.error('Nieprawidłowy format pliku JSON. Plik musi zawierać packagingTypes i compositions.');
           return;
         }
 
@@ -256,7 +257,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
             transportCostPerPallet: importedData.transportCostPerPallet || 25.0
           };
           actions.loadPackagingData(newState);
-          alert('Dane zostały zastąpione zaimportowanymi danymi!');
+          notify.success('Dane zostały zastąpione zaimportowanymi danymi!');
         } else {
           // Dodaj do istniejących
           let addedTypes = 0;
@@ -302,14 +303,14 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
             }
           });
 
-          alert(`Import zakończony!\nDodano:\n- ${addedTypes} nowych typów opakowań\n- ${addedCompositions} nowych kompozycji\n\n(Pominięto duplikaty)`);
+          notify.success(`Import zakończony!\nDodano:\n- ${addedTypes} nowych typów opakowań\n- ${addedCompositions} nowych kompozycji\n\n(Pominięto duplikaty)`);
         }
 
         // Reset input file
         event.target.value = '';
       } catch (error) {
         console.error('Błąd importu:', error);
-        alert(`Błąd importu: ${error.message}`);
+        notify.error(`Błąd importu: ${error.message}`);
       }
     };
     reader.readAsText(file);
@@ -318,7 +319,7 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
   // Push do Firestore
   const handlePushToFirestore = async () => {
     if (!hasPermission('packaging_sync')) {
-      alert('Nie masz uprawnień do synchronizacji pakowania z bazą.');
+      notify.error('Nie masz uprawnień do synchronizacji pakowania z bazą.');
       return;
     }
 
@@ -329,10 +330,10 @@ export function PackagingManager({ darkMode, onToggleDarkMode, onBack, themeClas
     setIsPushing(true);
     try {
       const result = await actions.pushToFirestore();
-      alert(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
+      notify.success(`Synchronizacja zakończona pomyślnie!\n\n${result.message}`);
     } catch (error) {
       console.error('Błąd podczas synchronizacji:', error);
-      alert(`Błąd synchronizacji: ${error.message}`);
+      notify.error(`Błąd synchronizacji: ${error.message}`);
     } finally {
       setIsPushing(false);
     }

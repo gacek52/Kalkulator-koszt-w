@@ -2,6 +2,8 @@
  * Funkcje obliczeniowe dla zajętości stanowisk produkcyjnych
  */
 
+import { notify } from './notifications';
+
 /**
  * Oblicz wymagane godziny dla pojedynczego produktu
  * @param {number} annualVolume - Roczna ilość (szt)
@@ -65,11 +67,11 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
 
   if (!catalogItems || !Array.isArray(catalogItems)) {
     console.error('❌ catalogItems is not an array:', catalogItems);
-    alert(`BŁĄD: catalogItems nie jest tablicą! Typ: ${typeof catalogItems}`);
+    console.error(`BŁĄD: catalogItems nie jest tablicą! Typ: ${typeof catalogItems}`);
     return utilizationData;
   }
 
-  alert(`DEBUG: Mam ${catalogItems.length} kalkulacji do przetworzenia, ${Object.keys(utilizationData).length} stanowisk`);
+  console.log(`DEBUG: Mam ${catalogItems.length} kalkulacji do przetworzenia, ${Object.keys(utilizationData).length} stanowisk`);
 
   // Krok 2: Przejdź przez wszystkie kalkulacje i zlicz godziny
   let processedCount = 0;
@@ -85,24 +87,24 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
       calculation.tabs.forEach((tab, tabIndex) => {
         console.log(`    📑 Tab ${tabIndex + 1}: ${tab.name}, items: ${tab.items?.length || 0}`);
 
-        alert(`📑 TAB: ${tab.name}, ma items? ${!!tab.items}, jest array? ${Array.isArray(tab.items)}, długość: ${tab.items?.length || 0}`);
+        console.log(`📑 TAB: ${tab.name}, ma items? ${!!tab.items}, jest array? ${Array.isArray(tab.items)}, długość: ${tab.items?.length || 0}`);
 
         if (!tab.items || !Array.isArray(tab.items)) {
           console.warn(`    ⚠️ Tab nie ma items[] - pomijam`);
-          alert(`⚠️ TAB NIE MA ITEMS - POMIJAM`);
+          console.warn(`⚠️ TAB NIE MA ITEMS - POMIJAM`);
           return;
         }
 
         if (tab.items.length === 0) {
-          alert(`⚠️ TAB MA 0 ITEMS - POMIJAM`);
+          console.warn(`⚠️ TAB MA 0 ITEMS - POMIJAM`);
           return;
         }
 
-        alert(`✅ Zaczynam pętlę przez ${tab.items.length} items w tabie ${tab.name}`);
+        console.log(`✅ Zaczynam pętlę przez ${tab.items.length} items w tabie ${tab.name}`);
 
         // Przejdź przez wszystkie items w zakładce
         tab.items.forEach((item, itemIndex) => {
-          alert(`🔍 ITEM ${itemIndex + 1}/${tab.items.length}: partId=${item.partId}, annualVolume=${item.annualVolume}`);
+          console.log(`🔍 ITEM ${itemIndex + 1}/${tab.items.length}: partId=${item.partId}, annualVolume=${item.annualVolume}`);
 
           const annualVolume = parseFloat(item.annualVolume);
 
@@ -112,7 +114,7 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
               tabName: tab.name,
               partId: item.partId
             });
-            alert(`⚠️ ITEM ${item.partId} - BRAK annualVolume (${item.annualVolume}) - POMIJAM`);
+            console.warn(`⚠️ ITEM ${item.partId} - BRAK annualVolume (${item.annualVolume}) - POMIJAM`);
             return;
           }
 
@@ -128,7 +130,7 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
           if (item.workstations && Array.isArray(item.workstations) && item.workstations.length > 0) {
 
             console.log(`\n🔍 Processing item: calcId=${calculation.id}, tab=${tab.name}, partId=${item.partId}, annualVolume=${annualVolume}, workstations count=${item.workstations.length}`);
-            alert(`✅ ITEM OK: partId=${item.partId}, annualVolume=${annualVolume}, workstations=${item.workstations.length}`);
+            console.log(`✅ ITEM OK: partId=${item.partId}, annualVolume=${annualVolume}, workstations=${item.workstations.length}`);
 
             // ITERUJ PRZEZ WSZYSTKIE STANOWISKA W ITEM
             item.workstations.forEach((ws, wsIndex) => {
@@ -197,7 +199,7 @@ export function calculateWorkstationUtilization(catalogItems, workstations) {
               hasOldWorkstation: !!item.workstation
             });
 
-            alert(`❌ POMINIĘTO ITEM: ${reason}, partId=${item.partId}, hasWorkstations=${!!item.workstations}, isArray=${Array.isArray(item.workstations)}, length=${item.workstations?.length}`);
+            console.warn(`❌ POMINIĘTO ITEM: ${reason}, partId=${item.partId}, hasWorkstations=${!!item.workstations}, isArray=${Array.isArray(item.workstations)}, length=${item.workstations?.length}`);
 
             skippedCount++;
           }
