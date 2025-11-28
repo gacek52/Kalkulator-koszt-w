@@ -54,7 +54,8 @@ const initialState = {
       transportTypeId: null, // ID typu transportu z TransportContext
       distanceSource: 'client', // 'client' (z klienta) lub 'manual' (ręczne)
       clientDistance: '', // odległość z danych klienta (km)
-      manualDistance: '' // ręcznie wprowadzona odległość (km)
+      manualDistance: '', // ręcznie wprowadzona odległość (km)
+      manualPricePerPallet: '' // ręczna cena za paletę (€)
     }
   },
   tabs: [{
@@ -531,7 +532,8 @@ function calculatorReducer(state, action) {
           transportTypeId: transportData.transportTypeId ?? null,
           distanceSource: transportData.distanceSource ?? 'client',
           clientDistance: transportData.clientDistance ?? '',
-          manualDistance: transportData.manualDistance ?? ''
+          manualDistance: transportData.manualDistance ?? '',
+          manualPricePerPallet: transportData.manualPricePerPallet ?? ''
         }
       };
 
@@ -615,7 +617,8 @@ export function CalculatorProvider({ children }) {
               transportTypeId: parsedData.calculationMeta?.transport?.transportTypeId ?? null,
               distanceSource: parsedData.calculationMeta?.transport?.distanceSource ?? 'client',
               clientDistance: parsedData.calculationMeta?.transport?.clientDistance ?? '',
-              manualDistance: parsedData.calculationMeta?.transport?.manualDistance ?? ''
+              manualDistance: parsedData.calculationMeta?.transport?.manualDistance ?? '',
+              manualPricePerPallet: parsedData.calculationMeta?.transport?.manualPricePerPallet ?? ''
             }
           }
         };

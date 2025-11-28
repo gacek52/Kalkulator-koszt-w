@@ -36881,3 +36881,138 @@
 [info] 
 [info] Project Console: https://console.firebase.google.com/project/kalkulator-produkcyjny---alpha/overview
 [info] Hosting URL: https://kalkulator-produkcyjny---alpha.web.app
+[debug] [2025-11-28T08:56:31.333Z] ----------------------------------------------------------------------
+[debug] [2025-11-28T08:56:31.336Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Patryk\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only hosting
+[debug] [2025-11-28T08:56:31.337Z] CLI Version:   14.19.0
+[debug] [2025-11-28T08:56:31.337Z] Platform:      win32
+[debug] [2025-11-28T08:56:31.337Z] Node Version:  v22.18.0
+[debug] [2025-11-28T08:56:31.337Z] Time:          Fri Nov 28 2025 09:56:31 GMT+0100 (czas środkowoeuropejski standardowy)
+[debug] [2025-11-28T08:56:31.337Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2025-11-28T08:56:31.564Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2025-11-28T08:56:31.565Z] > authorizing via signed-in user (gacek52@gmail.com)
+[debug] [2025-11-28T08:56:31.565Z] [iam] checking project kalkulator-produkcyjny---alpha for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2025-11-28T08:56:31.566Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:31.567Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:31.568Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha:testIamPermissions [none]
+[debug] [2025-11-28T08:56:31.568Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha:testIamPermissions x-goog-quota-user=projects/kalkulator-produkcyjny---alpha
+[debug] [2025-11-28T08:56:31.568Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-11-28T08:56:32.468Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha:testIamPermissions 200
+[debug] [2025-11-28T08:56:32.469Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2025-11-28T08:56:32.470Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:32.470Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:32.470Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/kalkulator-produkcyjny---alpha [none]
+[debug] [2025-11-28T08:56:32.933Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/kalkulator-produkcyjny---alpha 200
+[debug] [2025-11-28T08:56:32.933Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/kalkulator-produkcyjny---alpha {"projectId":"kalkulator-produkcyjny---alpha","projectNumber":"343710697557","displayName":"Kalkulator Produkcyjny - alpha","name":"projects/kalkulator-produkcyjny---alpha","resources":{"hostingSite":"kalkulator-produkcyjny---alpha"},"state":"ACTIVE","etag":"1_27043be9-0df5-4377-8f05-f4a43fcfe79c"}
+[info] 
+[info] === Deploying to 'kalkulator-produkcyjny---alpha'...
+[info] 
+[info] i  deploying hosting 
+[debug] [2025-11-28T08:56:32.938Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:32.938Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:32.938Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions [none]
+[debug] [2025-11-28T08:56:32.938Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions {"status":"CREATED","labels":{"deployment-tool":"cli-firebase"}}
+[debug] [2025-11-28T08:56:34.144Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions 200
+[debug] [2025-11-28T08:56:34.145Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions {"name":"projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0","status":"CREATED","config":{},"labels":{"deployment-tool":"cli-firebase"}}
+[info] i  hosting[kalkulator-produkcyjny---alpha]: beginning deploy... 
+[info] i  hosting[kalkulator-produkcyjny---alpha]: found 16 files in build 
+[debug] [2025-11-28T08:56:34.166Z] [hosting] uploading with 200 concurrency
+[debug] [2025-11-28T08:56:34.911Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:34.911Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:34.912Z] [hosting] hash cache [YnVpbGQ] stored for 16 files
+[debug] [2025-11-28T08:56:34.912Z] [hosting][hash queue][FINAL] {"max":742,"min":4,"avg":69.125,"active":0,"complete":16,"success":16,"errored":0,"retried":0,"total":16,"elapsed":745}
+[debug] [2025-11-28T08:56:34.913Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0:populateFiles [none]
+[debug] [2025-11-28T08:56:34.913Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0:populateFiles {"files":{"/manifest.json":"6fd527480bcaf3b1447b5b3dc02f3dbe892f9d571771928e5cbca7ad85f62927","/asset-manifest.json":"99ae29506cdbd927cca5988a8e8d2d96ad439fa7a73cf4c72746dcda40bbe5fd","/index.html":"7d99b87f75b6f4864626be37cabe22e30f1508f3d7a9149063b350af43c608d2","/static/js/977.cdcfd154.chunk.js.LICENSE.txt":"e991e2f93f32046a03ff9dd779c7f0bb3e32c27b65efaca5adc1e577c266d509","/static/js/977.cdcfd154.chunk.js":"58a96118c1ed0bdb2468a246f8cc4896a55ec32282887c9c6c9dc9fbc2b5b7c8","/static/js/main.1a87cc2a.js.LICENSE.txt":"3a8aa546d1859fb856e8a2df3588f942d1cb1d87ff07869e23dbd475c8552dfc","/static/js/239.f1d21ef2.chunk.js.LICENSE.txt":"34d91dd0d6d9f3527133408f15dfc02a02d685ae5404131418862e772d3db0a8","/static/css/main.332ab6b1.css":"ca5b42440636fec900866a65725a44dd0d3963beaadecb0384ef980f70cb99f0","/static/css/main.332ab6b1.css.map":"5e5932aa6ecbb7bb28e320c5673f7d97657f47fcd83de87b74024abe810f1b58","/static/js/977.cdcfd154.chunk.js.map":"be4a4fcecd7a8d4a27db30a31a8191e73bb661ad4cfea3b6cdbfe6be77e26577","/static/js/455.8818bf48.chunk.js":"cae1588d942e71702cfb4bf12286c9983f85032ecf184bcdb6e7a6c7e254bbcb","/static/js/239.f1d21ef2.chunk.js":"106d27fcfb5ec00a8daf493d3e8a37976aa205b671d705ea2048779c00748787","/static/js/455.8818bf48.chunk.js.map":"13ee70937b203c8f6b8b1382865d5469fdd061fe54ec5708687aa68922e8bff2","/static/js/239.f1d21ef2.chunk.js.map":"881045894c85ae240947c07fdd92004f0764d5ac500cb5b9048f361e3f68f23e","/static/js/main.1a87cc2a.js":"d0d981d1d96405369be20b23195bb1a8046e229eeaa9b3562ca118bb6ac4ca60","/static/js/main.1a87cc2a.js.map":"74d1cc44069406cc7b800b219cf0fb9dcab16291e3e3d1e5f1e11f7122c67fca"}}
+[debug] [2025-11-28T08:56:35.146Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0:populateFiles 200
+[debug] [2025-11-28T08:56:35.146Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0:populateFiles {"uploadRequiredHashes":["d0d981d1d96405369be20b23195bb1a8046e229eeaa9b3562ca118bb6ac4ca60","99ae29506cdbd927cca5988a8e8d2d96ad439fa7a73cf4c72746dcda40bbe5fd","7d99b87f75b6f4864626be37cabe22e30f1508f3d7a9149063b350af43c608d2","74d1cc44069406cc7b800b219cf0fb9dcab16291e3e3d1e5f1e11f7122c67fca"],"uploadUrl":"https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files"}
+[debug] [2025-11-28T08:56:35.146Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.147Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:35.148Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/d0d981d1d96405369be20b23195bb1a8046e229eeaa9b3562ca118bb6ac4ca60 [none]
+[debug] [2025-11-28T08:56:35.148Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/d0d981d1d96405369be20b23195bb1a8046e229eeaa9b3562ca118bb6ac4ca60 [stream]
+[debug] [2025-11-28T08:56:35.149Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/99ae29506cdbd927cca5988a8e8d2d96ad439fa7a73cf4c72746dcda40bbe5fd [none]
+[debug] [2025-11-28T08:56:35.149Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/99ae29506cdbd927cca5988a8e8d2d96ad439fa7a73cf4c72746dcda40bbe5fd [stream]
+[debug] [2025-11-28T08:56:35.151Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/7d99b87f75b6f4864626be37cabe22e30f1508f3d7a9149063b350af43c608d2 [none]
+[debug] [2025-11-28T08:56:35.151Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/7d99b87f75b6f4864626be37cabe22e30f1508f3d7a9149063b350af43c608d2 [stream]
+[debug] [2025-11-28T08:56:35.152Z] >>> [apiv2][query] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/74d1cc44069406cc7b800b219cf0fb9dcab16291e3e3d1e5f1e11f7122c67fca [none]
+[debug] [2025-11-28T08:56:35.152Z] >>> [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/74d1cc44069406cc7b800b219cf0fb9dcab16291e3e3d1e5f1e11f7122c67fca [stream]
+[debug] [2025-11-28T08:56:35.153Z] [hosting][populate queue][FINAL] {"max":237,"min":237,"avg":237,"active":0,"complete":1,"success":1,"errored":0,"retried":0,"total":1,"elapsed":242}
+[debug] [2025-11-28T08:56:35.153Z] [hosting] uploads queued: 4
+[info] i  hosting: uploading new files [0/4] (0%) 
+[debug] [2025-11-28T08:56:36.511Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/99ae29506cdbd927cca5988a8e8d2d96ad439fa7a73cf4c72746dcda40bbe5fd 200
+[debug] [2025-11-28T08:56:36.511Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/99ae29506cdbd927cca5988a8e8d2d96ad439fa7a73cf4c72746dcda40bbe5fd [stream]
+[debug] [2025-11-28T08:56:36.622Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/7d99b87f75b6f4864626be37cabe22e30f1508f3d7a9149063b350af43c608d2 200
+[debug] [2025-11-28T08:56:36.622Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/7d99b87f75b6f4864626be37cabe22e30f1508f3d7a9149063b350af43c608d2 [stream]
+[debug] [2025-11-28T08:56:37.546Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/d0d981d1d96405369be20b23195bb1a8046e229eeaa9b3562ca118bb6ac4ca60 200
+[debug] [2025-11-28T08:56:37.546Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/d0d981d1d96405369be20b23195bb1a8046e229eeaa9b3562ca118bb6ac4ca60 [stream]
+[info] i  hosting: uploading new files [3/4] (75%) 
+[debug] [2025-11-28T08:56:39.329Z] <<< [apiv2][status] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/74d1cc44069406cc7b800b219cf0fb9dcab16291e3e3d1e5f1e11f7122c67fca 200
+[debug] [2025-11-28T08:56:39.329Z] <<< [apiv2][body] POST https://upload-firebasehosting.googleapis.com/upload/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0/files/74d1cc44069406cc7b800b219cf0fb9dcab16291e3e3d1e5f1e11f7122c67fca [stream]
+[debug] [2025-11-28T08:56:39.329Z] [hosting][upload queue][FINAL] {"max":4182,"min":1364,"avg":2355.25,"active":0,"complete":4,"success":4,"errored":0,"retried":0,"total":4,"elapsed":4183}
+[info] i  hosting: upload complete 
+[info] +  hosting[kalkulator-produkcyjny---alpha]: file upload complete 
+[debug] [2025-11-28T08:56:39.330Z] [hosting] deploy completed after 5183ms
+[debug] [2025-11-28T08:56:39.330Z] [
+  {
+    "config": {
+      "public": "build",
+      "ignore": [
+        "firebase.json",
+        "**/.*",
+        "**/node_modules/**"
+      ],
+      "rewrites": [
+        {
+          "source": "/api/**",
+          "function": {
+            "functionId": "api"
+          }
+        },
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ],
+      "site": "kalkulator-produkcyjny---alpha"
+    },
+    "version": "projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0"
+  }
+]
+[info] i  hosting[kalkulator-produkcyjny---alpha]: finalizing version... 
+[debug] [2025-11-28T08:56:39.330Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:39.331Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:39.331Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha/locations/-/functions [none]
+[debug] [2025-11-28T08:56:40.391Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha/locations/-/functions 200
+[debug] [2025-11-28T08:56:40.391Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v1/projects/kalkulator-produkcyjny---alpha/locations/-/functions {"functions":[{"name":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/initializeDatabase","httpsTrigger":{"url":"https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/initializeDatabase","securityLevel":"SECURE_ALWAYS"},"status":"ACTIVE","entryPoint":"initializeDatabase","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"kalkulator-produkcyjny---alpha@appspot.gserviceaccount.com","updateTime":"2025-11-12T07:43:49.161Z","versionId":"11","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"b9d03f82d112c60040742d1af0388dbdbd4d3a48"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-3385697185.us-central1.cloudfunctions.appspot.com/f169c0de-6cab-4a00-b55a-e2503ac8293b.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"kalkulator-produkcyjny---alpha\",\"storageBucket\":\"kalkulator-produkcyjny---alpha.firebasestorage.app\"}","GCLOUD_PROJECT":"kalkulator-produkcyjny---alpha","EVENTARC_CLOUD_EVENT_SOURCE":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/initializeDatabase"},"runtime":"nodejs20","ingressSettings":"ALLOW_ALL","buildId":"eefc7df1-458a-4c09-82f8-91c8b9a2100f","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/343710697557/locations/us-central1/builds/eefc7df1-458a-4c09-82f8-91c8b9a2100f","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/kalkulator-produkcyjny---alpha/serviceAccounts/343710697557-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/deleteDefaultClients","httpsTrigger":{"url":"https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/deleteDefaultClients","securityLevel":"SECURE_ALWAYS"},"status":"ACTIVE","entryPoint":"deleteDefaultClients","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"kalkulator-produkcyjny---alpha@appspot.gserviceaccount.com","updateTime":"2025-11-12T07:43:48.186Z","versionId":"5","labels":{"firebase-functions-hash":"b9d03f82d112c60040742d1af0388dbdbd4d3a48","deployment-tool":"cli-firebase"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-3385697185.us-central1.cloudfunctions.appspot.com/f169c0de-6cab-4a00-b55a-e2503ac8293b.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"kalkulator-produkcyjny---alpha\",\"storageBucket\":\"kalkulator-produkcyjny---alpha.firebasestorage.app\"}","GCLOUD_PROJECT":"kalkulator-produkcyjny---alpha","EVENTARC_CLOUD_EVENT_SOURCE":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/deleteDefaultClients"},"runtime":"nodejs20","ingressSettings":"ALLOW_ALL","buildId":"eefc7df1-458a-4c09-82f8-91c8b9a2100f","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/343710697557/locations/us-central1/builds/eefc7df1-458a-4c09-82f8-91c8b9a2100f","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/kalkulator-produkcyjny---alpha/serviceAccounts/343710697557-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/migrateClientsAddDistance","httpsTrigger":{"url":"https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/migrateClientsAddDistance","securityLevel":"SECURE_ALWAYS"},"status":"ACTIVE","entryPoint":"migrateClientsAddDistance","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"kalkulator-produkcyjny---alpha@appspot.gserviceaccount.com","updateTime":"2025-11-12T07:43:48.665Z","versionId":"6","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"b9d03f82d112c60040742d1af0388dbdbd4d3a48"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-3385697185.us-central1.cloudfunctions.appspot.com/f169c0de-6cab-4a00-b55a-e2503ac8293b.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"kalkulator-produkcyjny---alpha\",\"storageBucket\":\"kalkulator-produkcyjny---alpha.firebasestorage.app\"}","GCLOUD_PROJECT":"kalkulator-produkcyjny---alpha","EVENTARC_CLOUD_EVENT_SOURCE":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/migrateClientsAddDistance"},"runtime":"nodejs20","ingressSettings":"ALLOW_ALL","buildId":"eefc7df1-458a-4c09-82f8-91c8b9a2100f","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/343710697557/locations/us-central1/builds/eefc7df1-458a-4c09-82f8-91c8b9a2100f","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/kalkulator-produkcyjny---alpha/serviceAccounts/343710697557-compute@developer.gserviceaccount.com","satisfiesPzi":true},{"name":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/api","httpsTrigger":{"url":"https://us-central1-kalkulator-produkcyjny---alpha.cloudfunctions.net/api","securityLevel":"SECURE_ALWAYS"},"status":"ACTIVE","entryPoint":"api","timeout":"60s","availableMemoryMb":256,"serviceAccountEmail":"kalkulator-produkcyjny---alpha@appspot.gserviceaccount.com","updateTime":"2025-11-12T07:43:50.506Z","versionId":"20","labels":{"deployment-tool":"cli-firebase","firebase-functions-hash":"b9d03f82d112c60040742d1af0388dbdbd4d3a48"},"sourceUploadUrl":"https://storage.googleapis.com/uploads-3385697185.us-central1.cloudfunctions.appspot.com/f169c0de-6cab-4a00-b55a-e2503ac8293b.zip","environmentVariables":{"FIREBASE_CONFIG":"{\"projectId\":\"kalkulator-produkcyjny---alpha\",\"storageBucket\":\"kalkulator-produkcyjny---alpha.firebasestorage.app\"}","GCLOUD_PROJECT":"kalkulator-produkcyjny---alpha","EVENTARC_CLOUD_EVENT_SOURCE":"projects/kalkulator-produkcyjny---alpha/locations/us-central1/functions/api"},"runtime":"nodejs20","ingressSettings":"ALLOW_ALL","buildId":"eefc7df1-458a-4c09-82f8-91c8b9a2100f","buildEnvironmentVariables":{"GOOGLE_NODE_RUN_SCRIPTS":""},"buildName":"projects/343710697557/locations/us-central1/builds/eefc7df1-458a-4c09-82f8-91c8b9a2100f","dockerRegistry":"ARTIFACT_REGISTRY","automaticUpdatePolicy":{},"buildServiceAccount":"projects/kalkulator-produkcyjny---alpha/serviceAccounts/343710697557-compute@developer.gserviceaccount.com","satisfiesPzi":true}]}
+[debug] [2025-11-28T08:56:40.392Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:40.392Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:40.392Z] >>> [apiv2][query] GET https://cloudfunctions.googleapis.com/v2/projects/kalkulator-produkcyjny---alpha/locations/-/functions filter=environment%3D%22GEN_2%22
+[debug] [2025-11-28T08:56:41.559Z] <<< [apiv2][status] GET https://cloudfunctions.googleapis.com/v2/projects/kalkulator-produkcyjny---alpha/locations/-/functions 200
+[debug] [2025-11-28T08:56:41.560Z] <<< [apiv2][body] GET https://cloudfunctions.googleapis.com/v2/projects/kalkulator-produkcyjny---alpha/locations/-/functions {}
+[debug] [2025-11-28T08:56:41.561Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:41.561Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:41.561Z] >>> [apiv2][query] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0 updateMask=status%2Cconfig
+[debug] [2025-11-28T08:56:41.561Z] >>> [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0 {"status":"FINALIZED","config":{"rewrites":[{"glob":"/api/**","function":"api","functionRegion":"us-central1"},{"glob":"**","path":"/index.html"}]}}
+[debug] [2025-11-28T08:56:42.547Z] <<< [apiv2][status] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0 200
+[debug] [2025-11-28T08:56:42.548Z] <<< [apiv2][body] PATCH https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0 {"name":"projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0","status":"FINALIZED","config":{"rewrites":[{"functionRegion":"us-central1","glob":"/api/**","function":"api"},{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2025-11-28T08:56:33.603125Z","createUser":{"email":"gacek52@gmail.com"},"finalizeTime":"2025-11-28T08:56:42.212460Z","finalizeUser":{"email":"gacek52@gmail.com"}}
+[debug] [2025-11-28T08:56:42.548Z] [hosting] finalized version for kalkulator-produkcyjny---alpha:[object Object]
+[info] +  hosting[kalkulator-produkcyjny---alpha]: version finalized 
+[info] i  hosting[kalkulator-produkcyjny---alpha]: releasing new version... 
+[debug] [2025-11-28T08:56:42.548Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:42.548Z] Checked if tokens are valid: true, expires at: 1764322366975
+[debug] [2025-11-28T08:56:42.548Z] >>> [apiv2][query] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/channels/live/releases versionName=projects%2F343710697557%2Fsites%2Fkalkulator-produkcyjny---alpha%2Fversions%2Ffd90bcc934e4c2f0
+[debug] [2025-11-28T08:56:42.548Z] >>> [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/channels/live/releases {}
+[debug] [2025-11-28T08:56:42.832Z] <<< [apiv2][status] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/channels/live/releases 200
+[debug] [2025-11-28T08:56:42.832Z] <<< [apiv2][body] POST https://firebasehosting.googleapis.com/v1beta1/projects/-/sites/kalkulator-produkcyjny---alpha/channels/live/releases {"name":"projects/343710697557/sites/kalkulator-produkcyjny---alpha/channels/live/releases/1764320201955000","version":{"name":"projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0","status":"FINALIZED","config":{"rewrites":[{"functionRegion":"us-central1","glob":"/api/**","function":"api"},{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2025-11-28T08:56:33.603125Z","createUser":{"email":"gacek52@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR"},"finalizeTime":"2025-11-28T08:56:42.212460Z","finalizeUser":{"email":"gacek52@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR"}},"type":"DEPLOY","releaseTime":"2025-11-28T08:56:41.955Z","releaseUser":{"email":"gacek52@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR"}}
+[debug] [2025-11-28T08:56:42.832Z] [hosting] release: {"name":"projects/343710697557/sites/kalkulator-produkcyjny---alpha/channels/live/releases/1764320201955000","version":{"name":"projects/343710697557/sites/kalkulator-produkcyjny---alpha/versions/fd90bcc934e4c2f0","status":"FINALIZED","config":{"rewrites":[{"functionRegion":"us-central1","glob":"/api/**","function":"api"},{"glob":"**","path":"/index.html"}]},"labels":{"deployment-tool":"cli-firebase"},"createTime":"2025-11-28T08:56:33.603125Z","createUser":{"email":"gacek52@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR"},"finalizeTime":"2025-11-28T08:56:42.212460Z","finalizeUser":{"email":"gacek52@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR"}},"type":"DEPLOY","releaseTime":"2025-11-28T08:56:41.955Z","releaseUser":{"email":"gacek52@gmail.com","imageUrl":"https://lh3.googleusercontent.com/a/ACg8ocKy1h-lwf4o023CV997IJoHghCbi6v6mjbIw6MGW8RIxph7XRoR"}}
+[info] +  hosting[kalkulator-produkcyjny---alpha]: release complete 
+[info] 
+[info] +  Deploy complete! 
+[info] 
+[info] Project Console: https://console.firebase.google.com/project/kalkulator-produkcyjny---alpha/overview
+[info] Hosting URL: https://kalkulator-produkcyjny---alpha.web.app
