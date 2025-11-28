@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { DollarSign, TrendingUp, Package, ChevronDown, ChevronRight, Truck, Box, FileText } from 'lucide-react';
 import { CostTooltip, useTooltips } from '../Common/CostTooltip';
 import { usePackaging } from '../../context/PackagingContext';
@@ -29,8 +29,8 @@ export function CalculatorResults({ tabs, currentTabId, globalSGA, calculationMe
     }));
   };
 
-  // Oblicz podsumowanie dla pojedynczej zakładki
-  const calculateTabSummary = (tab) => {
+  // Oblicz podsumowanie dla pojedynczej zakładki (memoized function)
+  const calculateTabSummary = useCallback((tab) => {
     const validItems = tab.items.filter(item => item.results);
 
     if (validItems.length === 0) {
@@ -93,21 +93,28 @@ export function CalculatorResults({ tabs, currentTabId, globalSGA, calculationMe
       totalTransportCost,
       finalPriceWithTransport
     };
-  };
+  }, [globalSGA]);
 
-  // Oblicz całkowite podsumowanie ze wszystkich zakładek
-  const calculateTotalSummary = () => {
+  // Memoized tab summaries - oblicz podsumowanie dla każdej zakładki
+  const tabSummaries = useMemo(() => {
+    return tabs.map(tab => ({
+      tabId: tab.id,
+      summary: calculateTabSummary(tab)
+    }));
+  }, [tabs, calculateTabSummary]);
+
+  // Memoized total summary - oblicz całkowite podsumowanie
+  const totalSummary = useMemo(() => {
     let totalCost = 0;
     let totalWithMargin = 0;
     let totalItems = 0;
     let totalTransportCost = 0;
 
-    tabs.forEach(tab => {
-      const tabSummary = calculateTabSummary(tab);
-      totalCost += tabSummary.totalCost;
-      totalWithMargin += tabSummary.totalWithMargin;
-      totalItems += tabSummary.totalItems;
-      totalTransportCost += tabSummary.totalTransportCost;
+    tabSummaries.forEach(({ summary }) => {
+      totalCost += summary.totalCost;
+      totalWithMargin += summary.totalWithMargin;
+      totalItems += summary.totalItems;
+      totalTransportCost += summary.totalTransportCost;
     });
 
     const sgaPercent = parseFloat(globalSGA) || 0;
@@ -122,12 +129,10 @@ export function CalculatorResults({ tabs, currentTabId, globalSGA, calculationMe
       totalTransportCost,
       finalPriceWithTransport
     };
-  };
+  }, [tabSummaries, globalSGA]);
 
-  const totalSummary = calculateTotalSummary();
-
-  // Oblicz dane logistyczne - zestawienie kompozycji pakowania w projekcie
-  const calculateLogisticsSummary = () => {
+  // Memoized logistics summary - oblicz dane logistyczne
+  const logisticsSummary = useMemo(() => {
     const compositionSummary = {};
 
     // Iteruj po wszystkich zakładkach i itemach
@@ -189,9 +194,7 @@ export function CalculatorResults({ tabs, currentTabId, globalSGA, calculationMe
     });
 
     return Object.values(compositionSummary);
-  };
-
-  const logisticsSummary = calculateLogisticsSummary();
+  }, [tabs, packagingState.compositions]);
 
   // Mapowanie nazw kosztów na czytelne etykiety
   const getCostLabel = (key) => {
@@ -288,9 +291,10 @@ export function CalculatorResults({ tabs, currentTabId, globalSGA, calculationMe
 
           <div className="space-y-2">
             {tabs.map((tab, tabIndex) => {
-              const tabSummary = calculateTabSummary(tab);
-              if (tabSummary.totalItems === 0) return null;
+              const tabSummaryData = tabSummaries.find(ts => ts.tabId === tab.id);
+              if (!tabSummaryData || tabSummaryData.summary.totalItems === 0) return null;
 
+              const tabSummary = tabSummaryData.summary;
               const isExpanded = expandedTabs[tab.id];
 
               return (

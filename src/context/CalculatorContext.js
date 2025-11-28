@@ -576,6 +576,7 @@ export function CalculatorProvider({ children }) {
   const [state, dispatch] = useReducer(calculatorReducer, initialState);
   const { currentUser } = useAuth();
   const prevUserRef = useRef();
+  const saveTimeoutRef = useRef(null);
 
   // Reset state on new login
   useEffect(() => {
@@ -630,8 +631,24 @@ export function CalculatorProvider({ children }) {
     }
   }, []);
 
+  // Debounced localStorage save - zapisuj po 500ms bezczynności
   useEffect(() => {
-    localStorage.setItem('calculatorData', JSON.stringify(state));
+    // Clear poprzedni timeout
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+
+    // Ustaw nowy timeout
+    saveTimeoutRef.current = setTimeout(() => {
+      localStorage.setItem('calculatorData', JSON.stringify(state));
+    }, 500);
+
+    // Cleanup function
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [state]);
 
   // Action creators
