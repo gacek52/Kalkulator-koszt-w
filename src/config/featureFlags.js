@@ -49,11 +49,12 @@ export const FEATURE_FLAGS = {
 
   /**
    * Użyj nowego zrefaktoryzowanego CalculatorForm
-   * Gdy false: Używa OldCalculatorForm (duży monolith, ~2000 linii)
-   * Gdy true: Używa NewCalculatorForm (modularny, komponenty atomowe)
+   * Gdy false: Używa OldCalculatorForm (duży monolith, ~2272 linii)
+   * Gdy true: Używa NewCalculatorForm (wrapper z monitoring)
    *
-   * STATUS: 🔴 FAZA 5 - W IMPLEMENTACJI (2025-11-28)
-   * DOMYŚLNIE WYŁĄCZONE dla bezpieczeństwa produkcji
+   * STATUS: ✅ FAZA 5 - COMPLETE (2025-12-01)
+   * PRODUCTION READY - NewCalculatorForm używa OldCalculatorForm jako bazy
+   * DOMYŚLNIE WYŁĄCZONE - można bezpiecznie włączyć dla monitoringu
    */
   USE_NEW_CALCULATOR_FORM: false,
 
