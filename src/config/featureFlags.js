@@ -48,6 +48,16 @@ export const FEATURE_FLAGS = {
   USE_NEW_FORMATTERS: false,
 
   /**
+   * Użyj nowego zrefaktoryzowanego CalculatorForm
+   * Gdy false: Używa OldCalculatorForm (duży monolith, ~2000 linii)
+   * Gdy true: Używa NewCalculatorForm (modularny, komponenty atomowe)
+   *
+   * STATUS: 🔴 FAZA 5 - W IMPLEMENTACJI (2025-11-28)
+   * DOMYŚLNIE WYŁĄCZONE dla bezpieczeństwa produkcji
+   */
+  USE_NEW_CALCULATOR_FORM: false,
+
+  /**
    * Debug mode - pokazuje w konsoli która wersja kodu jest używana
    */
   DEBUG_FEATURE_FLAGS: true
