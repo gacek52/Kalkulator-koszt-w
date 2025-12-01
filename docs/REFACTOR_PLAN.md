@@ -710,8 +710,8 @@ const TabItem = React.memo(({ tab, onSelect, isActive }) => {
 ## FAZA 5: REFAKTORYZACJA KOMPONENTÓW (Tydzień 9-12)
 
 **Ryzyko:** 🔴 WYSOKIE - duże zmiany strukturalne
-**Status:** 🔴 Nie rozpoczęto
-**Branch:** feature/refactor-phase-5
+**Status:** 🟡 W REALIZACJI (2025-12-01) - Part 1 COMPLETE
+**Branch:** feature/refactor-phase-1
 
 ### 5.1 Strategia: Wrapper pattern
 ```javascript
@@ -752,13 +752,28 @@ Tydzień 12: Testy, stabilizacja, bugfixy
 
 ### ✅ Kryteria akceptacji Fazy 5:
 ```
-□ Można przełączać między starym i nowym kodem
-□ Wszystkie tryby kalkulacji działają (weight, surface, volume, heatshield, multilayer)
-□ Wszystkie istniejące kalkulacje wczytują się
-□ Export/import działa poprawnie
-□ Testy regresji przechodzą
-□ Feature flag pozwala wrócić do starej wersji natychmiast
+✅ PART 1 - Infrastructure (2025-12-01):
+  ✅ Feature flag USE_NEW_CALCULATOR_FORM dodana
+  ✅ Wrapper Pattern zaimplementowany (CalculatorForm.js)
+  ✅ OldCalculatorForm.js zachowany bez zmian
+  ✅ NewCalculatorForm.js utworzony (currently delegates to old)
+  ✅ Build successful, deployed to production
+  ✅ Backward compatibility - zero breaking changes
+  ✅ Instant rollback possible via feature flag
+
+⬜ PART 2 - Actual Refactoring (NOT STARTED):
+  □ Extract atomic components (ItemBasicInfo, CostSummaryPreview)
+  □ Create custom hooks (useItemValidation)
+  □ Implement truly modular NewCalculatorForm
+  □ Test all calculation modes with NEW code
+  □ Test import/export with NEW code
+  □ Performance comparison OLD vs NEW
 ```
+
+**Status as of 2025-12-01:**
+- ✅ Part 1 COMPLETE: Infrastructure and wrapper pattern in place
+- ⬜ Part 2 NOT STARTED: Actual component refactoring
+- 🟢 SAFETY: Old code untouched, instant rollback available
 
 ---
 
@@ -917,6 +932,12 @@ firebase firestore:import gs://kalkulator-produkcyjny---alpha.firebasestorage.ap
 | 2025-11-28 | 4 | Implementacja useMemo w CalculatorResults.js | ✅ |
 | 2025-11-28 | 4 | Implementacja debouncing localStorage (500ms) | ✅ |
 | 2025-11-28 | 4 | Deploy do produkcji - Phase 4 complete | ✅ |
+| 2025-12-01 | 5 | Git tag v1.5-before-phase5 created | ✅ |
+| 2025-12-01 | 5 | Feature flag USE_NEW_CALCULATOR_FORM added | ✅ |
+| 2025-12-01 | 5 | Wrapper Pattern implemented (CalculatorForm) | ✅ |
+| 2025-12-01 | 5 | CalculatorForm renamed to OldCalculatorForm | ✅ |
+| 2025-12-01 | 5 | NewCalculatorForm created (placeholder) | ✅ |
+| 2025-12-01 | 5 | Deploy Phase 5 Part 1 - Infrastructure complete | ✅ |
 | - | - | - | - |
 
 ---
