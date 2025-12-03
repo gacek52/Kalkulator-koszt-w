@@ -17,8 +17,6 @@ import { PackagingCalculation } from './PackagingCalculation';
 import { ToolingSection } from './ToolingSection';
 import { VolumeForecastSection } from './VolumeForecastSection';
 import { WorkstationFields } from './WorkstationFields';
-import { ItemCard } from './FormComponents/ItemCard';
-import { FEATURE_FLAGS } from '../../config/featureFlags';
 
 /**
  * Formularz kalkulacji materiałów i procesów
@@ -1672,31 +1670,6 @@ export function OldCalculatorForm({ tab, tabs, tabIndex, globalSGA, calculationM
         </div>
 
         {tab.items.map((item, index) => {
-          // FEATURE FLAG: USE_EXTRACTED_ITEM_CARD
-          // Gdy true: używa ItemCard component (kod w osobnym pliku)
-          // Gdy false: używa inline JSX (stary kod, fallback)
-          if (FEATURE_FLAGS.USE_EXTRACTED_ITEM_CARD) {
-            return (
-              <ItemCard
-                key={item.id}
-                item={item}
-                index={index}
-                tab={tab}
-                calculationMeta={calculationMeta}
-                onUpdate={handleItemUpdate}
-                onDuplicate={actions.duplicateItem}
-                onDelete={actions.removeItem}
-                themeClasses={themeClasses}
-                darkMode={darkMode}
-                packagingState={packagingState}
-                transportState={transportState}
-                clientState={clientState}
-                canDelete={tab.items.length > 1}
-              />
-            );
-          }
-
-          // FALLBACK: Stary inline kod (linie 1676-2268 oryginału)
           const isCollapsed = collapsedItems[item.id];
 
           return (

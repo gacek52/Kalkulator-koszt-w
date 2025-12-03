@@ -59,6 +59,18 @@ export const FEATURE_FLAGS = {
   USE_NEW_CALCULATOR_FORM: false,
 
   /**
+   * Użyj wyekstrahowanego ItemCard component w OldCalculatorForm
+   * Gdy false: Używa inline JSX dla renderowania items (~590 linii w pliku)
+   * Gdy true: Używa ItemCard component (590 linii w osobnym pliku)
+   *
+   * STATUS: ✅ FAZA 5.1 - ItemCard extracted (2025-12-01)
+   * Cel: Redukcja wielkości pliku OldCalculatorForm (2272 → ~1680 linii)
+   * Korzyść: Łatwiejsze czytanie dla AI context window
+   * WŁĄCZONO DO TESTOWANIA - rollback poprzez zmianę na false
+   */
+  USE_EXTRACTED_ITEM_CARD: true,
+
+  /**
    * Debug mode - pokazuje w konsoli która wersja kodu jest używana
    */
   DEBUG_FEATURE_FLAGS: true
