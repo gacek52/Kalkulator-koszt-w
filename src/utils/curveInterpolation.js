@@ -128,6 +128,74 @@ export const interpolateFromCurve = (x, curve, options = {}) => {
 };
 
 /**
+ * Odwrotna interpolacja liniowa z krzywej (Y→X) z ekstrapolacją
+ * Znajduje wartość X dla podanej wartości Y
+ *
+ * @param {number} y - Wartość Y dla której szukamy X
+ * @param {Array<{x: number, y: number}>} curve - Punkty krzywej
+ * @param {object} options - Opcje interpolacji
+ * @param {string} options.extrapolation - Jak obsłużyć wartości poza zakresem ('extend'|'clamp'|'zero')
+ * @returns {number} Interpolowana wartość X
+ * @example
+ * const weightFromTime = reverseInterpolateFromCurve(150, bakingCurve); // znajdź wagę dla 150 sek
+ */
+export const reverseInterpolateFromCurve = (y, curve, options = {}) => {
+  const { extrapolation = 'extend' } = options;
+
+  // Walidacja
+  if (!curve || !Array.isArray(curve) || curve.length === 0) return 0;
+  if (curve.length === 1) return curve[0].x;
+
+  // Sortuj po Y
+  const sortedCurve = [...curve].sort((a, b) => a.y - b.y);
+
+  // Ekstrapolacja w dół (przed pierwszym punktem)
+  if (y <= sortedCurve[0].y && sortedCurve.length >= 2) {
+    if (extrapolation === 'clamp') return sortedCurve[0].x;
+    if (extrapolation === 'zero') return 0;
+
+    const y1 = sortedCurve[0].y;
+    const x1 = sortedCurve[0].x;
+    const y2 = sortedCurve[1].y;
+    const x2 = sortedCurve[1].x;
+    if (y2 === y1) return x1; // unikaj dzielenia przez zero
+    const slope = (x2 - x1) / (y2 - y1);
+    return x1 + slope * (y - y1);
+  }
+
+  // Ekstrapolacja w górę (po ostatnim punkcie)
+  if (y >= sortedCurve[sortedCurve.length - 1].y && sortedCurve.length >= 2) {
+    if (extrapolation === 'clamp') return sortedCurve[sortedCurve.length - 1].x;
+    if (extrapolation === 'zero') return 0;
+
+    const n = sortedCurve.length;
+    const y1 = sortedCurve[n - 2].y;
+    const x1 = sortedCurve[n - 2].x;
+    const y2 = sortedCurve[n - 1].y;
+    const x2 = sortedCurve[n - 1].x;
+    if (y2 === y1) return x2; // unikaj dzielenia przez zero
+    const slope = (x2 - x1) / (y2 - y1);
+    return x2 + slope * (y - y2);
+  }
+
+  // Interpolacja (między punktami)
+  for (let i = 0; i < sortedCurve.length - 1; i++) {
+    if (y >= sortedCurve[i].y && y <= sortedCurve[i + 1].y) {
+      const y1 = sortedCurve[i].y;
+      const x1 = sortedCurve[i].x;
+      const y2 = sortedCurve[i + 1].y;
+      const x2 = sortedCurve[i + 1].x;
+
+      if (y2 === y1) return x1; // unikaj dzielenia przez zero
+      const t = (y - y1) / (y2 - y1);
+      return x1 + t * (x2 - x1);
+    }
+  }
+
+  return 0;
+};
+
+/**
  * Interpoluje wartość z krzywej presetowej
  * @param {number} x - Wartość dla której szukamy interpolacji
  * @param {string} curveType - Typ krzywej ('bakingTime'|'cleaningTime'|'handlingTime')
@@ -256,6 +324,7 @@ export const validateCurve = (curve) => {
 
 export default {
   interpolateFromCurve,
+  reverseInterpolateFromCurve,
   interpolateFromPreset,
   getValueFromCurveOrCustom,
   convertCurveObjectToArray,
