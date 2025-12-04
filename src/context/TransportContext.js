@@ -195,8 +195,22 @@ export function TransportProvider({ children }) {
     // Synchronizuj wszystkie typy transportu z Firestore
     syncToFirestore: async () => {
       try {
+        // Pobierz istniejące dokumenty
+        const snapshot = await getDocs(collection(db, 'transport'));
+        const existingIds = new Set();
+        snapshot.forEach(doc => existingIds.add(doc.id));
+
+        // Zapisz tylko te transporty, których jeszcze nie ma w Firestore
         for (const transport of state.transportTypes) {
-          await setDoc(doc(db, 'transport', transport.id.toString()), transport);
+          const transportId = transport.id.toString();
+          if (!existingIds.has(transportId)) {
+            // Usuń pole id przed zapisem - Firestore używa doc.id jako klucza
+            const { id, ...transportData } = transport;
+            await setDoc(doc(db, 'transport', transportId), transportData);
+            console.log(`Added transport ${transportId} to Firestore`);
+          } else {
+            console.log(`Transport ${transportId} already exists in Firestore - skipping`);
+          }
         }
         return true;
       } catch (error) {
