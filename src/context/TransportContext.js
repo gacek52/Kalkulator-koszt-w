@@ -106,10 +106,15 @@ export function TransportProvider({ children }) {
         let maxId = 0;
 
         snapshot.forEach((doc) => {
+          // doc.id w Firestore to zawsze string (np. "1", "2", "3")
+          // Musimy przekonwertować na number dla porównania
+          const numericId = parseInt(doc.id, 10);
           const data = { id: doc.id, ...doc.data() };
           transportTypes.push(data);
-          if (typeof doc.id === 'number' && doc.id > maxId) {
-            maxId = doc.id;
+
+          // Sprawdź czy ID jest liczbą i większe od maxId
+          if (!isNaN(numericId) && numericId > maxId) {
+            maxId = numericId;
           }
         });
 
@@ -120,6 +125,8 @@ export function TransportProvider({ children }) {
             nextTransportId: maxId + 1
           }
         });
+
+        console.log(`[TransportContext] Loaded ${transportTypes.length} transports, maxId: ${maxId}, nextId: ${maxId + 1}`);
       } catch (error) {
         console.error('Error loading transport data from Firestore:', error);
       }
@@ -133,10 +140,14 @@ export function TransportProvider({ children }) {
       let maxId = 0;
 
       snapshot.forEach((doc) => {
+        // doc.id w Firestore to zawsze string (np. "1", "2", "3")
+        const numericId = parseInt(doc.id, 10);
         const data = { id: doc.id, ...doc.data() };
         transportTypes.push(data);
-        if (typeof doc.id === 'number' && doc.id > maxId) {
-          maxId = doc.id;
+
+        // Sprawdź czy ID jest liczbą i większe od maxId
+        if (!isNaN(numericId) && numericId > maxId) {
+          maxId = numericId;
         }
       });
 
@@ -147,6 +158,8 @@ export function TransportProvider({ children }) {
           nextTransportId: maxId + 1
         }
       });
+
+      console.log(`[TransportContext] Real-time update: ${transportTypes.length} transports, maxId: ${maxId}, nextId: ${maxId + 1}`);
     });
 
     return () => unsubscribe();
