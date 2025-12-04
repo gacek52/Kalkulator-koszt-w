@@ -100,38 +100,58 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
     URL.revokeObjectURL(url);
   };
 
-  // Import z JSON
+  // Import z JSON (rollback/restore)
   const handleImport = (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
         const importData = JSON.parse(e.target.result);
 
-        if (importData.transportTypes) {
-          // Importuj typy transportu
-          importData.transportTypes.forEach(type => {
-            actions.addTransportType(type);
-          });
-          notify.success('Import zakończony pomyślnie!');
+        if (!importData.transportTypes || !Array.isArray(importData.transportTypes)) {
+          notify.error('Nieprawidłowy format JSON - brak transportTypes');
+          return;
         }
+
+        // Potwierdź nadpisanie
+        if (!window.confirm(
+          `Czy na pewno chcesz zaimportować ${importData.transportTypes.length} typów transportu?\n\n` +
+          `⚠️ UWAGA: To NADPISZE obecne dane lokalne!\n` +
+          `Po imporcie użyj "Push to Database" aby zapisać w Firestore.`
+        )) {
+          return;
+        }
+
+        // Użyj akcji importFromBackup (zachowuje oryginalne ID)
+        actions.importFromBackup(importData.transportTypes);
+
+        notify.success(
+          `Import zakończony pomyślnie! Zaimportowano ${importData.transportTypes.length} typów.\n` +
+          `Kliknij "Push to Database" aby zapisać w Firestore.`
+        );
+
+        console.log('[TransportManager] Imported transports:', importData.transportTypes);
       } catch (error) {
         notify.error('Błąd podczas importu: ' + error.message);
+        console.error('[TransportManager] Import error:', error);
       }
     };
     reader.readAsText(file);
+
+    // Reset input aby móc importować ten sam plik ponownie
+    event.target.value = '';
   };
 
-  // Push do Firestore
+  // Push do Firestore (tylko nowe)
   const handlePushToFirestore = async () => {
     if (!hasPermission('transport_sync')) {
       notify.error('Nie masz uprawnień do synchronizacji transportu z bazą.');
       return;
     }
 
-    if (!window.confirm('Czy na pewno chcesz zsynchronizować transport z bazą Firestore?')) {
+    if (!window.confirm('Czy na pewno chcesz zsynchronizować transport z bazą Firestore?\n\nTo doda TYLKO nowe transporty (nie usuwa istniejących).')) {
       return;
     }
 
@@ -142,6 +162,36 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
         notify.success('Transport zsynchronizowany z Firestore!');
       } else {
         notify.error('Wystąpił błąd podczas synchronizacji.');
+      }
+    } catch (error) {
+      notify.error('Błąd: ' + error.message);
+    } finally {
+      setIsPushing(false);
+    }
+  };
+
+  // Replace All in Firestore (po imporcie z JSON)
+  const handleReplaceAllInFirestore = async () => {
+    if (!hasPermission('transport_sync')) {
+      notify.error('Nie masz uprawnień do synchronizacji transportu z bazą.');
+      return;
+    }
+
+    if (!window.confirm(
+      '⚠️ UWAGA: To USUNIE wszystkie transporty z Firestore i zastąpi je danymi lokalnymi!\n\n' +
+      'Użyj tej opcji po imporcie z JSON backupu.\n\n' +
+      'Czy na pewno chcesz kontynuować?'
+    )) {
+      return;
+    }
+
+    setIsPushing(true);
+    try {
+      const success = await actions.replaceAllInFirestore();
+      if (success) {
+        notify.success('Transport zastąpiony w Firestore! Rollback zakończony.');
+      } else {
+        notify.error('Wystąpił błąd podczas zastępowania.');
       }
     } catch (error) {
       notify.error('Błąd: ' + error.message);
@@ -187,19 +237,35 @@ export function TransportManager({ darkMode, onToggleDarkMode, onBack, themeClas
                 </button>
 
                 {hasPermission('transport_sync') && (
-                  <button
-                    onClick={handlePushToFirestore}
-                    disabled={isPushing}
-                    className={`px-4 py-2 rounded-lg font-medium ${
-                      isPushing
-                        ? 'bg-gray-400 cursor-not-allowed text-white'
-                        : 'bg-purple-600 hover:bg-purple-700 text-white'
-                    } flex items-center gap-2`}
-                    title="Synchronizuj transport z bazą Firestore"
-                  >
-                    <Cloud size={16} />
-                    {isPushing ? 'Synchronizuję...' : 'Push to Database'}
-                  </button>
+                  <>
+                    <button
+                      onClick={handlePushToFirestore}
+                      disabled={isPushing}
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        isPushing
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : 'bg-purple-600 hover:bg-purple-700 text-white'
+                      } flex items-center gap-2`}
+                      title="Dodaj TYLKO nowe transporty do Firestore (nie usuwa istniejących)"
+                    >
+                      <Cloud size={16} />
+                      {isPushing ? 'Synchronizuję...' : 'Push to Database'}
+                    </button>
+
+                    <button
+                      onClick={handleReplaceAllInFirestore}
+                      disabled={isPushing}
+                      className={`px-4 py-2 rounded-lg font-medium ${
+                        isPushing
+                          ? 'bg-gray-400 cursor-not-allowed text-white'
+                          : 'bg-red-600 hover:bg-red-700 text-white'
+                      } flex items-center gap-2`}
+                      title="⚠️ USUŃ wszystko z Firestore i zastąp danymi lokalnymi (po imporcie z JSON)"
+                    >
+                      <Cloud size={16} />
+                      {isPushing ? 'Zastępuję...' : 'Replace All in DB'}
+                    </button>
+                  </>
                 )}
 
                 <PermissionGate permission="transport_export">

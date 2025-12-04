@@ -11,6 +11,7 @@ const TRANSPORT_ACTIONS = {
   UPDATE_TRANSPORT_TYPE: 'UPDATE_TRANSPORT_TYPE',
   REMOVE_TRANSPORT_TYPE: 'REMOVE_TRANSPORT_TYPE',
   LOAD_TRANSPORT_DATA: 'LOAD_TRANSPORT_DATA',
+  IMPORT_FROM_BACKUP: 'IMPORT_FROM_BACKUP',
   RESET_TRANSPORT_STATE: 'RESET_TRANSPORT_STATE'
 };
 
@@ -48,6 +49,24 @@ function transportReducer(state, action) {
 
     case TRANSPORT_ACTIONS.LOAD_TRANSPORT_DATA:
       return { ...action.payload };
+
+    case TRANSPORT_ACTIONS.IMPORT_FROM_BACKUP:
+      // Import z JSON backup - zachowuje oryginalne ID
+      const importedTypes = action.payload;
+      let maxImportedId = 0;
+
+      // Znajdź najwyższe ID w importowanych danych
+      importedTypes.forEach(type => {
+        const numericId = typeof type.id === 'string' ? parseInt(type.id, 10) : type.id;
+        if (!isNaN(numericId) && numericId > maxImportedId) {
+          maxImportedId = numericId;
+        }
+      });
+
+      return {
+        transportTypes: importedTypes,
+        nextTransportId: maxImportedId + 1
+      };
 
     case TRANSPORT_ACTIONS.RESET_TRANSPORT_STATE:
       return { ...initialTransportState };
@@ -205,7 +224,16 @@ export function TransportProvider({ children }) {
       }
     },
 
-    // Synchronizuj wszystkie typy transportu z Firestore
+    // Import z JSON backup - zachowuje oryginalne ID
+    importFromBackup: (transportTypes) => {
+      console.log('[TransportContext] Importing from backup:', transportTypes);
+      dispatch({
+        type: TRANSPORT_ACTIONS.IMPORT_FROM_BACKUP,
+        payload: transportTypes
+      });
+    },
+
+    // Synchronizuj wszystkie typy transportu z Firestore (tylko nowe)
     syncToFirestore: async () => {
       try {
         // Pobierz istniejące dokumenty
@@ -228,6 +256,41 @@ export function TransportProvider({ children }) {
         return true;
       } catch (error) {
         console.error('Error syncing transport to Firestore:', error);
+        return false;
+      }
+    },
+
+    // Zastąp WSZYSTKIE dokumenty w Firestore danymi lokalnymi (rollback/restore)
+    replaceAllInFirestore: async () => {
+      try {
+        console.log('[TransportContext] Starting replaceAllInFirestore...');
+
+        // 1. Pobierz wszystkie istniejące dokumenty
+        const snapshot = await getDocs(collection(db, 'transport'));
+        const existingIds = [];
+        snapshot.forEach(doc => existingIds.push(doc.id));
+
+        console.log(`[TransportContext] Found ${existingIds.length} existing documents in Firestore`);
+        console.log(`[TransportContext] Will replace with ${state.transportTypes.length} local transports`);
+
+        // 2. Usuń WSZYSTKIE istniejące dokumenty
+        for (const docId of existingIds) {
+          await deleteDoc(doc(db, 'transport', docId));
+          console.log(`Deleted transport ${docId} from Firestore`);
+        }
+
+        // 3. Dodaj WSZYSTKIE transporty z lokalnego state
+        for (const transport of state.transportTypes) {
+          const transportId = transport.id.toString();
+          const { id, ...transportData } = transport;
+          await setDoc(doc(db, 'transport', transportId), transportData);
+          console.log(`Added transport ${transportId} to Firestore`);
+        }
+
+        console.log('[TransportContext] replaceAllInFirestore completed successfully');
+        return true;
+      } catch (error) {
+        console.error('Error replacing transport in Firestore:', error);
         return false;
       }
     }
